@@ -802,3 +802,212 @@ std::string EnhancedMachineModel::to_string() const
   }
   return s;
 }
+
+/* Networked machine model */
+NetworkedMachineModel::NetworkedMachineModel(int num_nodes, 
+        int num_gpus_per_node, int num_switches, 
+        const std::vector<int>& topology, size_t capacity, float link_bandwidth)
+  : num_nodes(num_nodes), num_gpus_per_node(num_gpus_per_node), 
+    num_switches(num_switches), link_bandwidth(link_bandwidth), conn_matrix(topology)
+{
+  version = 0;
+
+  num_gpus = num_nodes * num_gpus_per_node;
+  inter_gpu_bandwidth = 20 * 1024 * 1024.0f; /* B/ms*/
+  gpu_dram_bandwidth = 16 * 1024 * 1024.0f; /* B/ms*/
+
+  // Create GPU compute device
+  for (int i = 0; i < num_nodes; i++) {
+    for (int j = 0; j < num_gpus_per_node; j++) {
+      int device_id = i * num_gpus_per_node + j;
+      std::string gpu_name = "GPU " + std::to_string(device_id);
+      id_to_gpu[device_id] = new CompDevice(gpu_name, CompDevice::TOC_PROC, i, i, device_id);
+      std::string gpu_mem_name = "GPU_FB_MEM " + std::to_string(device_id);
+      id_to_gpu_fb_mem[device_id] = new MemDevice(gpu_mem_name, MemDevice::GPU_FB_MEM, i, i, device_id, capacity);
+    }
+  }
+
+  // Create inter GPU comm devices (NVLinks)
+  for (int i = 0; i < num_gpus; i++) {
+    for (int j = 0; j < num_gpus; j++) {
+      Device* src = id_to_gpu[i];
+      Device* dst = id_to_gpu[j];
+      if (src->node_id == dst->node_id && src != dst) {
+        int device_id = i * num_gpus + j;
+        std::string nvlink_name = "NVLINK " + std::to_string(device_id);
+        ids_to_inter_gpu_comm_device[device_id] = new CommDevice(nvlink_name, CommDevice::NVLINK_COMM, src->node_id, src->node_id, device_id, 0, inter_gpu_bandwidth);
+      }
+    }
+  }
+
+  // Create gpu<->dram comm devices
+  for (int i = 0; i < num_gpus; i++) {
+    int node_id = num_gpus / num_gpus_per_node;
+    std::string pci_to_host_name = "PCI_TO_HOST " + std::to_string(i);
+    id_to_gputodram_comm_device[i] = new CommDevice(pci_to_host_name, CommDevice::PCI_TO_HOST_COMM, node_id, node_id, i, 0, gpu_dram_bandwidth);
+    std::string pci_to_dev_name = "PCI_TO_DEV " + std::to_string(i);
+    id_to_dramtogpu_comm_device[i] = new CommDevice(pci_to_dev_name, CommDevice::PCI_TO_DEV_COMM, node_id, node_id, i, 0, gpu_dram_bandwidth);
+  }
+
+  // network links
+  total_devs = num_nodes + num_switches;
+  for (int i = 0; i < total_devs; i++) {
+    for (int j = 0; j < total_devs; j++) {
+      if (conn_matrix[i * total_devs + j] > 0) {
+        int device_id = i * total_devs + j;
+        std::string link_name = "LINK " + std::to_string(i) + "-" + std::to_string(j);
+        ids_to_nw_comm_device[device_id] = new CommDevice(link_name, CommDevice::NW_COMM, 
+          -1, -1, device_id, 0, conn_matrix[i * total_devs + j] * link_bandwidth);
+      }
+    }
+  }
+
+  routing_strategy = new ShortestPathNetworkRoutingStrategy(conn_matrix, ids_to_nw_comm_device);
+
+  // nominal network links
+  for (int i = 0; i < num_nodes; i++) {
+    for (int j = 0; j < num_nodes; j++) {
+      int device_id = i * num_nodes + j;
+      std::string link_name = "NOMINAL " + std::to_string(i) + "-" + std::to_string(j);
+      ids_to_nw_nominal_device[device_id] = new NominalCommDevice(link_name, device_id);
+      ids_to_nw_nominal_device[device_id]->set_physical_paths(routing_strategy->get_routes(i, j));
+    }
+  }
+
+  gen = std::mt19937(rd())
+  std_uniform = std::uniform_real_distribution<>(0.0, 1.0);
+}
+
+NetworkedMachineModel::~NetworkedMachineModel()
+{
+  delete routing_strategy;
+}
+
+int NetworkedMachineModel::get_version() const
+{
+  return version;
+}
+
+CompDevice* NetworkedMachineModel::get_gpu(int device_id) const
+{
+  assert(id_to_gpu.find(device_id) != id_to_gpu.end());
+  return id_to_gpu.at(device_id);
+}
+
+MemDevice* NetworkedMachineModel::get_gpu_fb_mem(int devicd_id) const
+{
+  assert(id_to_gpu_fb_mem.find(device_id) != id_to_gpu_fb_mem.end());
+  return id_to_gpu_fb_mem.at(device_id);
+}
+
+int NetworkedMachineModel::get_num_gpus() const
+{
+  return num_gpus;
+}
+
+float NetworkedMachineModel::get_intra_node_gpu_bandwidth() const
+{
+  return inter_gpu_bandwidth;
+}
+
+float NetworkedMachineModel::get_link_bandwidth() const
+{
+  return link_bandwidth;
+}
+
+float NetworkedMachineModel::get_link_bandwidth(int src, int dst) const
+{
+  return link_bandwidth * conn_matrix[src * total_devs + dst];
+}
+
+void NetworkedMachineModel::set_routing_strategy(NetworkRoutingStrategy* rs)
+{
+  delete routing_strategy;
+  routing_strategy = rs;
+}
+
+std::vector<CommDevice *> 
+NetworkedMachineModel::get_comm_path(MemDevice *src_mem, MemDevice *tar_mem) const
+{
+  /* This implementation very much is an extension of the simple_machine
+   * model's version. no details about socket and memories
+   */
+  std::vector<CommDevice *> ret;
+  // on the same memory
+  if (src_mem->mem_type == tar_mem->mem_type and src_mem->device_id == tar_mem->device_id) {
+    return ret;
+  }
+  if (src_mem->mem_type == MemDevice::SYSTEM_MEM and tar_mem->mem_type == MemDevice::SYSTEM_MEM) {
+    if (src_mem->node_id == tar_mem->node_id) {
+      return ret;
+    }
+    else {
+      int device_id = src_mem->node_id * num_nodes + tar_mem->node_id;
+      std::vector<CommDevice*> physical_path = ids_to_nw_nominal_device.at(device_id).expand_to_physical();
+      ret.emplace_back(physical_path.cbegin(), physical_path.cend());
+    }
+  }
+  else if (src_mem->mem_type == MemDevice::GPU_FB_MEM and tar_mem->mem_type == MemDevice::GPU_FB_MEM) {
+    if (src_mem->node_id == tar_mem->node_id) {
+      int device_id = src_mem->device_id * num_gpus + tar_mem->device_id;
+      ret.emplace_back(ids_to_inter_gpu_comm_device.at(device_id));
+    }
+    else {
+      ret.emplace_back(id_to_gputodram_comm_device.at(src_mem->device_id));
+      int device_id = src_mem->node_id * num_nodes + tar_mem->node_id;
+      std::vector<CommDevice*> physical_path = ids_to_nw_nominal_device.at(device_id).expand_to_physical();
+      ret.emplace_back(physical_path.cbegin(), physical_path.cend());
+      // ret.emplace_back(ids_to_nw_nominal_device.at(device_id));
+      ret.emplace_back(id_to_dramtogpu_comm_device.at(tar_mem->device_id));
+    }
+  }
+  else if (src_mem->mem_type == MemDevice::SYSTEM_MEM and tar_mem->mem_type == MemDevice::GPU_FB_MEM) {
+    if (src_mem->node_id == tar_mem->node_id) {
+      ret.emplace_back(id_to_dramtogpu_comm_device.at(tar_mem->device_id));
+    }
+    else {
+      int device_id = src_mem->node_id * num_nodes + tar_mem->node_id;
+      // ret.emplace_back(ids_to_nw_nominal_device.at(device_id));
+      std::vector<CommDevice*> physical_path = ids_to_nw_nominal_device.at(device_id).expand_to_physical();
+      ret.emplace_back(physical_path.cbegin(), physical_path.cend());
+      ret.emplace_back(id_to_dramtogpu_comm_device.at(tar_mem->device_id));
+    }
+  }
+  else if (src_mem->mem_type == MemDevice::GPU_FB_MEM and tar_mem->mem_type == MemDevice::SYSTEM_MEM) {
+    if (src_mem->node_id == tar_mem->node_id) {
+      ret.emplace_back(id_to_gputodram_comm_device.at(src_mem->device_id));
+    }
+    else {
+      ret.emplace_back(id_to_gputodram_comm_device.at(src_mem->device_id));
+      int device_id = src_mem->node_id * num_nodes + tar_mem->node_id;
+      // ret.emplace_back(ids_to_nw_nominal_device.at(device_id));
+      std::vector<CommDevice*> physical_path = ids_to_nw_nominal_device.at(device_id).expand_to_physical();
+      ret.emplace_back(physical_path.cbegin(), physical_path.cend());
+    }
+  }
+  else {
+    printf("No path found between %s and %s\n", src_mem->name.c_str(), tar_mem->name.c_str());
+    assert(false);
+  }
+  return ret;
+}
+
+std::string NetworkedMachineModel::to_string() const
+{
+  return name;
+}
+
+CommDevice * 
+NetworkedMachineModel::get_nominal_path(MemDevice *src_mem, MemDevice *tar_mem) const
+{
+  if (src_mem->node_id == tar_mem->node_id) {
+    return nullptr;
+  }
+  int device_id = src_mem->node_id * num_nodes + tar_mem->node_id;
+  return ids_to_nw_nominal_device.at(device_id);
+}
+
+void NetworkedMachineModel::(const string& fname) const
+{
+
+}

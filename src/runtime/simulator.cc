@@ -55,6 +55,33 @@ CommDevice::CommDevice(std::string const &name, CommDevType comm_type, int node_
 : Device(name, Device::DEVICE_COMM, node_id, socket_id, device_id), comm_type(comm_type), latency(latency), bandwidth(bandwidth)
 {}
 
+/* I hate this but this makes sense here... */
+static std::random_device rd; 
+static std::mt19937 gen = std::mt19937(rd()); 
+static std::uniform_real_distribution<> std_uniform = std::uniform_real_distribution<>(0.0, 1.0); 
+
+NominalCommDevice::NominalCommDevice(std::string const &name, int device_id, const EcmpRoutes& routes) 
+: CommDevice(name, CommDevice::NW_NOMINAL, -1, -1, device_id, 0, 0), routes(routes)
+{}
+    
+std::vector<CommDevice*> NominalCommDevice::expand_to_physical() const 
+{
+  std::vector<CommDevice*> ret;
+  int pick = 0;
+  double choice = std_uniform(gen);
+  for (int i = 0; i < routes->first.size(); i++) {
+    if (choice > routes->first[i]) break;
+    pick = i;
+  }
+  ret.emplace_back(routes->second[pick].begin(), routes->second[pick].end());
+  return ret;
+}
+
+void NominalCommDevice::set_physical_paths(EcmpRoutes* const rs) 
+{
+  routes = rs;
+}
+
 SimTask::SimTask()
 {}
 

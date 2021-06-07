@@ -89,11 +89,29 @@ public:
         PCI_TO_HOST_COMM,
         PCI_TO_DEV_COMM,
         NVLINK_COMM,
+        NW_COMM,
+        NW_NOMINAL,
     };
     CommDevType comm_type;
     float latency;
     float bandwidth;
     CommDevice(std::string const &name, CommDevType comm_type, int node_id, int socket_id, int device_id, float latency, float bandwidth);
+};
+
+/**
+ * Nomincal communication device. 
+ * This is an communication device that allows "path expansion"
+ * With this device, its possible to store a taskgraph in the "logical" 
+ * view (p2p) while when doing the simulaion, expand to physical version
+ */
+class NominalCommDevice : public CommDevice {
+public:
+    NominalCommDevice(std::string const &name, int device_id, const EcmpRoutes& routes);
+    /* pick one of the weighted ECMP path */
+    std::vector<CommDevice*> expand_to_physical() const;
+    void set_physical_paths(const EcmpRoutes& rs);
+private:
+    EcmpRoutes routes;
 };
 
 class MachineModel {
@@ -235,6 +253,173 @@ private:
     void add_comm_path(std::vector<CommDevice::CommDevType> const &comm_device_list, MemDevice *src_mem, MemDevice *tar_mem, std::vector<CommDevice *> &ret) const;
 };
 
+
+typedef std::vector<CommDevice *> Route;
+/* first is an array of cumulative distribution */
+typedef std::pair<std::vector<float>, std::vector<Route> > EcmpRoutes;
+typedef std::vector<int> ConnectionMatrix;
+
+/**
+ * Base class that provides the network routing strategy
+ */
+class NetworkRoutingStrategy {
+public:
+    virtual ~NetworkRoutingStrategy() = default;
+    /**
+     * For weighted ecmp support: the return type is a vector of pair of 
+     * <possible route, chance>
+     */
+    virtual EcmpRoutes get_routes(int src_node, int dst_node) = 0;
+};
+
+/**
+ * Single shortest path routing based on hop count
+ */
+class ShortestPathNetworkRoutingStrategy : public NetworkRoutingStrategy {
+public:
+    ShortestPathNetworkRoutingStrategy(const ConnectionMatrix & c, 
+        const std::map<int, CommDevice*>& devmap, int total_devs);
+    virtual EcmpRoutes get_routes(int src_node, int dst_node);
+    void clear();
+private:
+    const ConnectionMatrix& conn;
+    const std::map<int, CommDevice*>& devmap;
+    int total_devs;
+};
+
+/**
+ * A model that is network topology-aware.
+ * The network topology is represented as follows:
+ *      An adjacency matrix is used to represnt the network connection
+ *      The matrix has dimension (n+s)*(n+s) where n is the number of servers
+ *      in the cluster, and s is the number of switches in the cluster.
+ *      This implies that for a flat topology the matrix is n*n,
+ *      while for a FatTree topology the network will have the upper n*n
+ *      block to be 0. Switches has node_id starting from n.
+ *      Note that the "big switch" model has the convinent representation of
+ *      {{0, 1},{1, 0}} in block form.
+ * As a first implementation this class is based on the existing SimpleMachine
+ * model. We could use the enhanced version but it could be too much for the 
+ * MCMC search to run for thousand of iterations...
+ */
+class NetworkedMachineModel : public MachineModel  {
+public:
+    /**
+     * Constructor. A network topology specified as above needs to be provided
+     * in the form of a single vector.
+     */
+    NetworkedMachineModel(int num_nodes, int num_gpus_per_node, int num_switches, 
+        const std::vector<int>& topology, size_t capacity, float link_bandwidth);
+    ~NetworkedMachineModel();
+    int get_version() const;
+    CompDevice *get_gpu(int device_id) const;
+    MemDevice *get_gpu_fb_mem(int devicd_id) const;
+    int get_num_gpus() const;
+    float get_intra_node_gpu_bandwidth() const;
+    float get_link_bandwidth() const;
+    float get_link_bandwidth(int src, int dst) const;
+    void set_routing_strategy(NetworkRoutingStrategy* rs);
+    std::vector<CommDevice *> get_comm_path(MemDevice *src_mem, MemDevice *tar_mem) const;
+    std::string to_string() const;
+    /* return only the nominal device. For recording tg. */
+    CommDevice* get_nominal_path(MemDevice* src_mem, MemDevice *tar_mem) const;
+    /* stores the network topology as a json */
+    void save_topology_json(const string& fname) const;
+private:
+    int num_nodes;
+    int num_gpus_per_node;
+    int num_gpus;
+    int num_switches;
+    int total_devs;
+    float inter_gpu_bandwidth;
+    float link_bandwidth;
+    // float gpu_dram_bandwidth;
+    /* Note that every non-zero entry corrsepond to a device in in_to_nw_comm_device */
+    ConnectionMatrix conn_matrix;
+    NetworkRoutingStrategy* routing_strategy;
+    std::map<int, CompDevice*> id_to_gpu;
+    std::map<int, MemDevice*> id_to_gpu_fb_mem;
+    std::map<int, CommDevice*> id_to_gputodram_comm_device;
+    std::map<int, CommDevice*> id_to_dramtogpu_comm_device;
+    std::map<size_t, CommDevice*> ids_to_inter_gpu_comm_device;
+    
+    /* this refers to the actual links in the system */
+    std::map<size_t, CommDevice*> ids_to_nw_comm_device;
+    /* on the other hand, this represents the "nomical" communication device
+     * or the "logical connection" in side the system. Note that this is
+     * keyed on GPUs only 
+     */
+    std::map<size_t, CommDevice*> ids_to_nw_nominal_device;
+
+private:
+  std::map<size_t, uint64_t> logical_traffic_demand;
+  std::map<size_t, uint64_t> physical_traffic_matrix;
+};
+
+/**
+ * A (virtual base) class that generates network topology 
+ * Maybe this should be moved out of simulator
+ */
+class NetworkTopologyGenerator {
+public:
+    virtual ConnectionMatrix generate_topology() const = 0;
+};
+
+/**
+ * Generate a flat network topology that's degree constraint and guaranteed
+ * to be connected
+ */
+class FlatDegConstraintNetworkTopologyGenerator {
+public:
+    FlatDegConstraintNetworkTopologyGenerator(int num_nodes, int degree);
+    virtual ConnectionMatrix generate_topology() const;
+private:
+    inline int get_id(int i, int j) const;
+    inline int get_if_in_use(int node) const;
+    int num_nodes;
+    int degree;
+};
+
+/**
+ * Generate an abstract-switch network topology
+ * good for simple simulation of a fattree
+ */
+class BigSwitchNetworkTopologyGenerator {
+public:
+    BigSwitchNetworkTopologyGenerator(int num_nodes);
+    virtual ConnectionMatrix generate_topology() const;
+private: 
+    int num_nodes;
+};
+
+/**
+ * Interface for doing network topology optimization
+ * define all your data structures... optimize is the only exposed
+ * function for the best generality
+ */
+class L1Optimizer {
+public:
+    L1Optimizer(MachineMode* machine, std::vector<SimTask*>* task_graph)
+        : machine(machine), task_graph(task_graph) {}
+    virtual void optimize() = 0;
+private:
+    MachineModel *machine;
+    std::vector<SimTask>* task_graph;
+};
+
+/**
+ * TopoOpt as of SIGCOMM 2021 submission
+ */
+class DemandHeuristicNetworkOptimizer : public L1Optimizer {
+    friend class Simulator;
+    friend class FFModel;
+public:
+    DemandHeuristicNetworkOptimizer(MachineMode* machine, std::vector<SimTask*>* task_graph);
+    ~DemandHeuristicNetworkOptimizer() = default;
+    virtual void optimize();
+
+};
+
 class SimTask {
 public:
   enum SimTaskType {
@@ -243,6 +428,8 @@ public:
     TASK_COMM,
     TASK_UPDATE,
     TASK_BARRIER,
+    TASK_NOMINAL_COMM,
+    TASK_ALLREDUCE
   };
   SimTask();
   void add_next_task(SimTask* task);
@@ -252,10 +439,34 @@ public:
   Device* device;
   MemDevice *mem;
   int counter;
+  int from_dev, to_dev; // use device id
+  size_t xfer_size;
   std::vector<SimTask*> next_tasks;
+  /* This stores only high-level information: computation and communication
+   * from device to device 
+   */
+  std::vector<SimTask*> next_tasks_simplified;  
   std::string name;
   std::string get_type_str() const;
 };
+
+/**
+ * Big ugly hack: since AllReduceTask only occurs in the logical task graph
+ * and to keep TaskManager useable, use next_tasks to store the integer
+ * of all reduce groupd node ids, and counter to store the leader.
+ * Lets just say its an union...
+ */
+#if 0
+/**
+ * Special class of tasks for all reduce. This is more for exporting 
+ * task graph since recording individual transfers would take too much space
+ */
+class AllReduceTask : public SimTask {
+public:
+  std::vector<int> devicve_group; /* deviced involved in tha all reduce task */
+  int leader;                     /* the "special" device (eg p server) */
+};
+#endif
 
 template <typename T>
 class DotFile {
@@ -329,11 +540,17 @@ public:
   SimTask* new_backward_task(Op* op, int idx);
   SimTask* get_forward_task(Op* op, int idx);
   SimTask* get_backward_task(Op* op, int idx);
+
+  /* used to create extra tasks for logical task graph */
+  SimTask* new_logical_task();
+  
 private:
   SimTask* new_task();
 public:
-  size_t global_task_id, max_num_tasks;
+  size_t global_task_id, max_num_tasks, logical_task_id;
   SimTask** tasks;
+  SimTask** logical_tasks; /* used to store extra tasks */
+  
   std::map<size_t, SimTask*> hash_to_forward_task, hash_to_backward_task;
 };
 
@@ -347,7 +564,7 @@ public:
   void free_all();
   void* allocate(size_t num_elements, DataType type);
   void add_task_dependencies_with_xfer(
-      SimTask* src_task, SimTask* dst_task, size_t message_size);
+      SimTask* src_task, SimTask* dst_task, size_t message_size, bool add_to_logical = false);
   CostMetrics measure_operator_cost(Op* op, const ParallelConfig& config);
   float simulate_runtime(const FFModel* model,
       const std::map<Op*, ParallelConfig>& global,
@@ -356,6 +573,10 @@ public:
       const std::map<Op*, ParallelConfig>& global,
       CompMode comp_mode,
       std::string const &export_file_name);
+  void searlize_logical_taskgraph(std::string const &export_file_name);
+  /* TODO: add a function that exports task graph to a format for the network
+   * simulator
+   */
   static void strategy_search_task(const Task *task,
                                    const std::vector<PhysicalRegion> &regions,
                                    Context ctx, Runtime *runtime);
@@ -386,5 +607,18 @@ public:
   TransposeMeta *transpose_meta;
   int segment_size;
   int max_num_segments; //simulation could be slow if the number of segments are too large
+
+  L1Optimizer* network_optimizer;
+
+  /*
+   * To make things tractable, a logical task graph is necessary...
+   * the "logical" part means that the task graph does not "break down"
+   * the communication tasks into detailed communication path,
+   * hence this is a combination of compute tasks and communication task of
+   * "from" and "to" devices. Necessary changes are made in SimTask struct and
+   * the simulator itself.
+   */
+  std::vector<SimTask*> task_graph;
+
 };
 #endif
