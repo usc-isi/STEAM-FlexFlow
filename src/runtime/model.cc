@@ -1564,6 +1564,20 @@ bool FFModel::apply_fusion(const std::vector<Op*>& layers,
   return false;
 }
 
+// simulation only 
+void FFModel::simulate(CompMode comp_mode) 
+{
+  Context ctx = config.lg_ctx;
+  Runtime* runtime = config.lg_hlr;
+  config.computationMode = comp_mode;
+  // Launch the simulation task
+  FFModel* model = this;
+  TaskLauncher launcher(CUSTOM_SIMULATION_TASK_ID,
+      TaskArgument(&model, sizeof(FFModel*)));
+  Future future = runtime->execute_task(ctx, launcher);
+  future.get_void_result();
+}
+
 void FFModel::compile(LossType loss_type,
                       const std::vector<MetricsType>& metrics,
                       CompMode comp_mode)
