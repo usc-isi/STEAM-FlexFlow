@@ -53,6 +53,7 @@ GEN_SRC		+= ${FF_HOME}/src/runtime/model.cc\
 		${FF_HOME}/src/metrics_functions/metrics_functions.cc\
 		${FF_HOME}/src/recompile/recompile_state.cc\
 		${FF_HOME}/src/runtime/machine_model.cc
+		${FF_HOME}/src/runtime/network.cc
 
 FF_CUDA_SRC	+= ${FF_HOME}/src/ops/conv_2d.cu\
 		${FF_HOME}/src/runtime/model.cu\

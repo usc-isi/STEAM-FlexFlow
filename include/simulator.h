@@ -18,6 +18,7 @@
 #include "ffconst.h"
 #include "config.h"
 #include <memory>
+#include <queue>
 #include <fstream>
 #include <unordered_map>
 
@@ -98,6 +99,11 @@ public:
   CommDevice(std::string const &name, CommDevType comm_type, int node_id, int socket_id, int device_id, float latency, float bandwidth);
 };
 
+typedef std::vector<CommDevice *> Route;
+/* first is an array of cumulative distribution */
+typedef std::pair<std::vector<float>, std::vector<Route> > EcmpRoutes;
+typedef std::vector<int> ConnectionMatrix;
+
 /**
  * Nomincal communication device. 
  * This is an communication device that allows "path expansion"
@@ -107,8 +113,9 @@ public:
 class NominalCommDevice : public CommDevice {
 public:
   NominalCommDevice(std::string const &name, int device_id, const EcmpRoutes& routes);
+  NominalCommDevice(std::string const &name, int device_id);
   /* pick one of the weighted ECMP path */
-  std::vector<CommDevice*> expand_to_physical() const;
+  Route expand_to_physical() const;
   void set_physical_paths(const EcmpRoutes& rs);
   // static inline int get_from_dev(int devid, int total) {return devid / total;}
   // static inline int get_to_dev(int devid, int total) {return devid % total;}
@@ -123,7 +130,7 @@ public:
   virtual CompDevice *get_gpu(int device_id) const = 0;
   virtual MemDevice *get_gpu_fb_mem(int devicd_id) const = 0;
   virtual int get_num_gpus() const = 0;
-  virtual int get_total_devs() const {return get_num_gpus()};
+  virtual int get_total_devs() const {return get_num_gpus();}
   virtual float get_intra_node_gpu_bandwidth() const = 0;
   virtual float get_inter_node_gpu_bandwidth() const = 0;
   virtual float get_intra_node_gpu_latency() const = 0;
@@ -143,8 +150,8 @@ public:
   int get_num_gpus() const;
   float get_intra_node_gpu_bandwidth() const;
   float get_inter_node_gpu_bandwidth() const;
-  float get_intra_node_gpu_latency() const {return 0};
-  float get_inter_node_gpu_latency() const {return 0};
+  float get_intra_node_gpu_latency() const {return 0;}
+  float get_inter_node_gpu_latency() const {return 0;}
   std::vector<CommDevice *> get_comm_path(MemDevice *src_mem, MemDevice *tar_mem) const;
   std::string to_string() const;
 private:
@@ -196,8 +203,8 @@ public:
     int get_num_gpus() const;
     float get_intra_node_gpu_bandwidth() const;
     float get_inter_node_gpu_bandwidth() const;
-    float get_intra_node_gpu_latency() const {return membus_latency};
-    float get_inter_node_gpu_latency() const {return nic_latency};
+    float get_intra_node_gpu_latency() const {return membus_latency;}
+    float get_inter_node_gpu_latency() const {return nic_latency;}
     std::vector<CommDevice *> get_comm_path(MemDevice *src_mem, MemDevice *tar_mem) const;
     std::string to_string() const;
 private:
@@ -263,10 +270,6 @@ private:
 };
 
 
-typedef std::vector<CommDevice *> Route;
-/* first is an array of cumulative distribution */
-typedef std::pair<std::vector<float>, std::vector<Route> > EcmpRoutes;
-typedef std::vector<int> ConnectionMatrix;
 
 /**
  * Base class that provides the network routing strategy
@@ -287,12 +290,12 @@ public:
 class ShortestPathNetworkRoutingStrategy : public NetworkRoutingStrategy {
 public:
     ShortestPathNetworkRoutingStrategy(const ConnectionMatrix & c, 
-        const std::map<int, CommDevice*>& devmap, int total_devs);
+        const std::map<size_t, CommDevice*>& devmap, int total_devs);
     virtual EcmpRoutes get_routes(int src_node, int dst_node);
     void clear();
 private:
     const ConnectionMatrix& conn;
-    const std::map<int, CommDevice*>& devmap;
+    const std::map<size_t, CommDevice*>& devmap;
     int total_devs;
 };
 
@@ -313,62 +316,65 @@ private:
  */
 class NetworkedMachineModel : public MachineModel  {
 public:
-    /**
-     * Constructor. A network topology specified as above needs to be provided
-     * in the form of a single vector.
-     */
-    NetworkedMachineModel(int num_nodes, int num_gpus_per_node, int num_switches, 
-        const std::vector<int>& topology, size_t capacity, float link_bandwidth);
-    ~NetworkedMachineModel();
-    int get_version() const;
-    CompDevice *get_gpu(int device_id) const;
-    MemDevice *get_gpu_fb_mem(int devicd_id) const;
-    int get_num_gpus() const;
-    float get_intra_node_gpu_bandwidth() const;
-    float get_link_bandwidth() const;
-    float get_link_bandwidth(int src, int dst) const;
-    float get_intra_node_gpu_latency() const {return 0};
-    float get_inter_node_gpu_latency() const {return network_latency};
-    void set_routing_strategy(NetworkRoutingStrategy* rs);
-    std::vector<CommDevice *> get_comm_path(MemDevice *src_mem, MemDevice *tar_mem) const;
-    std::string to_string() const;
-    /* return only the nominal device. For recording tg. */
-    CommDevice* get_nominal_path(MemDevice* src_mem, MemDevice *tar_mem) const;
-    /* stores the network topology as a json */
-    void save_topology_json(const string& fname) const;
+  /**
+   * Constructor. A network topology specified as above needs to be provided
+   * in the form of a single vector.
+   */
+  NetworkedMachineModel(int num_nodes, int num_gpus_per_node, int num_switches, 
+      const std::vector<int>& topology, size_t capacity, float link_bandwidth);
+  ~NetworkedMachineModel();
+  int get_version() const;
+  CompDevice *get_gpu(int device_id) const;
+  MemDevice *get_gpu_fb_mem(int devicd_id) const;
+  int get_num_gpus() const;
+  float get_intra_node_gpu_bandwidth() const;
+  float get_link_bandwidth() const;
+  float get_link_bandwidth(int src, int dst) const;
+  float get_intra_node_gpu_latency() const {return 0;}
+  float get_inter_node_gpu_latency() const {return network_latency;}
+  void set_routing_strategy(NetworkRoutingStrategy* rs);
+  std::vector<CommDevice *> get_comm_path(MemDevice *src_mem, MemDevice *tar_mem) const;
+  std::string to_string() const;
+  /* return only the nominal device. For recording tg. */
+  CommDevice* get_nominal_path(MemDevice* src_mem, MemDevice *tar_mem) const;
+  /* stores the network topology as a json */
+  void save_topology_json(const std::string& fname) const;
 private:
-    int num_nodes;
-    int num_gpus_per_node;
-    int num_gpus;
-    int num_switches;
-    int total_devs;
-    float inter_gpu_bandwidth;
-    float link_bandwidth;
-    float network_latency;
+  int num_nodes;
+  int num_gpus_per_node;
+  int num_gpus;
+  int num_switches;
+  int total_devs;
+  float inter_gpu_bandwidth;
+  float link_bandwidth;
+  float network_latency;
+  float gpu_dram_bandwidth;
 
-    bool pipelined;
+  bool pipelined;
+  bool pcie_on;
 
-    // float gpu_dram_bandwidth;
-    /* Note that every non-zero entry corrsepond to a device in in_to_nw_comm_device */
-    ConnectionMatrix conn_matrix;
-    NetworkRoutingStrategy* routing_strategy;
-    std::map<int, CompDevice*> id_to_gpu;
-    std::map<int, MemDevice*> id_to_gpu_fb_mem;
-    std::map<int, CommDevice*> id_to_gputodram_comm_device;
-    std::map<int, CommDevice*> id_to_dramtogpu_comm_device;
-    std::map<size_t, CommDevice*> ids_to_inter_gpu_comm_device;
-    
-    /* this refers to the actual links in the system */
-    std::map<size_t, CommDevice*> ids_to_nw_comm_device;
-    /* on the other hand, this represents the "nomical" communication device
-     * or the "logical connection" in side the system. Note that this is
-     * keyed on GPUs only 
-     */
-    std::map<size_t, CommDevice*> ids_to_nw_nominal_device;
+  // float gpu_dram_bandwidth;
+  /* Note that every non-zero entry corrsepond to a device in in_to_nw_comm_device */
+  ConnectionMatrix conn_matrix;
+  NetworkRoutingStrategy* routing_strategy;
+  std::map<int, CompDevice*> id_to_gpu;
+  std::map<int, MemDevice*> id_to_gpu_fb_mem;
+  // don't model PCIE for speed
+  std::map<int, CommDevice*> id_to_gputodram_comm_device;
+  std::map<int, CommDevice*> id_to_dramtogpu_comm_device;
+  std::map<size_t, CommDevice*> ids_to_inter_gpu_comm_device;
+  
+  /* this refers to the actual links in the system */
+  std::map<size_t, CommDevice*> ids_to_nw_comm_device;
+  /* on the other hand, this represents the "nomical" communication device
+    * or the "logical connection" in side the system. Note that this is
+    * keyed on GPUs only 
+    */
+  std::map<size_t, NominalCommDevice*> ids_to_nw_nominal_device;
 
 private:
-    std::map<size_t, uint64_t> logical_traffic_demand;
-    std::map<size_t, uint64_t> physical_traffic_matrix;
+  std::map<size_t, uint64_t> logical_traffic_demand;
+  std::map<size_t, uint64_t> physical_traffic_matrix;
 };
 
 /**
@@ -377,7 +383,7 @@ private:
  */
 class NetworkTopologyGenerator {
 public:
-    virtual ConnectionMatrix generate_topology() const = 0;
+  virtual ConnectionMatrix generate_topology() const = 0;
 };
 
 /**
@@ -390,7 +396,7 @@ public:
     virtual ConnectionMatrix generate_topology() const;
 private:
     inline int get_id(int i, int j) const;
-    inline int get_if_in_use(int node) const;
+    inline int get_if_in_use(int node, const ConnectionMatrix & conn) const;
     int num_nodes;
     int degree;
 };
@@ -406,40 +412,6 @@ public:
 private: 
     int num_nodes;
 };
-
-/**
- * Interface for doing network topology optimization
- * define all your data structures... 
- * import_information uses the task graph to reconstruct useful information,
- * and export_information uses void* for best generallity
- */
-class L1Optimizer {
-public:
-    L1Optimizer(MachineMode* machine)
-        : machine(machine) {}
-    virtual void optimize() = 0;
-    virtual void task_added(SimTask * task) { return; };
-    virtual void* export_information() = 0;
-
-private:
-    MachineModel *machine; // Would really like to do a T extends MachineModel...
-};
- 
-#if 0
-/**
- * TODO: TopoOpt as of SIGCOMM 2021 submission
- */
-class DemandHeuristicNetworkOptimizer : public L1Optimizer {
-    friend class Simulator;
-    friend class FFModel;
-public:
-    DemandHeuristicNetworkOptimizer(MachineMode* machine);
-    ~DemandHeuristicNetworkOptimizer() = default;
-    virtual void optimize();
-    virtual void import_information(SimTask ** taskgraph, size_t len);
-    virtual void* export_information();
-};
-#endif
 
 class SimTask {
 public:
@@ -493,6 +465,41 @@ class AllReduceTask : public SimTask {
 public:
   std::vector<int> devicve_group; /* deviced involved in tha all reduce task */
   int leader;                     /* the "special" device (eg p server) */
+};
+#endif
+
+
+/**
+ * Interface for doing network topology optimization
+ * define all your data structures... 
+ * import_information uses the task graph to reconstruct useful information,
+ * and export_information uses void* for best generallity
+ */
+class L1Optimizer {
+public:
+    L1Optimizer(MachineModel* machine)
+        : machine(machine) {}
+    virtual void optimize() = 0;
+    virtual void task_added(SimTask * task) { return; };
+    virtual void* export_information() = 0;
+
+private:
+    MachineModel *machine; // Would really like to do a T extends MachineModel...
+};
+ 
+#if 0
+/**
+ * TODO: TopoOpt as of SIGCOMM 2021 submission
+ */
+class DemandHeuristicNetworkOptimizer : public L1Optimizer {
+    friend class Simulator;
+    friend class FFModel;
+public:
+    DemandHeuristicNetworkOptimizer(MachineMode* machine);
+    ~DemandHeuristicNetworkOptimizer() = default;
+    virtual void optimize();
+    virtual void import_information(SimTask ** taskgraph, size_t len);
+    virtual void* export_information();
 };
 #endif
 
@@ -565,15 +572,14 @@ public:
   SimTask* new_comm_task();
   SimTask* new_comm_task(std::string const &name, CommDevice *comm_device, size_t message_size);
   SimTask* new_forward_task(Op* op, int idx);
-  SimTask* new_allreduce_task(Op* op, const std::vector<int> &node_ids, size_t message_size); //TODO: define
+  SimTask* new_allreduce_task(Op* op, const std::vector<int> &node_ids, size_t message_size); 
   SimTask* new_backward_task(Op* op, int idx);
   SimTask* get_forward_task(Op* op, int idx);
   SimTask* get_backward_task(Op* op, int idx);
   
-private:
   SimTask* new_task();
 public:
-  size_t global_task_id, max_num_tasks, logical_task_id;
+  size_t global_task_id, max_num_tasks;
   SimTask** tasks;
   
   std::map<size_t, SimTask*> hash_to_forward_task, hash_to_backward_task;
@@ -644,6 +650,7 @@ public:
  * and communication on a logical level.
  */
 class LogicalTaskgraphBasedSimulator: public Simulator {
+public: 
   LogicalTaskgraphBasedSimulator(const FFModel* model,
             FFHandler handler,
             Memory memory,
@@ -651,6 +658,13 @@ class LogicalTaskgraphBasedSimulator: public Simulator {
   
   SimTask *new_comm_task_unrecorded();
   SimTask *new_update_task_unrecorded();
+  virtual float simulate_runtime(const FFModel* model,
+      const std::map<Op*, ParallelConfig>& global,
+      CompMode comp_mode);
+  virtual float simulate_runtime(const FFModel* model,
+      const std::map<Op*, ParallelConfig>& global,
+      CompMode comp_mode,
+      std::string const &export_file_name);
   void route_transfer(SimTask * transfer_task, 
                               float start_time,
                               std::map<Device*, float> &device_times);

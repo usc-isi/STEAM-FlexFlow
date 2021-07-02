@@ -1,3 +1,10 @@
+#include <vector>
+#include <queue>
+#include <limits>
+#include <random>
+#include <utility>
+#include <unordered_set>
+
 #include "simulator.h"
 
 static std::random_device rd; 
@@ -5,28 +12,28 @@ static std::mt19937 gen = std::mt19937(rd());
 
 ShortestPathNetworkRoutingStrategy::ShortestPathNetworkRoutingStrategy(
     const ConnectionMatrix & c, 
-    const std::map<int, CommDevice*>& devmap,
+    const std::map<size_t, CommDevice*>& devmap,
     int total_devs) 
 : conn(c), devmap(devmap), total_devs(total_devs)
 {} 
 
 EcmpRoutes ShortestPathNetworkRoutingStrategy::get_routes(int src_node, int dst_node) 
 {
-  size_t key = src_node * total_devs + dst_node;
+  int key = src_node * total_devs + dst_node;
 
   if (conn[key] > 0) {
-    return std::make_pair({1}, std::vector<CommDevice*>(devmap[key]));
+    return std::make_pair(std::vector<float>({1}), std::vector<Route>({Route({devmap.at(key)})}));
   }
 
   // one-shortest path routing
-  std::vector<uint64_t> dist(total_devs, numeric_limits<uint64_t>::max());
+  std::vector<uint64_t> dist(total_devs, std::numeric_limits<uint64_t>::max());
   std::vector<int> prev(total_devs, -1);
   std::vector<bool> visited(total_devs, false);
 
   std::priority_queue<std::pair<uint64_t, uint64_t>, 
                       std::vector<std::pair<uint64_t, uint64_t> >,
                       std::greater<std::pair<uint64_t, uint64_t> > > pq;
-  pq.push(make_pair(dist[src_node], src_node));
+  pq.push(std::make_pair(dist[src_node], src_node));
   dist[src_node] = 0;
 
   /*
@@ -38,7 +45,7 @@ EcmpRoutes ShortestPathNetworkRoutingStrategy::get_routes(int src_node, int dst_
     pq.pop();
     visited[min_node] = true;
 
-    if (min_node == dst)
+    if (min_node == dst_node)
       break;
 
     for (int i = 0; i < total_devs; i++) {
@@ -49,19 +56,19 @@ EcmpRoutes ShortestPathNetworkRoutingStrategy::get_routes(int src_node, int dst_
       if (new_dist < dist[i]) {
         dist[i] = new_dist;
         prev[i] = min_node;
-        pq.push(make_pair(new_dist, i));
+        pq.push(std::make_pair(new_dist, i));
       }
     }
   }
 
-  std::vector<CommDevice*> result = new std::vector<CommDevice*>();
-  int curr = dst;
+  Route result = Route();
+  int curr = dst_node;
   while (prev[curr] != -1) {
-    result->push_front(devmap[prev[curr] * total_devs + curr]);
+    result.insert(result.begin(), devmap.at(prev[curr] * total_devs + curr));
     curr = prev[curr];
   }
 
-  return std::make_pair({1}, result); 
+  return std::make_pair(std::vector<float>({1}), std::vector<Route>({result}));
 
 }
 
@@ -102,7 +109,7 @@ ConnectionMatrix FlatDegConstraintNetworkTopologyGenerator::generate_topology() 
 
   std::vector<std::pair<int, int> > node_with_avail_if;
   for (int i = 0; i < num_nodes; i++) {
-    int if_inuse = get_if_in_use(i);
+    int if_inuse = get_if_in_use(i, conn);
     if (if_inuse < degree) {
       node_with_avail_if.emplace_back(i, degree - if_inuse);
     }
@@ -133,7 +140,7 @@ ConnectionMatrix FlatDegConstraintNetworkTopologyGenerator::generate_topology() 
       changed = true;
     }
     if (changed) {
-      distrib = uniform_int_distribution<>(0, node_with_avail_if.size() - 1);
+      distrib = std::uniform_int_distribution<>(0, node_with_avail_if.size() - 1);
     }
   }
 
@@ -145,7 +152,7 @@ int FlatDegConstraintNetworkTopologyGenerator::get_id(int i, int j) const
   return i * num_nodes + j;
 }
 
-int FlatDegConstraintNetworkTopologyGenerator::get_if_in_use(int node) const
+int FlatDegConstraintNetworkTopologyGenerator::get_if_in_use(int node, const ConnectionMatrix & conn) const
 {
   int result = 0;
   for (int i = 0; i < num_nodes; i++) {

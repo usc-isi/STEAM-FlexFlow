@@ -82,6 +82,14 @@
     "memory_resource": "cpp",
     "ranges": "cpp",
     "stop_token": "cpp",
-    "numbers": "cpp"
+    "numbers": "cpp",
+    "cinttypes": "cpp",
+    "csignal": "cpp",
+    "forward_list": "cpp",
+    "list": "cpp",
+    "filesystem": "cpp",
+    "typeindex": "cpp",
+    "valarray": "cpp",
+    "variant": "cpp"
   }
 }

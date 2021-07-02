@@ -60,6 +60,8 @@ Simulator::Simulator(const FFModel* model,
   max_num_segments = model->config.simulator_max_num_segments;
   // Initialize task manager
   task_manager = new TaskManager(max_num_tasks);
+
+  l1optimizer = nullptr;
 }
 
 Simulator::~Simulator(void)
@@ -152,3 +154,9 @@ void Simulator::strategy_search_task(const Task *task,
   delete(machine);
 }
 
+LogicalTaskgraphBasedSimulator::LogicalTaskgraphBasedSimulator(const FFModel* model,
+  FFHandler handler, Memory memory, MachineModel *machine)
+: Simulator(model, handler, memory, machine)
+{
+
+}
