@@ -80,22 +80,22 @@ public:
 
 class CommDevice : public Device {
 public:
-    enum CommDevType {
-        MEMBUS_COMM,
-        UPI_IN_COMM,
-        UPI_OUT_COMM,
-        NIC_IN_COMM,
-        NIC_OUT_COMM,
-        PCI_TO_HOST_COMM,
-        PCI_TO_DEV_COMM,
-        NVLINK_COMM,
-        NW_COMM,
-        NW_NOMINAL,
-    };
-    CommDevType comm_type;
-    float latency;
-    float bandwidth;
-    CommDevice(std::string const &name, CommDevType comm_type, int node_id, int socket_id, int device_id, float latency, float bandwidth);
+  enum CommDevType {
+    MEMBUS_COMM,
+    UPI_IN_COMM,
+    UPI_OUT_COMM,
+    NIC_IN_COMM,
+    NIC_OUT_COMM,
+    PCI_TO_HOST_COMM,
+    PCI_TO_DEV_COMM,
+    NVLINK_COMM,
+    NW_COMM,
+    NW_NOMINAL,
+  };
+  CommDevType comm_type;
+  float latency;
+  float bandwidth;
+  CommDevice(std::string const &name, CommDevType comm_type, int node_id, int socket_id, int device_id, float latency, float bandwidth);
 };
 
 /**
@@ -106,12 +106,14 @@ public:
  */
 class NominalCommDevice : public CommDevice {
 public:
-    NominalCommDevice(std::string const &name, int device_id, const EcmpRoutes& routes);
-    /* pick one of the weighted ECMP path */
-    std::vector<CommDevice*> expand_to_physical() const;
-    void set_physical_paths(const EcmpRoutes& rs);
+  NominalCommDevice(std::string const &name, int device_id, const EcmpRoutes& routes);
+  /* pick one of the weighted ECMP path */
+  std::vector<CommDevice*> expand_to_physical() const;
+  void set_physical_paths(const EcmpRoutes& rs);
+  // static inline int get_from_dev(int devid, int total) {return devid / total;}
+  // static inline int get_to_dev(int devid, int total) {return devid % total;}
 private:
-    EcmpRoutes routes;
+  EcmpRoutes routes;
 };
 
 class MachineModel {
@@ -121,8 +123,11 @@ public:
   virtual CompDevice *get_gpu(int device_id) const = 0;
   virtual MemDevice *get_gpu_fb_mem(int devicd_id) const = 0;
   virtual int get_num_gpus() const = 0;
+  virtual int get_total_devs() const {return get_num_gpus()};
   virtual float get_intra_node_gpu_bandwidth() const = 0;
   virtual float get_inter_node_gpu_bandwidth() const = 0;
+  virtual float get_intra_node_gpu_latency() const = 0;
+  virtual float get_inter_node_gpu_latency() const = 0;
   virtual std::vector<CommDevice *> get_comm_path(MemDevice *src_mem, MemDevice *tar_mem) const = 0;
   virtual std::string to_string() const = 0;
   int version;
@@ -138,6 +143,8 @@ public:
   int get_num_gpus() const;
   float get_intra_node_gpu_bandwidth() const;
   float get_inter_node_gpu_bandwidth() const;
+  float get_intra_node_gpu_latency() const {return 0};
+  float get_inter_node_gpu_latency() const {return 0};
   std::vector<CommDevice *> get_comm_path(MemDevice *src_mem, MemDevice *tar_mem) const;
   std::string to_string() const;
 private:
@@ -189,6 +196,8 @@ public:
     int get_num_gpus() const;
     float get_intra_node_gpu_bandwidth() const;
     float get_inter_node_gpu_bandwidth() const;
+    float get_intra_node_gpu_latency() const {return membus_latency};
+    float get_inter_node_gpu_latency() const {return nic_latency};
     std::vector<CommDevice *> get_comm_path(MemDevice *src_mem, MemDevice *tar_mem) const;
     std::string to_string() const;
 private:
@@ -318,6 +327,8 @@ public:
     float get_intra_node_gpu_bandwidth() const;
     float get_link_bandwidth() const;
     float get_link_bandwidth(int src, int dst) const;
+    float get_intra_node_gpu_latency() const {return 0};
+    float get_inter_node_gpu_latency() const {return network_latency};
     void set_routing_strategy(NetworkRoutingStrategy* rs);
     std::vector<CommDevice *> get_comm_path(MemDevice *src_mem, MemDevice *tar_mem) const;
     std::string to_string() const;
@@ -333,6 +344,10 @@ private:
     int total_devs;
     float inter_gpu_bandwidth;
     float link_bandwidth;
+    float network_latency;
+
+    bool pipelined;
+
     // float gpu_dram_bandwidth;
     /* Note that every non-zero entry corrsepond to a device in in_to_nw_comm_device */
     ConnectionMatrix conn_matrix;
@@ -352,8 +367,8 @@ private:
     std::map<size_t, CommDevice*> ids_to_nw_nominal_device;
 
 private:
-  std::map<size_t, uint64_t> logical_traffic_demand;
-  std::map<size_t, uint64_t> physical_traffic_matrix;
+    std::map<size_t, uint64_t> logical_traffic_demand;
+    std::map<size_t, uint64_t> physical_traffic_matrix;
 };
 
 /**
@@ -394,31 +409,37 @@ private:
 
 /**
  * Interface for doing network topology optimization
- * define all your data structures... optimize is the only exposed
- * function for the best generality
+ * define all your data structures... 
+ * import_information uses the task graph to reconstruct useful information,
+ * and export_information uses void* for best generallity
  */
 class L1Optimizer {
 public:
-    L1Optimizer(MachineMode* machine, std::vector<SimTask*>* task_graph)
-        : machine(machine), task_graph(task_graph) {}
+    L1Optimizer(MachineMode* machine)
+        : machine(machine) {}
     virtual void optimize() = 0;
-private:
-    MachineModel *machine;
-    std::vector<SimTask>* task_graph;
-};
+    virtual void task_added(SimTask * task) { return; };
+    virtual void* export_information() = 0;
 
+private:
+    MachineModel *machine; // Would really like to do a T extends MachineModel...
+};
+ 
+#if 0
 /**
- * TopoOpt as of SIGCOMM 2021 submission
+ * TODO: TopoOpt as of SIGCOMM 2021 submission
  */
 class DemandHeuristicNetworkOptimizer : public L1Optimizer {
     friend class Simulator;
     friend class FFModel;
 public:
-    DemandHeuristicNetworkOptimizer(MachineMode* machine, std::vector<SimTask*>* task_graph);
+    DemandHeuristicNetworkOptimizer(MachineMode* machine);
     ~DemandHeuristicNetworkOptimizer() = default;
     virtual void optimize();
-
+    virtual void import_information(SimTask ** taskgraph, size_t len);
+    virtual void* export_information();
 };
+#endif
 
 class SimTask {
 public:
@@ -442,16 +463,23 @@ public:
   int from_dev, to_dev; // use device id
   size_t xfer_size;
   std::vector<SimTask*> next_tasks;
+#if 0
   /* This stores only high-level information: computation and communication
    * from device to device 
    */
   std::vector<SimTask*> next_tasks_simplified;  
+#endif 
+  /*
+   * in the case of logical task graph is used, some task may not need to be
+   * storted. This flag if the task should be stored.
+   */
+  bool store;
   std::string name;
   std::string get_type_str() const;
 };
 
 /**
- * Big ugly hack: since AllReduceTask only occurs in the logical task graph
+ * hack: since AllReduceTask only occurs in the logical task graph
  * and to keep TaskManager useable, use next_tasks to store the integer
  * of all reduce groupd node ids, and counter to store the leader.
  * Lets just say its an union...
@@ -537,19 +565,16 @@ public:
   SimTask* new_comm_task();
   SimTask* new_comm_task(std::string const &name, CommDevice *comm_device, size_t message_size);
   SimTask* new_forward_task(Op* op, int idx);
+  SimTask* new_allreduce_task(Op* op, const std::vector<int> &node_ids, size_t message_size); //TODO: define
   SimTask* new_backward_task(Op* op, int idx);
   SimTask* get_forward_task(Op* op, int idx);
   SimTask* get_backward_task(Op* op, int idx);
-
-  /* used to create extra tasks for logical task graph */
-  SimTask* new_logical_task();
   
 private:
   SimTask* new_task();
 public:
   size_t global_task_id, max_num_tasks, logical_task_id;
   SimTask** tasks;
-  SimTask** logical_tasks; /* used to store extra tasks */
   
   std::map<size_t, SimTask*> hash_to_forward_task, hash_to_backward_task;
 };
@@ -563,22 +588,18 @@ public:
             Memory memory,
             MachineModel *machine);
   ~Simulator(void);
-  void free_all();
-  void* allocate(size_t num_elements, DataType type);
-  void add_task_dependencies_with_xfer(
-      SimTask* src_task, SimTask* dst_task, size_t message_size, bool add_to_logical = false);
+  virtual void free_all();
+  virtual void* allocate(size_t num_elements, DataType type);
+  virtual void add_task_dependencies_with_xfer(
+      SimTask* src_task, SimTask* dst_task, size_t message_size);
   CostMetrics measure_operator_cost(Op* op, const ParallelConfig& config);
-  float simulate_runtime(const FFModel* model,
+  virtual float simulate_runtime(const FFModel* model,
       const std::map<Op*, ParallelConfig>& global,
       CompMode comp_mode);
-  float simulate_runtime(const FFModel* model,
+  virtual float simulate_runtime(const FFModel* model,
       const std::map<Op*, ParallelConfig>& global,
       CompMode comp_mode,
       std::string const &export_file_name);
-  void searlize_logical_taskgraph(std::string const &export_file_name);
-  /* TODO: add a function that exports task graph to a format for the network
-   * simulator
-   */
   static void strategy_search_task(const Task *task,
                                    const std::vector<PhysicalRegion> &regions,
                                    Context ctx, Runtime *runtime);
@@ -610,17 +631,32 @@ public:
   int segment_size;
   int max_num_segments; //simulation could be slow if the number of segments are too large
 
-  L1Optimizer* network_optimizer;
-
-  /*
-   * To make things tractable, a logical task graph is necessary...
-   * the "logical" part means that the task graph does not "break down"
-   * the communication tasks into detailed communication path,
-   * hence this is a combination of compute tasks and communication task of
-   * "from" and "to" devices. Necessary changes are made in SimTask struct and
-   * the simulator itself.
+  /* extra optimizer that changes physical properties.
+   * Each time a task is added, a callback would be called into this 
+   * optimizer to provide information 
    */
-  std::vector<SimTask*> task_graph;
+  L1Optimizer* l1optimizer;
+};
 
+/**
+ * An alternative implementation of the simulator which uses the "logical 
+ * task graph", defined as a taskgraph that only records computation
+ * and communication on a logical level.
+ */
+class LogicalTaskgraphBasedSimulator: public Simulator {
+  LogicalTaskgraphBasedSimulator(const FFModel* model,
+            FFHandler handler,
+            Memory memory,
+            MachineModel *machine);
+  
+  SimTask *new_comm_task_unrecorded();
+  SimTask *new_update_task_unrecorded();
+  void route_transfer(SimTask * transfer_task, 
+                              float start_time,
+                              std::map<Device*, float> &device_times);
+  void expand_allreduce(SimTask * allreduce_task, float start_time,std::priority_queue<SimTask*, std::vector<SimTask*>, SimTaskCompare>& ready_queue);
+  void add_task_dependencies_with_xfer(
+      SimTask* src_task, SimTask* dst_task, size_t message_size);
+  void searlize_logical_taskgraph(std::string const &export_file_name);
 };
 #endif

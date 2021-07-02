@@ -943,8 +943,12 @@ NetworkedMachineModel::get_comm_path(MemDevice *src_mem, MemDevice *tar_mem) con
     }
     else {
       int device_id = src_mem->node_id * num_nodes + tar_mem->node_id;
-      std::vector<CommDevice*> physical_path = ids_to_nw_nominal_device.at(device_id).expand_to_physical();
-      ret.emplace_back(physical_path.cbegin(), physical_path.cend());
+      if (pipelined)
+        ret.emplace_back(ids_to_nw_nominal_device.at(device_id));
+      else {
+        std::vector<CommDevice*> physical_path = ids_to_nw_nominal_device.at(device_id).expand_to_physical();
+        ret.emplace_back(physical_path.cbegin(), physical_path.cend());
+      }
     }
   }
   else if (src_mem->mem_type == MemDevice::GPU_FB_MEM and tar_mem->mem_type == MemDevice::GPU_FB_MEM) {
@@ -955,9 +959,12 @@ NetworkedMachineModel::get_comm_path(MemDevice *src_mem, MemDevice *tar_mem) con
     else {
       ret.emplace_back(id_to_gputodram_comm_device.at(src_mem->device_id));
       int device_id = src_mem->node_id * num_nodes + tar_mem->node_id;
-      std::vector<CommDevice*> physical_path = ids_to_nw_nominal_device.at(device_id).expand_to_physical();
-      ret.emplace_back(physical_path.cbegin(), physical_path.cend());
-      // ret.emplace_back(ids_to_nw_nominal_device.at(device_id));
+      if (pipelined)
+        ret.emplace_back(ids_to_nw_nominal_device.at(device_id));
+      else {
+        std::vector<CommDevice*> physical_path = ids_to_nw_nominal_device.at(device_id).expand_to_physical();
+        ret.emplace_back(physical_path.cbegin(), physical_path.cend());
+      }
       ret.emplace_back(id_to_dramtogpu_comm_device.at(tar_mem->device_id));
     }
   }
@@ -967,9 +974,12 @@ NetworkedMachineModel::get_comm_path(MemDevice *src_mem, MemDevice *tar_mem) con
     }
     else {
       int device_id = src_mem->node_id * num_nodes + tar_mem->node_id;
-      // ret.emplace_back(ids_to_nw_nominal_device.at(device_id));
-      std::vector<CommDevice*> physical_path = ids_to_nw_nominal_device.at(device_id).expand_to_physical();
-      ret.emplace_back(physical_path.cbegin(), physical_path.cend());
+      if (pipelined)
+        ret.emplace_back(ids_to_nw_nominal_device.at(device_id));
+      else {
+        std::vector<CommDevice*> physical_path = ids_to_nw_nominal_device.at(device_id).expand_to_physical();
+        ret.emplace_back(physical_path.cbegin(), physical_path.cend());
+      }
       ret.emplace_back(id_to_dramtogpu_comm_device.at(tar_mem->device_id));
     }
   }
@@ -980,9 +990,12 @@ NetworkedMachineModel::get_comm_path(MemDevice *src_mem, MemDevice *tar_mem) con
     else {
       ret.emplace_back(id_to_gputodram_comm_device.at(src_mem->device_id));
       int device_id = src_mem->node_id * num_nodes + tar_mem->node_id;
-      // ret.emplace_back(ids_to_nw_nominal_device.at(device_id));
-      std::vector<CommDevice*> physical_path = ids_to_nw_nominal_device.at(device_id).expand_to_physical();
-      ret.emplace_back(physical_path.cbegin(), physical_path.cend());
+      if (pipelined)
+        ret.emplace_back(ids_to_nw_nominal_device.at(device_id));
+      else {
+        std::vector<CommDevice*> physical_path = ids_to_nw_nominal_device.at(device_id).expand_to_physical();
+        ret.emplace_back(physical_path.cbegin(), physical_path.cend());
+      }
     }
   }
   else {
@@ -1005,9 +1018,4 @@ NetworkedMachineModel::get_nominal_path(MemDevice *src_mem, MemDevice *tar_mem) 
   }
   int device_id = src_mem->node_id * num_nodes + tar_mem->node_id;
   return ids_to_nw_nominal_device.at(device_id);
-}
-
-void NetworkedMachineModel::(const string& fname) const
-{
-
 }
