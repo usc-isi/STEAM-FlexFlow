@@ -919,6 +919,11 @@ float NetworkedMachineModel::get_link_bandwidth(int src, int dst) const
   return link_bandwidth * conn_matrix[src * total_devs + dst];
 }
 
+float NetworkedMachineModel::get_inter_node_gpu_bandwidth() const  
+{
+  return link_bandwidth;
+}
+
 void NetworkedMachineModel::set_routing_strategy(NetworkRoutingStrategy* rs)
 {
   delete routing_strategy;

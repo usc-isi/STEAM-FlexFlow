@@ -3106,6 +3106,15 @@ void register_flexflow_internal_tasks()
     Runtime::preregister_task_variant<Simulator::strategy_search_task>(
         registrar, "Stretegy Search Task");
   }
+  // simulation
+  {
+    TaskVariantRegistrar registrar(CUSTOM_SIMULATION_TASK_ID,
+                                   "Simulation Only");
+    registrar.add_constraint(ProcessorConstraint(Processor::TOC_PROC));
+    registrar.set_leaf();
+    Runtime::preregister_task_variant<LogicalTaskgraphBasedSimulator::simulation_task>(
+        registrar, "Simulation Task");
+  }
   // Parameter Server Prefetch task
   {
     TaskVariantRegistrar registrar(PS_PREFETCH_TASK_ID, "Weights Prefetch");

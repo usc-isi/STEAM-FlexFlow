@@ -328,6 +328,7 @@ public:
   MemDevice *get_gpu_fb_mem(int devicd_id) const;
   int get_num_gpus() const;
   float get_intra_node_gpu_bandwidth() const;
+  float get_inter_node_gpu_bandwidth() const;
   float get_link_bandwidth() const;
   float get_link_bandwidth(int src, int dst) const;
   float get_intra_node_gpu_latency() const {return 0;}
@@ -672,5 +673,8 @@ public:
   void add_task_dependencies_with_xfer(
       SimTask* src_task, SimTask* dst_task, size_t message_size);
   void searlize_logical_taskgraph(std::string const &export_file_name);
+  static void simulation_task(const Task *task,
+                                  const std::vector<PhysicalRegion> &regions,
+                                  Context ctx, Runtime *runtime);
 };
 #endif
