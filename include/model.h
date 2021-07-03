@@ -169,6 +169,8 @@ enum TaskIDs {
   CUSTOM_CPU_TASK_ID_LAST,
   // simulation only task. twick the register process for now to change this.
   CUSTOM_SIMULATION_TASK_ID,
+  CUSTOM_SIMULATION_TASK_ID_2,
+  CUSTOM_SIMULATION_TASK_ID_3,
   // Make sure PYTHON_TOP_LEVEL_TASK_ID is
   // consistent with python/main.cc
   PYTHON_TOP_LEVEL_TASK_ID = 11111,
@@ -517,6 +519,7 @@ public:
   void update();
   bool apply_fusion(const std::vector<Op*>& layers, std::vector<Op*>& new_layers);
   void simulate(CompMode comp_mode = COMP_MODE_TRAINING);
+  void simulate2(CompMode comp_mode = COMP_MODE_TRAINING);
   void compile(LossType loss_type,
                const std::vector<MetricsType>& metrics,
                CompMode comp_mode = COMP_MODE_TRAINING);

@@ -260,6 +260,14 @@ void FFMapper::select_task_options(const MapperContext ctx,
     output.initial_proc = all_gpus[0];
     return;
   }
+  if (task.task_id == CUSTOM_SIMULATION_TASK_ID_2) {
+    output.initial_proc = all_gpus[0];
+    return;
+  }
+  if (task.task_id == CUSTOM_SIMULATION_TASK_ID_3) {
+    output.initial_proc = all_gpus[0];
+    return;
+  }
   if (task.task_id == NCCL_GETUNIQUEID_TASK_ID) {
     output.initial_proc = all_gpus[0];
     return;

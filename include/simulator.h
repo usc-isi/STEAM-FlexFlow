@@ -610,6 +610,9 @@ public:
   static void strategy_search_task(const Task *task,
                                    const std::vector<PhysicalRegion> &regions,
                                    Context ctx, Runtime *runtime);
+  static void simulation_task(const Task *task,
+                                   const std::vector<PhysicalRegion> &regions,
+                                   Context ctx, Runtime *runtime);                                   
 public:
   Realm::RegionInstance simulatorInst;
   MachineModel *machine;

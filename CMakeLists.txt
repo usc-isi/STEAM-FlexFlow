@@ -178,6 +178,7 @@ endif()
 
 if(FF_BUILD_ALEXNET OR FF_BUILD_ALL_EXAMPLES)
   add_subdirectory(examples/cpp/AlexNet)
+  add_subdirectory(examples/cpp/alexnetsim)
 endif()
 
 if(FF_BUILD_INCEPTION OR FF_BUILD_ALL_EXAMPLES)
