@@ -25,13 +25,13 @@ CUDNN_DIR=/usr/local/cuda
 #CUDA_DIR=/usr/local/cuda
 
 # enable Python
-FF_USE_PYTHON=ON
+# FF_USE_PYTHON=ON
 
 # enable NCCL
-FF_USE_NCCL=ON
+FF_USE_NCCL=OFF
 
 # enable GASNet
-# FF_USE_GASNET=ON
+FF_USE_GASNET=OFF
 
 # build C++ examples
 FF_BUILD_EXAMPLES=ON

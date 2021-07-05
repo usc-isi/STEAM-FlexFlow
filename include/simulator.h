@@ -585,7 +585,9 @@ public:
   SimTask* new_barrier_task();
   SimTask* new_update_task();
   SimTask* new_comm_task();
+  SimTask* new_nominal_comm_task();
   SimTask* new_comm_task(std::string const &name, CommDevice *comm_device, size_t message_size);
+  SimTask* new_nominal_comm_task(std::string const &name, CommDevice *comm_device, size_t message_size);
   SimTask* new_forward_task(Op* op, int idx);
   SimTask* new_allreduce_task(Op* op, const std::vector<int> &node_ids, size_t message_size); 
   SimTask* new_backward_task(Op* op, int idx);
@@ -683,7 +685,7 @@ public:
       const std::map<Op*, ParallelConfig>& global,
       CompMode comp_mode,
       std::string const &export_file_name);
-  void route_transfer(SimTask * transfer_task, 
+  float route_transfer(SimTask * transfer_task, 
                               float start_time,
                               std::map<Device*, float> &device_times);
   void expand_allreduce(SimTask * allreduce_task, float start_time,std::priority_queue<SimTask*, std::vector<SimTask*>, SimTaskCompare>& ready_queue);

@@ -2257,8 +2257,8 @@ struct DefaultConfig {
   const static bool enableAttributeParallel = false;
   const static bool allowTensorOpMathConversion = false;
   const static int machine_model_version = 0;
-  const static int simulator_segment_size = 16777216; // 16 MB
-  const static int simulator_max_num_segments = 1;
+  const static int simulator_segment_size = 1500; // 16777216; // 16 MB
+  const static int simulator_max_num_segments = 131072;
 };
 
 FFConfig::FFConfig()

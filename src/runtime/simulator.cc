@@ -169,10 +169,28 @@ SimTask* TaskManager::new_comm_task()
   return task;
 }
 
+
+SimTask* TaskManager::new_nominal_comm_task()
+{
+  SimTask* task = new_task();
+  task->type = SimTask::TASK_NOMINAL_COMM;
+  return task;
+}
+
 SimTask* TaskManager::new_comm_task(std::string const &name, CommDevice *comm_device, size_t message_size)
 {
   SimTask* task = new_task();
   task->type = SimTask::TASK_COMM;
+  task->name = name;
+  task->device = comm_device;
+  task->run_time = comm_device->latency + message_size / comm_device->bandwidth;
+  return task;
+}
+
+SimTask* TaskManager::new_nominal_comm_task(std::string const &name, CommDevice *comm_device, size_t message_size)
+{
+  SimTask* task = new_task();
+  task->type = SimTask::TASK_NOMINAL_COMM;
   task->name = name;
   task->device = comm_device;
   task->run_time = comm_device->latency + message_size / comm_device->bandwidth;
@@ -364,7 +382,7 @@ void LogicalTaskgraphBasedSimulator::add_task_dependencies_with_xfer(
   assert(message_size > 0);
   std::vector<SimTask*> final_tasks;
   for (CommDevice * d: path) {
-    SimTask* task = task_manager->new_comm_task();
+    SimTask* task = task_manager->new_nominal_comm_task();
     task->device = d;
     task->run_time = 0;
     task->xfer_size = message_size;
@@ -484,6 +502,7 @@ float Simulator::simulate_runtime(const FFModel* model,
   }
 #ifdef FF_USE_NCCL
   // Do nothing since we will calculate NCCL cost at the end
+  // fprintf(stderr, "USING NCCL\n");
 #else
   // Step 2.5: add finals tasks for each compute device to capture the returning comm tasks
   // from parameter servers
@@ -632,8 +651,8 @@ float Simulator::simulate_runtime(const FFModel* model,
       nodeAttrs["shape"] = "record";
       taskGraph.add_node(cur_task, nodeAttrs);
     }
-    // printf("task[%lu] type(%d) run_time(%.4lf) ready_time(%.4lf) start_time(%.4lf) device(%s)\n",
-    //       idx, cur_task->type, cur_task->run_time, ready_time, start_time, (cur_task->device->name).c_str());
+    printf("task[%lu] type(%d) run_time(%.4lf) ready_time(%.4lf) start_time(%.4lf) device(%s)\n",
+          idx, cur_task->type, cur_task->run_time, ready_time, start_time, (cur_task->device->name).c_str());
     if (end_time > sim_time)
       sim_time = end_time;
     for (size_t i = 0; i < cur_task->next_tasks.size(); i++) {
@@ -842,27 +861,26 @@ float LogicalTaskgraphBasedSimulator::simulate_runtime(
     SimTask* cur_task = ready_queue.top();
     ready_queue.pop();
     float ready_time = 0;
+    float end_time;
     if (device_times.find(cur_task->device) != device_times.end()) {
       ready_time = device_times[cur_task->device];
     }
     float start_time = std::max(ready_time, cur_task->ready_time);
     if (cur_task->type == SimTask::TASK_NOMINAL_COMM) {
-      route_transfer(cur_task, start_time, device_times);
+      end_time = route_transfer(cur_task, start_time, device_times);
     }
     else if (cur_task->type == SimTask::TASK_ALLREDUCE) {
       expand_allreduce(cur_task, start_time, ready_queue);
+      idx++;
       continue;
     }
-
-    float end_time = start_time + cur_task->run_time;
-    
-    if (!(cur_task->type == SimTask::TASK_NOMINAL_COMM) &&
-        !(cur_task->type == SimTask::TASK_ALLREDUCE)) {
+    else {
+      end_time = start_time + cur_task->run_time;
       device_times[cur_task->device] = end_time;
     }
 
-    // printf("task[%lu] type(%d) run_time(%.4lf) ready_time(%.4lf) start_time(%.4lf) device(%d)\n",
-    //     idx, t->type, t->run_time, ready_time, start_time, t->device->gpu_id);
+    printf("task[%lu] type(%d) run_time(%.4lf) ready_time(%.4lf) start_time(%.4lf) device(%s)\n",
+          idx, cur_task->type, cur_task->run_time, ready_time, start_time, (cur_task->device->name).c_str());
 
     if (end_time > sim_time) {
       sim_time = end_time;
@@ -882,6 +900,7 @@ float LogicalTaskgraphBasedSimulator::simulate_runtime(
     }
     idx++;
   }
+  assert(idx == task_manager->global_task_id);
   
   // Step 6: add penalty to strategies that exceed the memory limits on devices
   std::vector<size_t> gpu_mem_usage(machine->get_num_gpus(), 0);
@@ -920,7 +939,7 @@ float LogicalTaskgraphBasedSimulator::simulate_runtime(const FFModel* model,
 }
 
 
-void LogicalTaskgraphBasedSimulator::route_transfer(SimTask * transfer_task, 
+float LogicalTaskgraphBasedSimulator::route_transfer(SimTask * transfer_task, 
                               float start_time,
                               std::map<Device*, float> &device_times) {
   std::vector<CommDevice *> route = 
@@ -968,6 +987,11 @@ void LogicalTaskgraphBasedSimulator::route_transfer(SimTask * transfer_task,
     curr_task_start_time = latency_task_start_time;
     curr_task_finish_time = latency_task_finish_time;
     curr_task_run_time = latency_task_run_time;
+    
+    printf("\texpand: route[%u] run_time(%.4lf) ready_time(%.4lf) start_time(%.4lf) device(%s)\n",
+          i, curr_task_run_time, curr_task_ready_time, curr_task_start_time, (latency_task_device->name).c_str());
+    printf("\t\td2d: run_time(%.4lf) start_time(%.4lf) device(%s)\n",
+          dram_to_dram_run_time, dram_to_dram_start_time, (latency_task_device->name).c_str());
 
     info_holder->device = latency_task_device;
     info_holder->run_time = dram_to_dram_run_time;
@@ -983,6 +1007,7 @@ void LogicalTaskgraphBasedSimulator::route_transfer(SimTask * transfer_task,
   delete info_holder;
 
   transfer_task->run_time = final_finish_time - final_start_time;
+  return final_finish_time;
 }
 
 void LogicalTaskgraphBasedSimulator::expand_allreduce(SimTask * allreduce_task,
@@ -1013,20 +1038,22 @@ void LogicalTaskgraphBasedSimulator::expand_allreduce(SimTask * allreduce_task,
   }
 #else
   // assume parameter server in this case
-  MemDevice * leader_mem = machine->get_gpu_fb_mem((int)allreduce_task->counter);
+  MemDevice * leader_mem = machine->get_gpu_fb_mem(allreduce_task->counter);
   MemDevice * worker_mem;
   SimTask * ps_update_task = new_update_task_unrecorded();
+  ps_update_task->device = machine->get_gpu(allreduce_task->counter);
+  final_task->device = machine->get_gpu(allreduce_task->counter);
 
   // ps gather
   for (int i = 0; i < n_participants; i++) {
-    worker_mem = machine->get_gpu_fb_mem((int)allreduce_task->next_tasks[i]);
+    worker_mem = machine->get_gpu_fb_mem(reinterpret_cast<uint64_t>(allreduce_task->next_tasks[i]));
     std::vector<CommDevice *> path = machine->get_comm_path(worker_mem, leader_mem);
     for (CommDevice * d: path) {
       SimTask* task = new_comm_task_unrecorded();
       task->device = d;
       task->run_time = 0;
       task->ready_time = allreduce_task->ready_time;
-      task->xfer_size = allreduce_task->xfer_size / n_participants;
+      task->xfer_size = allreduce_task->xfer_size;
       task->add_next_task(ps_update_task);
       ready_queue.push(task);
     }
@@ -1034,14 +1061,14 @@ void LogicalTaskgraphBasedSimulator::expand_allreduce(SimTask * allreduce_task,
 
   // scatter
   for (int i = 0; i < n_participants; i++) {
-    worker_mem = machine->get_gpu_fb_mem((int)allreduce_task->next_tasks[i]);
+    worker_mem = machine->get_gpu_fb_mem(reinterpret_cast<uint64_t>(allreduce_task->next_tasks[i]));
     std::vector<CommDevice *> path = machine->get_comm_path(leader_mem, worker_mem);
     for (CommDevice * d: path) {
       SimTask* task = new_comm_task_unrecorded();
       task->device = d;
       task->run_time = 0;
       task->ready_time = allreduce_task->ready_time;
-      task->xfer_size = allreduce_task->xfer_size / n_participants;
+      task->xfer_size = allreduce_task->xfer_size;
       ps_update_task->add_next_task(task);
       task->add_next_task(final_task);
     }

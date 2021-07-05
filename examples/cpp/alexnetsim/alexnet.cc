@@ -87,7 +87,7 @@ void top_level_task(const Task* task,
   // std::vector<MetricsType> metrics;
   // metrics.push_back(METRICS_ACCURACY);
   // metrics.push_back(METRICS_SPARSE_CATEGORICAL_CROSSENTROPY);
-  ff.simulate2();
+  ff.simulate();
 #if 0
   // Data Loader
   DataLoader data_loader(ff, &alexnetConfig, input, ff.label_tensor);
