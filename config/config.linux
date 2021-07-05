@@ -13,7 +13,7 @@ echo " Defaults for Linux machine"
 #LD_FLAGS=${LD_FLAGS+=""}
 
 # set build type
-BUILD_TYPE=Release
+BUILD_TYPE=Debug
 
 # set CUDA Arch, replace xx with your GPU architecture
 FF_CUDA_ARCH=80
@@ -31,7 +31,7 @@ FF_USE_PYTHON=ON
 FF_USE_NCCL=ON
 
 # enable GASNet
-FF_USE_GASNET=ON
+# FF_USE_GASNET=ON
 
 # build C++ examples
 FF_BUILD_EXAMPLES=ON

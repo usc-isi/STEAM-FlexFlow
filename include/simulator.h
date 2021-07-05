@@ -340,6 +340,9 @@ public:
   CommDevice* get_nominal_path(MemDevice* src_mem, MemDevice *tar_mem) const;
   /* stores the network topology as a json */
   void save_topology_json(const std::string& fname) const;
+
+  void set_pcie(bool state);
+  void set_pipeline(bool state);
 private:
   int num_nodes;
   int num_gpus_per_node;
@@ -385,6 +388,17 @@ private:
 class NetworkTopologyGenerator {
 public:
   virtual ConnectionMatrix generate_topology() const = 0;
+  static void print_conn_matrix(const ConnectionMatrix &conn, int nnode, int nswitch) {
+    int nnwdevs = nnode + nswitch;
+    for (int i = 0; i < nnwdevs; i++) {
+      for (int j = 0; i < nnwdevs; j++) {
+        std::cout << conn[i * nnwdevs + j] << "\t";
+        if (j == nnode) std::cout << "\t";
+      }
+      if (i == nnode) std::cout << std::endl;
+      std::cout << std::endl;
+    }
+  }
 };
 
 /**

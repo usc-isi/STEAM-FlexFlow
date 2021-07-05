@@ -286,7 +286,7 @@ class Embedding;
 
 class FFModel {
 public:
-  FFModel(FFConfig &config);
+  FFModel(FFConfig &config, bool simonly = false);
 
   static constexpr float PROPAGATION_CHANCE = 0.25;
   static constexpr float CONTINUE_PROPAGATION_CHANCE = 0.75;

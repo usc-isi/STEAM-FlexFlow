@@ -28,6 +28,14 @@ void parse_input_args(char **argv, int argc, AlexNetConfig& config)
       std::strcpy(config.dataset_path, argv[++i]);
       continue;
     }
+    else if (!strcmp(argv[i], "--nsimnode")) {
+      config.nsimnode = std::atoi(argv[++i]);
+      continue;
+    }
+    else if (!strcmp(argv[i], "--nsimgpu")) {
+      config.nsimgpu = std::atoi(argv[++i]);
+      continue;
+    }
   }
 }
 
@@ -45,7 +53,8 @@ void top_level_task(const Task* task,
     log_app.print("batchSize(%d) workersPerNodes(%d) numNodes(%d)",
         ffConfig.batchSize, ffConfig.workersPerNode, ffConfig.numNodes);
   }
-  FFModel ff(ffConfig);
+  ffConfig.numNodes = alexnetConfig.nsimnode;
+  FFModel ff(ffConfig, true);
 
   Tensor input;
   {

@@ -1030,3 +1030,14 @@ void NetworkedMachineModel::save_topology_json(const std::string& fname) const
 {
   return;
 }
+
+void NetworkedMachineModel::set_pcie(bool state) 
+{
+  pcie_on = state;
+}
+
+void NetworkedMachineModel::set_pipeline(bool state) 
+{
+  pipelined = state;
+}
+

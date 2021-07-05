@@ -710,7 +710,7 @@ OpMeta::OpMeta(FFHandler _handle)
 : handle(_handle)
 {}
 
-FFModel::FFModel(FFConfig& _config)
+FFModel::FFModel(FFConfig& _config , bool simonly)
 : op_global_guid(100), config(_config),
   optimizer(NULL), loss_op(NULL), metrics_op(NULL)
 {
@@ -761,7 +761,7 @@ FFModel::FFModel(FFConfig& _config)
 
   ArgumentMap argmap;
   Rect<2> task_rect(Point<2>(0, 0),
-                    Point<2>(0, config.workersPerNode * config.numNodes - 1));
+                    Point<2>(0, simonly ? 0 : config.workersPerNode * config.numNodes - 1));
   IndexSpaceT<2> task_is = runtime->create_index_space(ctx, task_rect);
 
   //int rank = 0;
@@ -1978,7 +1978,7 @@ void FFModel::optimize(Simulator* simulator,
     }
     rewrite(current, next, use_propagation);
     float next_runtime = simulator->simulate_runtime(this, next, comp_mode);
-    if (iter % 1000 == 0) {
+    if (iter % 10 == 0) {
       printf("iteration(%zu) current_strategy(%.4lf) best_strategy(%.4lf)\n", iter,
              current_runtime, best_runtime);
     }

@@ -169,14 +169,18 @@ void Simulator::simulation_task(const Task *task,
   // void* base_ptr = memFBImpl->get_direct_ptr(offset, 0);
   BigSwitchNetworkTopologyGenerator topo_gen = BigSwitchNetworkTopologyGenerator(model->config.numNodes);
   
-  MachineModel *machine;
-  machine = (MachineModel *) new NetworkedMachineModel(model->config.numNodes, 
+  NetworkedMachineModel *nmachine = new NetworkedMachineModel(model->config.numNodes, 
     model->config.workersPerNode,  
     1,
     topo_gen.generate_topology(),
     gpu_mem.capacity(),
     20.0 * 1024 * 1024 / 8
   );
+  nmachine->set_pcie(false);
+  nmachine->set_pipeline(false);
+
+  MachineModel *machine;
+  machine = reinterpret_cast<MachineModel*>(nmachine);
 
   // Assume this task is running on GPU0
   Simulator* simulator = new Simulator(model, model->handlers[0], gpu_mem, machine);

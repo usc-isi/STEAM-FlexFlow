@@ -270,11 +270,11 @@ void Simulator::add_task_dependencies_with_xfer(SimTask* src_task,
 {
   std::vector<CommDevice *> path = machine->get_comm_path(src_task->mem, dst_task->mem);
   // print the communication path
-  // printf("Path from %s to %s is: ", src_task->mem->name.c_str(), dst_task->mem->name.c_str());
-  // for (size_t i = 0; i < path.size(); i++) {
-  //   printf("%s ", path[i]->name.c_str());
-  // }
-  // printf("\n");
+  printf("Path from %s to %s is: ", src_task->mem->name.c_str(), dst_task->mem->name.c_str());
+  for (size_t i = 0; i < path.size(); i++) {
+    printf("%s ", path[i]->name.c_str());
+  }
+  printf("\n");
 
   if (path.empty()) {
     src_task->add_next_task(dst_task);
