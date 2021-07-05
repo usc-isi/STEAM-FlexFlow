@@ -176,8 +176,10 @@ void Simulator::simulation_task(const Task *task,
     gpu_mem.capacity(),
     20.0 * 1024 * 1024 / 8
   );
-  nmachine->set_pcie(false);
+  nmachine->set_pcie(true);
   nmachine->set_pipeline(false);
+
+  // SimpleMachineModel* nmachine = new SimpleMachineModel(model->config.numNodes, model->config.workersPerNode, gpu_mem.capacity());
 
   MachineModel *machine;
   machine = reinterpret_cast<MachineModel*>(nmachine);
