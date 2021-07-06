@@ -21,6 +21,7 @@
 #include <queue>
 #include <fstream>
 #include <unordered_map>
+#include <unordered_set>
 
 class Conv2DMeta;
 class LinearMeta;
@@ -315,6 +316,7 @@ private:
  * MCMC search to run for thousand of iterations...
  */
 class NetworkedMachineModel : public MachineModel  {
+  friend class DemandHeuristicNetworkOptimizer;
 public:
   /**
    * Constructor. A network topology specified as above needs to be provided
@@ -340,6 +342,9 @@ public:
   CommDevice* get_nominal_path(MemDevice* src_mem, MemDevice *tar_mem) const;
   /* stores the network topology as a json */
   void save_topology_json(const std::string& fname) const;
+  void update_route();
+
+  void set_topology(const std::vector<int>& topology);
 
   void set_pcie(bool state);
   void set_pipeline(bool state);
@@ -498,25 +503,65 @@ public:
     virtual void task_added(SimTask * task) { return; };
     virtual void* export_information() = 0;
 
-private:
+protected:
     MachineModel *machine; // Would really like to do a T extends MachineModel...
 };
  
-#if 0
+// #if 0
 /**
  * TODO: TopoOpt as of SIGCOMM 2021 submission
  */
 class DemandHeuristicNetworkOptimizer : public L1Optimizer {
-    friend class Simulator;
-    friend class FFModel;
+  friend class Simulator;
+  friend class FFModel;
 public:
-    DemandHeuristicNetworkOptimizer(MachineMode* machine);
-    ~DemandHeuristicNetworkOptimizer() = default;
-    virtual void optimize();
-    virtual void import_information(SimTask ** taskgraph, size_t len);
-    virtual void* export_information();
+  DemandHeuristicNetworkOptimizer(MachineModel* machine);
+  ~DemandHeuristicNetworkOptimizer() = default;
+  virtual void optimize();
+  virtual void task_added(SimTask * task);
+  virtual void* export_information();
+
+  inline static bool has_endpoint(uint64_t e, size_t v, size_t n) {
+    return e / n == v || e % n == v;
+  }
+
+  inline static bool maxed(const std::unordered_map<size_t, size_t> & node_if_allocated, 
+                           size_t d, size_t n) 
+  {
+    size_t counter = 0;
+    for (auto & item: node_if_allocated) {
+      if (item.second == d) {
+        counter++;
+      }
+    }
+    return counter >= (n - 1);
+  }
+
+  inline static bool maxed(const std::unordered_map<size_t, size_t> & node_if_allocated, 
+            const std::unordered_set<size_t> & nodes_to_care,
+            size_t d) 
+  {
+    size_t counter = 0;
+    for (auto & item: node_if_allocated) {
+      if (nodes_to_care.find(item.first) != nodes_to_care.end() && item.second == d) {
+        counter++;
+      }
+    }
+    return counter >= (nodes_to_care.size() - 1);
+  }
+
+  std::unordered_map<uint64_t, uint64_t> dev_busy_time;
+  // std::unordered_map<size_t, uint64_t> dev_busy_time_gpu;
+  // std::unordered_map<size_t, uint64_t> dev_busy_time_dram_gpu;
+  // std::unordered_map<size_t, uint64_t> dev_busy_time_gpu_dram;
+  // std::unordered_map<size_t, uint64_t> dev_busy_time_gpu_gpu;
+  std::unordered_map<size_t, uint64_t> physical_traffic_demand;
+  std::unordered_map<size_t, uint64_t> logical_traffic_demand;
+
+  size_t if_cnt;
+
 };
-#endif
+// #endif
 
 template <typename T>
 class DotFile {

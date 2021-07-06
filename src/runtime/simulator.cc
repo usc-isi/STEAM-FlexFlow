@@ -1033,6 +1033,8 @@ void LogicalTaskgraphBasedSimulator::expand_allreduce(SimTask * allreduce_task,
       task->xfer_size = (2.0 * (n_participants-1))/n_participants * allreduce_task->xfer_size;
       task->add_next_task(final_task);
       ready_queue.push(task);
+      if (l1optimizer)
+        l1optimizer->task_added(task);
     }
     src_mem = dst_mem;
   }
@@ -1056,6 +1058,8 @@ void LogicalTaskgraphBasedSimulator::expand_allreduce(SimTask * allreduce_task,
       task->xfer_size = allreduce_task->xfer_size;
       task->add_next_task(ps_update_task);
       ready_queue.push(task);
+      if (l1optimizer)
+        l1optimizer->task_added(task);
     }
   }
 
@@ -1071,6 +1075,8 @@ void LogicalTaskgraphBasedSimulator::expand_allreduce(SimTask * allreduce_task,
       task->xfer_size = allreduce_task->xfer_size;
       ps_update_task->add_next_task(task);
       task->add_next_task(final_task);
+      if (l1optimizer)
+        l1optimizer->task_added(task);
     }
   }
 

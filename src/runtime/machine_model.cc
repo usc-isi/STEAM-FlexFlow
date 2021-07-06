@@ -865,16 +865,7 @@ NetworkedMachineModel::NetworkedMachineModel(int num_nodes,
   }
 
   routing_strategy = new ShortestPathNetworkRoutingStrategy(conn_matrix, ids_to_nw_comm_device, total_devs);
-
-  // nominal network links
-  for (int i = 0; i < num_nodes; i++) {
-    for (int j = 0; j < num_nodes; j++) {
-      int device_id = i * num_nodes + j;
-      std::string link_name = "NOMINAL " + std::to_string(i) + "-" + std::to_string(j);
-      ids_to_nw_nominal_device[device_id] = new NominalCommDevice(link_name, device_id);
-      ids_to_nw_nominal_device[device_id]->set_physical_paths(routing_strategy->get_routes(i, j));
-    }
-  }
+  update_route();
 }
 
 NetworkedMachineModel::~NetworkedMachineModel()
@@ -885,6 +876,21 @@ NetworkedMachineModel::~NetworkedMachineModel()
 int NetworkedMachineModel::get_version() const
 {
   return version;
+}
+
+void NetworkedMachineModel::update_route() {
+  // nominal network links
+  for (int i = 0; i < num_nodes; i++) {
+    for (int j = 0; j < num_nodes; j++) {
+      int device_id = i * num_nodes + j;
+      std::string link_name = "NOMINAL " + std::to_string(i) + "-" + std::to_string(j);
+      if (ids_to_nw_nominal_device.find(device_id) != ids_to_nw_nominal_device.end()) {
+        delete ids_to_nw_nominal_device[device_id];
+      }
+      ids_to_nw_nominal_device[device_id] = new NominalCommDevice(link_name, device_id);
+      ids_to_nw_nominal_device[device_id]->set_physical_paths(routing_strategy->get_routes(i, j));
+    }
+  }
 }
 
 CompDevice* NetworkedMachineModel::get_gpu(int device_id) const
@@ -1041,3 +1047,8 @@ void NetworkedMachineModel::set_pipeline(bool state)
   pipelined = state;
 }
 
+void NetworkedMachineModel::set_topology(const ConnectionMatrix &conn) 
+{
+  conn_matrix = conn;
+  update_route();
+}
