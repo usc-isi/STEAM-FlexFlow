@@ -1050,5 +1050,5 @@ void NetworkedMachineModel::set_pipeline(bool state)
 void NetworkedMachineModel::set_topology(const ConnectionMatrix &conn) 
 {
   conn_matrix = conn;
-  update_route();
+  // update_route();
 }

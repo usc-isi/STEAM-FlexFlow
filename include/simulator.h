@@ -132,6 +132,7 @@ public:
   virtual MemDevice *get_gpu_fb_mem(int devicd_id) const = 0;
   virtual int get_num_gpus() const = 0;
   virtual int get_total_devs() const {return get_num_gpus();}
+  virtual int get_num_nodes() const = 0;
   virtual float get_intra_node_gpu_bandwidth() const = 0;
   virtual float get_inter_node_gpu_bandwidth() const = 0;
   virtual float get_intra_node_gpu_latency() const = 0;
@@ -149,6 +150,7 @@ public:
   CompDevice *get_gpu(int device_id) const;
   MemDevice *get_gpu_fb_mem(int devicd_id) const;
   int get_num_gpus() const;
+  int get_num_nodes() const {return num_nodes;}
   float get_intra_node_gpu_bandwidth() const;
   float get_inter_node_gpu_bandwidth() const;
   float get_intra_node_gpu_latency() const {return 0;}
@@ -202,6 +204,7 @@ public:
     MemDevice *get_gpu_fb_mem(int socket_id, int local_id) const;
     CommDevice *get_nvlink(MemDevice *src_mem, MemDevice *tar_mem) const;
     int get_num_gpus() const;
+    int get_num_nodes() const {return num_nodes;}
     float get_intra_node_gpu_bandwidth() const;
     float get_inter_node_gpu_bandwidth() const;
     float get_intra_node_gpu_latency() const {return membus_latency;}
@@ -329,6 +332,8 @@ public:
   CompDevice *get_gpu(int device_id) const;
   MemDevice *get_gpu_fb_mem(int devicd_id) const;
   int get_num_gpus() const;
+  int get_num_nodes() const {return num_nodes;}
+  int get_total_devs() const {return num_nodes + num_switches;}
   float get_intra_node_gpu_bandwidth() const;
   float get_inter_node_gpu_bandwidth() const;
   float get_link_bandwidth() const;
@@ -520,6 +525,15 @@ public:
   virtual void optimize();
   virtual void task_added(SimTask * task);
   virtual void* export_information();
+  size_t edge_id(int i, int j);
+  size_t unordered_edge_id(int i, int j);
+
+  size_t get_if_in_use(size_t node, const ConnectionMatrix & conn);
+  bool add_link(size_t i, size_t j, ConnectionMatrix & conn);
+  void remove_link(size_t i, size_t j, ConnectionMatrix & conn);
+
+  void connect_cc(std::unordered_map<uint64_t, uint64_t> &logical_id_to_demand, 
+                  ConnectionMatrix &conn);
 
   inline static bool has_endpoint(uint64_t e, size_t v, size_t n) {
     return e / n == v || e % n == v;
@@ -549,6 +563,7 @@ public:
     }
     return counter >= (nodes_to_care.size() - 1);
   }
+
 
   std::unordered_map<uint64_t, uint64_t> dev_busy_time;
   // std::unordered_map<size_t, uint64_t> dev_busy_time_gpu;

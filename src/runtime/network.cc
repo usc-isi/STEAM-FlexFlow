@@ -6,7 +6,7 @@
 #include <unordered_set>
 
 #include "simulator.h"
-#define EDGE(a, b, n) ((a) > (b) ? ((a) * (n) + (b)) : ((b) * (n) + (a)))
+// #define EDGE(a, b, n) ((a) > (b) ? ((a) * (n) + (b)) : ((b) * (n) + (a)))
 #define PRINT_EDGE(e, n) do {std::cout << "(" << e / n << ", " << e % n << ")";} while (0);
 
 static std::random_device rd; 
@@ -223,27 +223,52 @@ void DemandHeuristicNetworkOptimizer::task_added(SimTask * task)
   }
 }
 
+size_t DemandHeuristicNetworkOptimizer::edge_id(int i, int j) 
+{
+  return i * machine->get_total_devs() + j;
+}
+
+size_t DemandHeuristicNetworkOptimizer::unordered_edge_id(int i, int j) 
+{
+  return i > j ? edge_id(i, j) : edge_id(j, i);
+}
+
 typedef std::pair<uint64_t, uint64_t> DemandToIdMap;
 
 void DemandHeuristicNetworkOptimizer::optimize()
 {
   NetworkedMachineModel * nm = static_cast<NetworkedMachineModel*>(this->machine);
-  size_t nnode = nm->num_nodes;
-  size_t ndevs = nnode + nm->num_switches;
+  
+  // This only works for flat network at the moment. 
+  // to extend this to a rack based design do this for the other part of
+  // the connection matrix, but the demand need to be summed.
+  size_t nnode = machine->get_num_nodes();
+  size_t ndevs = machine->get_total_devs();
     
+  std::unordered_map<size_t, uint64_t> max_of_bidir;
+  for (int i = 0; i < nnode; i++) {
+    for (int j = 0; j < nnode; j++) {
+      size_t eid = edge_id(i, j);
+      if (logical_traffic_demand.find(eid) == logical_traffic_demand.end()) {
+        size_t ueid = unordered_edge_id(i, j);
+        uint64_t traffic_amount = logical_traffic_demand[eid];
+        if (max_of_bidir.find(ueid) == max_of_bidir.end() 
+            || traffic_amount > max_of_bidir[ueid]) {
+          max_of_bidir[ueid] = traffic_amount;
+        }
+      }
+    }
+  }
   std::set<DemandToIdMap, std::greater<DemandToIdMap>> pq;
-  for (auto &item: logical_traffic_demand) {
+  for (auto &item: max_of_bidir) {
     pq.insert(DemandToIdMap(item.second, item.first));
   }
+
+  // TODO: copy machine-switch link?
   ConnectionMatrix conn = std::vector<int>(ndevs*ndevs, 0);
+
   std::unordered_map<size_t, size_t> node_if_allocated;
 
-  // void FFModel::reconfigure_topo2(Simulator * simulator,
-  //                     const std::map<Op*, ParallelConfig>& curr_pc,
-  //                     size_t if_cnt,
-  //                     std::vector<pair<uint64_t, uint64_t>> & demand,
-  //                     float & next_time) const 
-  // {     
   while (pq.size() > 0) {
 
     DemandToIdMap target = *pq.begin();
@@ -252,7 +277,9 @@ void DemandHeuristicNetworkOptimizer::optimize()
     size_t node0 = target.second / ndevs;
     size_t node1 = target.second % ndevs;
     
-    conn[target.second]++;
+    // conn[target.second]++;
+    conn[edge_id(node0, node1)]++;
+    conn[edge_id(node1, node0)]++;
 
     if (node_if_allocated.find(node0) == node_if_allocated.end()) {
       node_if_allocated[node0] = 1;
@@ -269,7 +296,7 @@ void DemandHeuristicNetworkOptimizer::optimize()
     }
 
     // std::cout << "first is " << target.first << std::endl;
-    target.first *= (double)conn[target.second]/(conn[target.second] + 1);
+    target.first /= 2; //*= (double)conn[target.second]/(conn[target.second] + 1);
     if (target.first > 0) {
       pq.insert(target);
     }
@@ -306,7 +333,7 @@ void DemandHeuristicNetworkOptimizer::optimize()
     if (linked_nodes.find(i) == linked_nodes.end())
       unlinked_nodes.push_back(i);
   }
-  // TODO: add all un-used nodes to a CC
+  // add all un-used nodes to a CC
   // cout << "unused node: " << endl;
   // for (auto n: unlinked_nodes) {
     // cout << "\t" << n;
@@ -332,8 +359,9 @@ void DemandHeuristicNetworkOptimizer::optimize()
         continue;
       } 
       if (visited_node.find(next_step) == visited_node.end()) {
-        uint64_t edge_id = EDGE(next_step, curr_node, ndevs);
-        conn[edge_id]++;
+        // uint64_t edge_id = unordered_edge_id(next_step, curr_node);
+        conn[edge_id(next_step, curr_node)]++;
+        conn[edge_id(curr_node, next_step)]++;
 
         if (node_if_allocated.find(next_step) == node_if_allocated.end()) {
           node_if_allocated[next_step] = 1;
@@ -381,8 +409,8 @@ void DemandHeuristicNetworkOptimizer::optimize()
       size_t node0 = node_with_avail_if[a].first;
       size_t node1 = node_with_avail_if[b].first;
 
-      uint64_t edge_id = EDGE(node0, node1, ndevs);
-      conn[edge_id]++;
+        conn[edge_id(node0, node1)]++;
+        conn[edge_id(node1, node0)]++;
 
       if (node_if_allocated.find(node0) == node_if_allocated.end()) {
         node_if_allocated[node0] = 1;
@@ -416,26 +444,224 @@ void DemandHeuristicNetworkOptimizer::optimize()
       }
     }
   
-    nm->set_topology(conn); 
+    
     std::cerr << "finished allocating CC for unused nodes. Network:" << std::endl;
     //simulator->print_conn_matrix();
-      
-    // }
   }
 
   // TODO: Make all CC connected
-  /*
   std::unordered_map<uint64_t, uint64_t> logical_id_to_demand;
-  for (auto & item: demand) {
+  for (auto & item: max_of_bidir) {
     logical_id_to_demand[item.second] = item.first;
   }
 
-  simulator->topo->connect_cc(logical_id_to_demand); 
+  connect_cc(logical_id_to_demand, conn); 
+  nm->set_topology(conn); 
+  nm->update_route();
   // simulator->print_conn_matrix();
-  */
 
 }
 
+size_t DemandHeuristicNetworkOptimizer::get_if_in_use(size_t node, const ConnectionMatrix & conn) 
+{
+  size_t result = 0;
+  for (int i = 0; i < machine->get_num_nodes(); i++) {
+    result += conn[edge_id(node, i)];
+  }
+  return result;
+}
+
+bool DemandHeuristicNetworkOptimizer::add_link(size_t i, size_t j, ConnectionMatrix & conn) 
+{
+  assert(i != j);
+  if (get_if_in_use(i, conn) >= if_cnt || get_if_in_use(j, conn) >= if_cnt) {
+    return false;
+  }
+  conn[edge_id(i, j)]++;
+  conn[edge_id(j, i)]++;
+  return true;
+}
+
+void DemandHeuristicNetworkOptimizer::remove_link(size_t i, size_t j, ConnectionMatrix & conn) 
+{
+  assert(i != j);
+  if (conn[edge_id(i, j)] > 0) {
+    conn[edge_id(i, j)]--;
+    conn[edge_id(j, i)]--;
+  }
+}
+
+void DemandHeuristicNetworkOptimizer::connect_cc(
+        std::unordered_map<uint64_t, uint64_t> & logical_id_to_demand, 
+        ConnectionMatrix &conn) 
+{
+  NetworkedMachineModel * nm = static_cast<NetworkedMachineModel*>(this->machine);
+  size_t num_nodes = nm->num_nodes;
+  size_t ndevs = nm->num_switches + num_nodes;
+
+  // reconnect phase
+  // find connected components 
+  int n_cc = 0;
+  std::vector<int> node_to_ccid = std::vector<int>(num_nodes, -1);
+  std::vector<std::set<size_t> > ccs;
+  // node_to_ccid[0] = 0;
+  std::queue<size_t> search_q;
+
+  for (size_t i = 0; i < num_nodes; i++) {
+    if (node_to_ccid[i] == -1) {
+      search_q.push(i);
+      node_to_ccid[i] = n_cc++;
+      ccs.emplace_back();
+      ccs.back().insert(i);
+      while (!search_q.empty()) {
+        size_t curr = search_q.front();
+        // node_to_ccid[curr] = n_cc;
+        search_q.pop();
+        for (size_t j = 0; j < num_nodes; j++) {
+          if (curr != j && conn[edge_id(curr, j)] > 0 && node_to_ccid[j] == -1) {
+            node_to_ccid[j] = node_to_ccid[curr];
+            ccs.back().insert(j);
+            search_q.push(j);
+          }
+        }
+      }
+      // n_cc++;
+    }
+    else {
+      continue;
+    }
+  }
+
+  // cout << "n_cc " << n_cc << endl;
+  // cout << "node_to_ccid:" << endl;
+
+  // for (size_t i = 0; i < node_to_ccid.size(); i++) {
+  //   cout << "\t" << i << ", " << node_to_ccid[i] << endl;
+  // }
+  
+  // for (size_t i = 0; i < ccs.size(); i++) {
+  //   cout << "CC " << i << ": " << endl;
+  //   for (size_t v: ccs[i]) {
+  //     cout << "\t" << v;
+  //   }
+  //   cout << endl;
+  // }
+  
+  assert(n_cc > 0);
+  if (n_cc > 1) {
+
+    // find the two lowest demanded line in the two CC and do a 2er
+    // size_t cc0 = 0;
+    // size_t cc1 = 1;
+
+    //std::vector<pair<uint64_t, uint64_t> > cc0_d, cc1_d;
+    int v00, v01, v10, v11;
+
+    while (n_cc > 1) {
+
+      if (ccs[0].size() == 1 && ccs[1].size() == 1) {
+        bool success = add_link(*ccs[0].begin(), *ccs[1].begin(), conn);
+        assert(success);
+        success = add_link(*ccs[0].begin(), *ccs[1].begin(), conn);
+        assert(success);
+      }
+
+      else if (ccs[0].size() == 1 || ccs[1].size() == 1) { // ccs[1].size > 1
+
+        size_t singleton = ccs[0].size() == 1 ? 0 : 1;
+        size_t group = singleton == 0 ? 1 : 0;
+
+        uint64_t e_to_remove = 0;
+        uint64_t min_demand = std::numeric_limits<uint64_t>::max();
+
+        for (size_t i = 0; i < num_nodes; i++) {
+          for (size_t j = i + 1; j < num_nodes; j++) {
+            if (ccs[group].find(i) != ccs[group].end() && 
+                ccs[group].find(j) != ccs[group].end() && 
+                conn[edge_id(i, j)] > 0) {
+              uint64_t ueid = unordered_edge_id(i, j);
+              if (logical_id_to_demand.find(ueid) == logical_id_to_demand.end()) {
+                e_to_remove = ueid;
+                break;
+              }
+              else {
+                if (logical_id_to_demand[ueid] < min_demand) {
+                  min_demand = logical_id_to_demand[ueid];
+                  e_to_remove = ueid;
+                }
+              }
+            }
+          }
+        }
+        assert(e_to_remove != 0);
+
+        // cout << "1-n removing " << e_to_remove % ndevs << ", " <<  e_to_remove / ndevs << endl;
+        remove_link(e_to_remove % ndevs, e_to_remove / ndevs, conn);
+        bool success = add_link(*ccs[singleton].begin(), e_to_remove % ndevs, conn);
+        assert(success);
+        success = add_link(*ccs[singleton].begin(), e_to_remove / ndevs, conn);
+        assert(success);
+
+      }
+
+      else {
+        std::vector<uint64_t> new_links;
+        for (size_t i = 0; i < num_nodes; i++) {
+          for (size_t j = i + 1; j < num_nodes; j++) {
+            if (conn[edge_id(i, j)] > 0) {
+              new_links.emplace_back(unordered_edge_id(i, j));
+            }
+          }
+        }
+
+        sort(new_links.begin(), new_links.end(), [&] (uint64_t lhs, uint64_t rhs) {
+          auto liter = logical_id_to_demand.find(lhs);
+          uint64_t l = liter == logical_id_to_demand.end() ? 0 : liter->second;
+          auto riter = logical_id_to_demand.find(rhs);
+          uint64_t r = riter == logical_id_to_demand.end() ? 0 : riter->second;
+          return l < r;
+        });
+        // cc0_d.clear();
+        // cc1_d.clear();
+        v00 = v01 = v10 = v11 = -1;
+
+        for (auto & item: new_links) {
+          size_t n0 = item % ndevs;
+          size_t n1 = item / ndevs;
+          if (v00 == -1 && 
+              ccs[0].find(n0) != ccs[0].end() &&
+              ccs[0].find(n1) != ccs[0].end()) {
+            v00 = n0;
+            v01 = n1;
+          }
+          else if (v10 == -1 && 
+              ccs[1].find(n0) != ccs[1].end() &&
+              ccs[1].find(n1) != ccs[1].end()) {
+            v10 = n0;
+            v11 = n1;
+          }
+          if (v00 != -1 && v10 != -1) {
+            
+            // cout << "swappig " << v00 << ", " << v01 << " and " << v10 << ", " << v11 << endl;
+            remove_link(v00, v01, conn);
+            remove_link(v10, v11, conn);
+            bool success = add_link(v00, v11, conn);
+            assert(success);
+            success = add_link(v01, v10, conn);
+            assert(success);
+
+            break;
+          }
+        }
+        assert(v00 != -1);
+      }
+      n_cc--;
+      ccs[1].insert(ccs[0].begin(), ccs[0].end());
+      ccs.erase(ccs.begin());
+    }
+  }
+  // assert(check_connected());
+}
 
 // TODO
 void* DemandHeuristicNetworkOptimizer::export_information()
