@@ -401,7 +401,7 @@ public:
   static void print_conn_matrix(const ConnectionMatrix &conn, int nnode, int nswitch) {
     int nnwdevs = nnode + nswitch;
     for (int i = 0; i < nnwdevs; i++) {
-      for (int j = 0; i < nnwdevs; j++) {
+      for (int j = 0; j < nnwdevs; j++) {
         std::cout << conn[i * nnwdevs + j] << "\t";
         if (j == nnode) std::cout << "\t";
       }
@@ -504,7 +504,7 @@ class L1Optimizer {
 public:
     L1Optimizer(MachineModel* machine)
         : machine(machine) {}
-    virtual void optimize() = 0;
+    virtual void optimize(int mcmc_iter, float sim_iter_time) = 0;
     virtual void task_added(SimTask * task) { return; };
     virtual void* export_information() = 0;
 
@@ -522,7 +522,7 @@ class DemandHeuristicNetworkOptimizer : public L1Optimizer {
 public:
   DemandHeuristicNetworkOptimizer(MachineModel* machine);
   ~DemandHeuristicNetworkOptimizer() = default;
-  virtual void optimize();
+  virtual void optimize(int mcmc_iter, float sim_iter_time);
   virtual void task_added(SimTask * task);
   virtual void* export_information();
   size_t edge_id(int i, int j);
@@ -574,6 +574,9 @@ public:
   std::unordered_map<size_t, uint64_t> logical_traffic_demand;
 
   size_t if_cnt;
+  float best_sim_time;
+  int num_iter_nochange;
+  int no_improvement_th;
 
 };
 // #endif

@@ -223,7 +223,7 @@ SimTask* TaskManager::new_allreduce_task(Op *op, const std::vector<int> &node_id
 {
   SimTask* task = new_task();
   task->type = SimTask::TASK_ALLREDUCE;
-  task->counter = node_ids[0];
+  // task->counter = node_ids[0];
   for (int i = 0; i < node_ids.size(); i++) {
     task->next_tasks.push_back(reinterpret_cast<SimTask*>(node_ids[i]));
   } 
@@ -879,8 +879,8 @@ float LogicalTaskgraphBasedSimulator::simulate_runtime(
       device_times[cur_task->device] = end_time;
     }
 
-    printf("task[%lu] type(%d) run_time(%.4lf) ready_time(%.4lf) start_time(%.4lf) device(%s)\n",
-          idx, cur_task->type, cur_task->run_time, ready_time, start_time, (cur_task->device->name).c_str());
+    printf("task[%lu/%lu] type(%d) run_time(%.4lf) ready_time(%.4lf) start_time(%.4lf) device(%s)\n",
+          idx, task_manager->global_task_id, cur_task->type, cur_task->run_time, ready_time, start_time, (cur_task->device->name).c_str());
 
     if (end_time > sim_time) {
       sim_time = end_time;
@@ -1015,6 +1015,7 @@ void LogicalTaskgraphBasedSimulator::expand_allreduce(SimTask * allreduce_task,
                                  std::priority_queue<SimTask*, std::vector<SimTask*>, SimTaskCompare>& ready_queue) {
 
   int n_participants = allreduce_task->next_tasks.size();
+  
   SimTask * final_task = new_update_task_unrecorded();
 
 #ifdef FF_USE_NCCL
@@ -1038,13 +1039,18 @@ void LogicalTaskgraphBasedSimulator::expand_allreduce(SimTask * allreduce_task,
     }
     src_mem = dst_mem;
   }
+  if (final_task->counter == 0) {
+    final_task->ready_time = allreduce_task->ready_time;
+    ready_queue.push(final_task);
+  }
 #else
   // assume parameter server in this case
-  MemDevice * leader_mem = machine->get_gpu_fb_mem(allreduce_task->counter);
+  MemDevice * leader_mem = machine->get_gpu_fb_mem(reinterpret_cast<uint64_t>(allreduce_task->next_tasks[0]));
   MemDevice * worker_mem;
   SimTask * ps_update_task = new_update_task_unrecorded();
-  ps_update_task->device = machine->get_gpu(allreduce_task->counter);
-  final_task->device = machine->get_gpu(allreduce_task->counter);
+  ps_update_task->device = machine->get_gpu(reinterpret_cast<uint64_t>(allreduce_task->next_tasks[0]));
+  final_task->device = machine->get_gpu(reinterpret_cast<uint64_t>(allreduce_task->next_tasks[0]));
+  ps_update_task->add_next_task(final_task);
 
   // ps gather
   for (int i = 0; i < n_participants; i++) {
@@ -1078,6 +1084,12 @@ void LogicalTaskgraphBasedSimulator::expand_allreduce(SimTask * allreduce_task,
       if (l1optimizer)
         l1optimizer->task_added(task);
     }
+  }
+
+  if (ps_update_task->counter == 0) {
+    assert(final_task->counter == 1);
+    ps_update_task->ready_time = allreduce_task->ready_time;
+    ready_queue.push(ps_update_task);
   }
 
 #endif

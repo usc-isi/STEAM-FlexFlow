@@ -1996,6 +1996,9 @@ void FFModel::optimize(Simulator* simulator,
       current = next;
       current_runtime = next_runtime;
     }
+
+    if (simulator->l1optimizer)
+      simulator->l1optimizer->optimize(iter, next_runtime);
   }
   printf("=========== Best Discovered Strategy ==========\n");
   simulator->simulate_runtime(this, best, comp_mode, this->config.export_strategy_task_graph_file);

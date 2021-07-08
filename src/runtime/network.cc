@@ -146,7 +146,10 @@ ConnectionMatrix FlatDegConstraintNetworkTopologyGenerator::generate_topology() 
     }
   }
 
+  std::cout << "Topology generated: " << std::endl;
+  NetworkTopologyGenerator::print_conn_matrix(conn, num_nodes, 0);
   return conn;
+  
 }
 
 int FlatDegConstraintNetworkTopologyGenerator::get_id(int i, int j) const
@@ -235,8 +238,15 @@ size_t DemandHeuristicNetworkOptimizer::unordered_edge_id(int i, int j)
 
 typedef std::pair<uint64_t, uint64_t> DemandToIdMap;
 
-void DemandHeuristicNetworkOptimizer::optimize()
+void DemandHeuristicNetworkOptimizer::optimize(int mcmc_iter, float sim_iter_time)
 {
+  if (sim_iter_time < best_sim_time) 
+    best_sim_time = sim_iter_time;
+  num_iter_nochange++;
+  if (sim_iter_time > best_sim_time && num_iter_nochange < no_improvement_th) 
+    return;
+  
+  num_iter_nochange = 0;
   NetworkedMachineModel * nm = static_cast<NetworkedMachineModel*>(this->machine);
   
   // This only works for flat network at the moment. 
@@ -304,11 +314,11 @@ void DemandHeuristicNetworkOptimizer::optimize()
     if (node_if_allocated[node0] == if_cnt || node_if_allocated[node1] == if_cnt) {
       for (auto it = pq.begin(); it != pq.end(); ) {
         if (node_if_allocated[node0] == if_cnt && DemandHeuristicNetworkOptimizer::has_endpoint(it->second, node0, ndevs)) {
-          // cout << "node0 full, removing " << it->second /ndevs << ", " << it->second % ndevs << " with demand left " << it->first << endl; 
+          // std::cout << "node0 full, removing " << it->second /ndevs << ", " << it->second % ndevs << " with demand left " << it->first << std::endl; 
           it = pq.erase(it);
         }
         else if (node_if_allocated[node1] == if_cnt && DemandHeuristicNetworkOptimizer::has_endpoint(it->second, node1, ndevs)) {
-          // cout << "node1 full, removing " << it->second /ndevs << ", " << it->second % ndevs << " with demand left " << it->first << endl; 
+          // std::cout << "node1 full, removing " << it->second /ndevs << ", " << it->second % ndevs << " with demand left " << it->first << std::endl; 
           it = pq.erase(it);
         }
         else {
@@ -334,11 +344,11 @@ void DemandHeuristicNetworkOptimizer::optimize()
       unlinked_nodes.push_back(i);
   }
   // add all un-used nodes to a CC
-  // cout << "unused node: " << endl;
+  // std::cout << "unused node: " << std::endl;
   // for (auto n: unlinked_nodes) {
-    // cout << "\t" << n;
+    // std::cout << "\t" << n;
   // }
-  // cout << endl;
+  // std::cout << std::endl;
   if (unlinked_nodes.size() > 1) {
 
     int allocated = 0;
@@ -449,7 +459,7 @@ void DemandHeuristicNetworkOptimizer::optimize()
     //simulator->print_conn_matrix();
   }
 
-  // TODO: Make all CC connected
+  // Make all CC connected
   std::unordered_map<uint64_t, uint64_t> logical_id_to_demand;
   for (auto & item: max_of_bidir) {
     logical_id_to_demand[item.second] = item.first;
@@ -532,19 +542,19 @@ void DemandHeuristicNetworkOptimizer::connect_cc(
     }
   }
 
-  // cout << "n_cc " << n_cc << endl;
-  // cout << "node_to_ccid:" << endl;
+  // std::cout << "n_cc " << n_cc << std::endl;
+  // std::cout << "node_to_ccid:" << std::endl;
 
   // for (size_t i = 0; i < node_to_ccid.size(); i++) {
-  //   cout << "\t" << i << ", " << node_to_ccid[i] << endl;
+  //   std::cout << "\t" << i << ", " << node_to_ccid[i] << std::endl;
   // }
   
   // for (size_t i = 0; i < ccs.size(); i++) {
-  //   cout << "CC " << i << ": " << endl;
+  //   std::cout << "CC " << i << ": " << std::endl;
   //   for (size_t v: ccs[i]) {
-  //     cout << "\t" << v;
+  //     std::cout << "\t" << v;
   //   }
-  //   cout << endl;
+  //   std::cout << std::endl;
   // }
   
   assert(n_cc > 0);
@@ -595,7 +605,7 @@ void DemandHeuristicNetworkOptimizer::connect_cc(
         }
         assert(e_to_remove != 0);
 
-        // cout << "1-n removing " << e_to_remove % ndevs << ", " <<  e_to_remove / ndevs << endl;
+        // std::cout << "1-n removing " << e_to_remove % ndevs << ", " <<  e_to_remove / ndevs << std::endl;
         remove_link(e_to_remove % ndevs, e_to_remove / ndevs, conn);
         bool success = add_link(*ccs[singleton].begin(), e_to_remove % ndevs, conn);
         assert(success);
@@ -642,7 +652,7 @@ void DemandHeuristicNetworkOptimizer::connect_cc(
           }
           if (v00 != -1 && v10 != -1) {
             
-            // cout << "swappig " << v00 << ", " << v01 << " and " << v10 << ", " << v11 << endl;
+            // std::cout << "swappig " << v00 << ", " << v01 << " and " << v10 << ", " << v11 << std::endl;
             remove_link(v00, v01, conn);
             remove_link(v10, v11, conn);
             bool success = add_link(v00, v11, conn);
