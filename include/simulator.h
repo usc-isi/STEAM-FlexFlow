@@ -325,8 +325,12 @@ public:
    * Constructor. A network topology specified as above needs to be provided
    * in the form of a single vector.
    */
-  NetworkedMachineModel(int num_nodes, int num_gpus_per_node, int num_switches, 
-      const std::vector<int>& topology, size_t capacity, float link_bandwidth);
+  NetworkedMachineModel(int num_nodes, 
+      int num_gpus_per_node, 
+      int num_switches, 
+      const std::vector<int>& topology, 
+      size_t capacity, 
+      float link_bandwidth);
   ~NetworkedMachineModel();
   int get_version() const;
   CompDevice *get_gpu(int device_id) const;

@@ -151,6 +151,16 @@ public:
   int simulator_segment_size;
   int simulator_max_num_segments;
   bool enable_propagation;
+
+  float iface_bandwidth;
+  float gpu_dram_bandwidth;
+  float inter_gpu_bandwidth;
+  float network_latency;
+  size_t node_degree;
+  int net_opt;
+  std::string topofile;
+  std::string measurefile;
+  size_t local_batch_sz_upperlimit;
 };
 
 class FFIterationConfig {

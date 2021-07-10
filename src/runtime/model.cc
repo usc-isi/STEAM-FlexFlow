@@ -17,8 +17,9 @@
 #include "mapper.h"
 #include "test_utils.h"
 #include "dirent.h"
-#include <unordered_set>
 #include "random_utils.h"
+#include <unordered_set>
+#include <limits>
 
 using namespace std;
 
@@ -2296,6 +2297,16 @@ FFConfig::FFConfig()
   syntheticInput = false;
   perform_fusion = false;
 
+  inter_gpu_bandwidth = 20 * 1024 * 1024.0f; /* B/ms*/
+  iface_bandwidth = 20.0 * 1024 * 1024 / 8; /* B/ms*/
+  gpu_dram_bandwidth = 16 * 1024 * 1024.0f; /* B/ms*/
+  network_latency = 0;
+  node_degree = 4;
+  net_opt = 0;
+  topofile = "";
+  measurefile = "";
+  local_batch_sz_upperlimit = std::numeric_limits<size_t>::max();
+
   // Parse input arguments
   {
     const InputArgs &command_args = HighLevelRuntime::get_input_args();
@@ -2428,6 +2439,42 @@ void FFConfig::parse_args(char **argv, int argc)
     }
     if (!strcmp(argv[i], "--enable-propagation")) {
       enable_propagation = true;
+      continue;
+    }
+    if (!strcmp(argv[i], "--interface-bandwidth")) {
+      iface_bandwidth = atoi(argv[++i]) * 1000 * 1000.0f / 8.0f;
+      continue;
+    }
+    if (!strcmp(argv[i], "--inter-gpu-bandwidth")) {
+      inter_gpu_bandwidth = atoi(argv[++i]) * 1000 * 1000.0f / 8.0f;
+      continue;
+    }
+    if (!strcmp(argv[i], "--gpu-dram-bandwidth")) {
+      gpu_dram_bandwidth = atoi(argv[++i]) * 1000 * 1000.0f / 8.0f;
+      continue;
+    }
+    if (!strcmp(argv[i], "--network-latency")) {
+      network_latency = atoi(argv[++i]) / 1000.0f;
+      continue;
+    }
+    if (!strcmp(argv[i], "--node-degree")) {
+      node_degree = atoi(argv[++i]) ;
+      continue;
+    }
+    if (!strcmp(argv[i], "--net-opt")) {
+      net_opt = atoi(argv[++i]);
+      continue;
+    }
+    if (!strcmp(argv[i], "--topo-file")) {
+      topofile = std::string(argv[++i]);
+      continue;
+    }
+    if (!strcmp(argv[i], "--meas-file")) {
+      measurefile = std::string(argv[++i]);
+      continue;
+    }
+    if (!strcmp(argv[i], "--max-localsz")) {
+      local_batch_sz_upperlimit = atoi(argv[++i]);
       continue;
     }
   }
