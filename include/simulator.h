@@ -510,6 +510,7 @@ public:
         : machine(machine) {}
     virtual void optimize(int mcmc_iter, float sim_iter_time) = 0;
     virtual void task_added(SimTask * task) { return; };
+    virtual void reset() = 0;
     virtual void* export_information() = 0;
 
 protected:
@@ -528,6 +529,7 @@ public:
   ~DemandHeuristicNetworkOptimizer() = default;
   virtual void optimize(int mcmc_iter, float sim_iter_time);
   virtual void task_added(SimTask * task);
+  virtual void reset();
   virtual void* export_information();
   size_t edge_id(int i, int j);
   size_t unordered_edge_id(int i, int j);
@@ -578,7 +580,8 @@ public:
   std::unordered_map<size_t, uint64_t> logical_traffic_demand;
 
   size_t if_cnt;
-  float best_sim_time;
+  float best_sim_time, curr_sim_time;
+  float alpha;
   int num_iter_nochange;
   int no_improvement_th;
 

@@ -587,7 +587,6 @@ ParallelConfig Op::get_random_parallel_config(const FFModel& ff, int nparts) con
           break;
         if (batch_size / i > ff.config.local_batch_sz_upperlimit) 
           continue;
-        // candidates.push_back(i);
       }
     }
     for (int i = 1; i <= ff.config.numNodes; i++) {
@@ -601,7 +600,6 @@ ParallelConfig Op::get_random_parallel_config(const FFModel& ff, int nparts) con
         const_cast<vector<int>*>(&candidates)->push_back(i * ff.config.workersPerNode);
         // printf("pupshing %d\n", i);
 
-        // candidates.push_back(i * ff.config.workersPerNode);
       }
     }
     // }

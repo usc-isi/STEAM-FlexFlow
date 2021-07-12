@@ -183,7 +183,9 @@ ConnectionMatrix BigSwitchNetworkTopologyGenerator::generate_topology() const
 
 DemandHeuristicNetworkOptimizer::DemandHeuristicNetworkOptimizer(MachineModel* machine) 
 : L1Optimizer(machine)
-{ }
+{
+  alpha = 0.1;
+}
 
 void DemandHeuristicNetworkOptimizer::task_added(SimTask * task) 
 {
@@ -192,6 +194,12 @@ void DemandHeuristicNetworkOptimizer::task_added(SimTask * task)
   NominalCommDevice *ncommDev;
   switch (task->type) {
   
+  case SimTask::TASK_COMM:
+    commDev = reinterpret_cast<CommDevice*>(task->device);
+    if (physical_traffic_demand.find(commDev->device_id) != physical_traffic_demand.end()) 
+      physical_traffic_demand[commDev->device_id] = task->xfer_size;
+    else
+      physical_traffic_demand[commDev->device_id] += task->xfer_size;
   case SimTask::TASK_BACKWARD: 
   case SimTask::TASK_FORWARD:
     key = reinterpret_cast<uint64_t>(task->device);
@@ -201,23 +209,20 @@ void DemandHeuristicNetworkOptimizer::task_added(SimTask * task)
       dev_busy_time[key] += task->run_time;
   break;
 
+  case SimTask::TASK_NOMINAL_COMM:
+    ncommDev = reinterpret_cast<NominalCommDevice*>(task->device);
+    if (logical_traffic_demand.find(ncommDev->device_id) != logical_traffic_demand.end()) 
+      logical_traffic_demand[ncommDev->device_id] = task->xfer_size;
+    else
+      logical_traffic_demand[ncommDev->device_id] += task->xfer_size;
+  break;
+
   case SimTask::TASK_ALLREDUCE:
 
   break;
 
   case SimTask::TASK_BARRIER:
 
-  break;
-
-  case SimTask::TASK_COMM:
-    dev_busy_time[reinterpret_cast<uint64_t>(task->device)] += task->run_time;
-    commDev = reinterpret_cast<CommDevice*>(task->device);
-    physical_traffic_demand[commDev->device_id] += task->xfer_size;
-  break;
-
-  case SimTask::TASK_NOMINAL_COMM:
-    ncommDev = reinterpret_cast<NominalCommDevice*>(task->device);
-    logical_traffic_demand[ncommDev->device_id] += task->xfer_size;
   break;
 
   case SimTask::TASK_UPDATE:
@@ -242,8 +247,17 @@ void DemandHeuristicNetworkOptimizer::optimize(int mcmc_iter, float sim_iter_tim
 {
   if (sim_iter_time < best_sim_time) 
     best_sim_time = sim_iter_time;
-  num_iter_nochange++;
-  if (sim_iter_time > best_sim_time && num_iter_nochange < no_improvement_th) 
+  float diff = sim_iter_time - curr_sim_time;
+  bool change = diff < 0 ? true :
+    static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX) < std::exp(-alpha * diff);
+  if (change) {
+    curr_sim_time = sim_iter_time;
+  }
+  else {
+    num_iter_nochange++;
+  }
+
+  if (!change && num_iter_nochange < no_improvement_th)
     return;
   
   num_iter_nochange = 0;
@@ -453,8 +467,6 @@ void DemandHeuristicNetworkOptimizer::optimize(int mcmc_iter, float sim_iter_tim
         distrib = std::uniform_int_distribution<>(0, node_with_avail_if.size() - 1);
       }
     }
-  
-    
     std::cerr << "finished allocating CC for unused nodes. Network:" << std::endl;
     //simulator->print_conn_matrix();
   }
@@ -671,6 +683,18 @@ void DemandHeuristicNetworkOptimizer::connect_cc(
     }
   }
   // assert(check_connected());
+}
+
+void DemandHeuristicNetworkOptimizer::reset() 
+{
+  dev_busy_time.clear();
+  physical_traffic_demand.clear();
+  logical_traffic_demand.clear();
+
+  best_sim_time = std::numeric_limits<float>::max();
+  curr_sim_time = std::numeric_limits<float>::max();
+  num_iter_nochange = 0;
+  
 }
 
 // TODO

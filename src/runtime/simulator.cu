@@ -266,7 +266,7 @@ void LogicalTaskgraphBasedSimulator::simulation_task(const Task *task,
   // Realm::Cuda::GPUFBMemory* memFBImpl = (Realm::Cuda::GPUFBMemory*) memImpl;
   // off_t offset = memFBImpl->alloc_bytes_local(model->config.simulator_work_space_size);
   // void* base_ptr = memFBImpl->get_direct_ptr(offset, 0);
-  FlatDegConstraintNetworkTopologyGenerator topo_gen = FlatDegConstraintNetworkTopologyGenerator(model->config.numNodes, model->config.numNodes - 1);
+  FlatDegConstraintNetworkTopologyGenerator topo_gen = FlatDegConstraintNetworkTopologyGenerator(model->config.numNodes, 4);
   
   NetworkedMachineModel *nmachine = new NetworkedMachineModel(model->config.numNodes, 
     model->config.workersPerNode,  
@@ -285,6 +285,11 @@ void LogicalTaskgraphBasedSimulator::simulation_task(const Task *task,
 
   // Assume this task is running on GPU0
   Simulator* simulator = new LogicalTaskgraphBasedSimulator(model, model->handlers[0], gpu_mem, machine);
+
+  DemandHeuristicNetworkOptimizer *dhopt = 
+    new DemandHeuristicNetworkOptimizer(machine);
+  simulator->l1optimizer = dhopt;
+
   // Set cublas/cudnn streams to allow Realm catch the events
 
   cudaStream_t stream;

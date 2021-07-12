@@ -442,6 +442,8 @@ float Simulator::simulate_runtime(const FFModel* model,
 {
   // printf("%s\n", machine->to_string().c_str());
   task_manager->reset();
+  if (l1optimizer)
+    l1optimizer->reset();
   // Step 1: register forward and backward tasks
   for (size_t l = 0; l < model->layers.size(); l++) {
     Op* op = model->layers[l];
@@ -754,6 +756,8 @@ float LogicalTaskgraphBasedSimulator::simulate_runtime(
 {
   // printf("%s\n", machine->to_string().c_str());
   task_manager->reset();
+  if (l1optimizer)
+    l1optimizer->reset();
   // Step 1: register forward and backward tasks
   for (size_t l = 0; l < model->layers.size(); l++) {
     Op* op = model->layers[l];
