@@ -117,6 +117,7 @@ void top_level_task(const Task* task,
     log_app.print("Number of Layers(%d)", tfConfig.num_layers);
     log_app.print("Sequence Length(%d)", tfConfig.sequence_length);
   }
+  ffConfig.numNodes = tfConfig.nsimnode;
   FFModel ff(ffConfig);
   Tensor input;
   {

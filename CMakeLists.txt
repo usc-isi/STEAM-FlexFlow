@@ -192,6 +192,7 @@ endif()
 
 if(FF_BUILD_DLRM OR FF_BUILD_ALL_EXAMPLES)
   add_subdirectory(examples/cpp/DLRM)
+  add_subdirectory(examples/cpp/DLRMsim)
 
   # add_executable(generate_dlrm_hetero_strategy src/runtime/dlrm_strategy_hetero.cc)
   # target_include_directories(generate_dlrm_hetero_strategy PUBLIC ${FLEXFLOW_INCLUDE_DIRS})
