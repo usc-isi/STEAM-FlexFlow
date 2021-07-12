@@ -231,7 +231,8 @@ public:
       const ParallelConfig& pc,
       CostMetrics& cost_metrics) = 0;
   // Other virtual functions that can be optionally overwritten
-  virtual ParallelConfig get_random_parallel_config(const FFModel& ff) const;
+  // virtual ParallelConfig get_random_parallel_config(const FFModel& ff) const;
+  virtual ParallelConfig get_random_parallel_config(const FFModel& ff, int nparts = -1) const;
   virtual ParallelConfig get_data_parallel_config(const FFModel& ff) const;
   virtual bool is_valid_parallel_config(const FFModel& ff, const ParallelConfig& pc) const;
   virtual bool is_adoptable_parallel_config(FFModel const &ff, ParallelConfig const &pc) const;
@@ -269,6 +270,9 @@ public:
   OpMeta* meta[MAX_NUM_WORKERS];
   int numInputs, numWeights, numOutputs;
   bool profiling;
+
+  std::vector<int> candidates;
+
 #ifdef FF_USE_NCCL
   ncclUniqueId ncclId;
 #endif
@@ -1034,7 +1038,7 @@ public:
   bool measure_operator_cost(Simulator* sim,
                              const ParallelConfig& pc,
                              CostMetrics& cost_metrics);
-  ParallelConfig get_random_parallel_config(const FFModel& ff) const;
+  ParallelConfig get_random_parallel_config(const FFModel& ff, int) const;
   bool is_valid_parallel_config(const FFModel& ff, const ParallelConfig& pc) const;
 private:
   template<int NDIM>

@@ -1074,10 +1074,10 @@ bool Linear::measure_operator_cost(Simulator* sim,
   return true;
 }
 
-ParallelConfig Linear::get_random_parallel_config(const FFModel& ff) const
+ParallelConfig Linear::get_random_parallel_config(const FFModel& ff, int nparts) const
 {
   if (!ff.config.enable_parameter_parallel)
-    return Op::get_random_parallel_config(ff);
+    return Op::get_random_parallel_config(ff, nparts);
   std::vector<int> batch_candidates;
   std::vector<int> channel_candidates;
   int batch = outputs[0].adim[outputs[0].numDim-1];

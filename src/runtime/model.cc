@@ -22,6 +22,7 @@
 #include <limits>
 
 using namespace std;
+static const uint64_t GPU_MEM = 42949672960ULL;
 
 LegionRuntime::Logger::Category log_model("Model");
 
@@ -510,34 +511,182 @@ ParallelConfig get_basic_data_parallel_config(int num_parts, int dims)
   return pc;
 }
 
-ParallelConfig Op::get_random_parallel_config(const FFModel& ff) const
+// ParallelConfig Op::get_random_parallel_config(const FFModel& ff) const
+// {
+//   std::vector<int> candidates;
+//   int batch_size = outputs[0].adim[outputs[0].numDim-1];
+//   for (int i = 1; i <= ff.config.workersPerNode; i++)
+//     if (ff.config.workersPerNode % i == 0) {
+//       if (batch_size % i != 0)
+//         continue;
+//       candidates.push_back(i);
+//     }
+//   for (int i = 1; i <= ff.config.numNodes; i++)
+//     if (ff.config.numNodes % i == 0) {
+//       if (batch_size % (i * ff.config.workersPerNode) != 0)
+//         continue;
+//       candidates.push_back(i * ff.config.workersPerNode);
+//     }
+//   assert(candidates.size() > 0);
+//   int idx = std::rand() % candidates.size();
+//   int num_parts = candidates[idx];
+//   ParallelConfig pc;
+//   pc.device_type = ParallelConfig::GPU;
+//   pc.nDims = outputs[0].numDim;
+//   for (int i = 0; i < pc.nDims; i++)
+//     pc.dim[i] = i == pc.nDims - 1 ? num_parts : 1;
+//   int total_num_devices = ff.config.workersPerNode * ff.config.numNodes;
+//   int start_idx = std::rand() % (total_num_devices - num_parts + 1);
+//   for (int i = 0; i < num_parts; i++)
+//     pc.device_ids[i] = start_idx + i;
+//   return pc;
+// }
+
+ParallelConfig Op::get_random_parallel_config(const FFModel& ff, int nparts) const
 {
-  std::vector<int> candidates;
-  int batch_size = outputs[0].adim[outputs[0].numDim-1];
-  for (int i = 1; i <= ff.config.workersPerNode; i++)
-    if (ff.config.workersPerNode % i == 0) {
-      if (batch_size % i != 0)
-        continue;
-      candidates.push_back(i);
+  int num_parts;
+  if (nparts < 0) {
+
+  if (candidates.size() == 0) {
+    // if (ff.config.measurefile != "") {
+    //   // std::vector<int> & const known_cds = ff.opcandidates[string(generic_name)];
+    //   for (int i: ff.opcandidates[string(generic_name)]) {
+    //     const_cast<vector<int>*>(&candidates)->push_back(i);
+    //     printf("Adding %d for op %s\n", i, name);
+    //   }
+    // }
+    // else {
+    /*
+    if (instanceof<Embedd>(this)) {
+      const_cast<vector<int>*>(&candidates)->push_back(1);
+      goto ugly;
     }
-  for (int i = 1; i <= ff.config.numNodes; i++)
-    if (ff.config.numNodes % i == 0) {
-      if (batch_size % (i * ff.config.workersPerNode) != 0)
-        continue;
-      candidates.push_back(i * ff.config.workersPerNode);
+    */
+    uint64_t opsz = std::numeric_limits<uint64_t>::max();
+    for (int i = 0; i < numWeights; i++) {
+      if (weights[i].get_volume() < opsz)  {
+        opsz = weights[i].get_volume() * sizeof(float);
+      }
     }
-  assert(candidates.size() > 0);
+    cout << name << " sz: " << opsz << endl;
+    
+    if (opsz > 5120000000ULL) {
+      const_cast<vector<int>*>(&candidates)->push_back(1);
+      goto ugly;
+    }
+
+    int batch_size = outputs[0].adim[outputs[0].numDim-1];
+    for (int i = 1; i <= ff.config.workersPerNode; i++) {
+      if (ff.config.workersPerNode % i == 0) {
+        if (batch_size % i != 0)
+          continue;
+        // bite me...
+        const_cast<vector<int>*>(&candidates)->push_back(i);
+        // printf("pushing %d\n", i);
+        if (i > opsz || i > (GPU_MEM / opsz))
+          break;
+        if (batch_size / i > ff.config.local_batch_sz_upperlimit) 
+          continue;
+        // candidates.push_back(i);
+      }
+    }
+    for (int i = 1; i <= ff.config.numNodes; i++) {
+      if (ff.config.numNodes % i == 0) {
+        if (batch_size % (i * ff.config.workersPerNode) != 0)
+          continue;
+        if (i * ff.config.workersPerNode > opsz || i * ff.config.workersPerNode > (GPU_MEM / opsz))
+          break;
+        if (batch_size / (i * ff.config.workersPerNode) > ff.config.local_batch_sz_upperlimit) 
+          continue;
+        const_cast<vector<int>*>(&candidates)->push_back(i * ff.config.workersPerNode);
+        // printf("pupshing %d\n", i);
+
+        // candidates.push_back(i * ff.config.workersPerNode);
+      }
+    }
+    // }
+    assert(candidates.size() > 0);
+  }
+ugly:
   int idx = std::rand() % candidates.size();
-  int num_parts = candidates[idx];
+  num_parts = candidates[idx];
+  }
+  else {
+    num_parts = nparts;
+  }
   ParallelConfig pc;
   pc.device_type = ParallelConfig::GPU;
   pc.nDims = outputs[0].numDim;
   for (int i = 0; i < pc.nDims; i++)
     pc.dim[i] = i == pc.nDims - 1 ? num_parts : 1;
   int total_num_devices = ff.config.workersPerNode * ff.config.numNodes;
-  int start_idx = std::rand() % (total_num_devices - num_parts + 1);
-  for (int i = 0; i < num_parts; i++)
-    pc.device_ids[i] = start_idx + i;
+
+  if (num_parts <= ff.config.workersPerNode) {
+    // printf("===NumParts: %d===\n", num_parts);
+  
+    int start_node = std::rand() % ff.config.numNodes;
+    int start_idx = start_node * ff.config.workersPerNode + 
+                    std::rand() % (ff.config.workersPerNode - num_parts + 1); 
+    for (int i = 0; i < num_parts; i++)
+      pc.device_ids[i] = start_idx + i;
+    // printf("start_node: %d, start_idx: %d, pc.device_ids[num_parts - 1]: %d\n", start_node, start_idx, pc.device_ids[num_parts - 1]);
+    assert(pc.device_ids[num_parts - 1] < total_num_devices);
+  }
+
+  else {
+    // assume 2^n for now..
+    int nnodes_to_use = (num_parts / ff.config.workersPerNode);
+    assert(num_parts % ff.config.workersPerNode == 0);
+    assert(ff.config.numNodes % nnodes_to_use == 0);
+// #ifdef NETWORK_OPT
+    int node_dist;  // = ff.config.numNodes / nnodes_to_use;
+    int start_node; // = std::rand() % node_dist;
+    if (ff.config.net_opt) {
+      node_dist = ff.config.numNodes / nnodes_to_use;
+      start_node = std::rand() % node_dist;
+    }
+    else {
+      start_node = std::rand() % ff.config.numNodes;
+      node_dist = 1; // std::rand() % ff.config.numNodes;
+    }
+// #else
+// #endif
+    // int gcd_nd = std::gcd(start_node, node_dist);
+    // while (node_dist == 0 || gcd_nd == 0 || ff.config.numNodes / gcd_nd < num_parts) {
+    //   node_dist = std::rand() % ff.config.numNodes;
+    //   gcd_nd = std::gcd(start_node, node_dist);
+    // }
+
+    int cnt = 0;
+    for (int i = 0; i < nnodes_to_use; i++) {
+      // cout << start_node << ", ";
+      for (int j = 0; j < ff.config.workersPerNode; j++) {
+        pc.device_ids[cnt++] = start_node * ff.config.workersPerNode + j;
+        // printf("assigned Node %d - GPU %d (id %d)\n", start_node, j, start_node * ff.config.workersPerNode + j);
+      }
+      start_node = (start_node + node_dist) % ff.config.numNodes;
+    }
+    // cout << endl;
+    assert(cnt == num_parts);
+    std::sort(pc.device_ids, pc.device_ids + num_parts);
+  }
+  pc.pserver = pc.device_ids[std::rand() % num_parts];
+
+  // flip a coin and reverse the assignment
+  // if (std::rand() % 2) {
+  //   int tmp;
+  //   for (int i = 0; i < num_parts / 2; i++) {
+  //     tmp = pc.device_ids[i];
+  //     pc.device_ids[i] = pc.device_ids[num_parts - i - 1];
+  //     pc.device_ids[num_parts - i - 1] = tmp;
+  //   }
+  // }
+
+  // for (int i = 0; i < num_parts; i++)
+  //   printf("i: %d - pc.device_ids[i]: %d\n", i, pc.device_ids[i]);
+  // int start_idx = std::rand() % (total_num_devices - num_parts + 1);
+  // for (int i = 0; i < num_parts; i++)
+  //   pc.device_ids[i] = start_idx + i;
   return pc;
 }
 
@@ -1935,6 +2084,7 @@ void FFModel::rewrite(const std::map<Op*, ParallelConfig>& current,
                       std::map<Op*, ParallelConfig>& next,
                       bool use_propagation) const
 {
+  FFModel * ffmodel = const_cast<FFModel*>(this); 
   next = current;
   float propagate_chance;
   if (use_propagation) {
@@ -1950,7 +2100,7 @@ void FFModel::rewrite(const std::map<Op*, ParallelConfig>& current,
     //TODO: need to make sure opId is not an output layer of the model
     if (opId == layers.size() - 1)
       return;
-    next[layers[opId]] = layers[opId]->get_random_parallel_config(*this);
+    next[layers[opId]] = layers[opId]->get_random_parallel_config(*ffmodel);
   }
 }
 

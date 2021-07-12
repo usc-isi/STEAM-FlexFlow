@@ -202,6 +202,7 @@ endif()
 
 if(FF_BUILD_TRANSFORMER OR FF_BUILD_ALL_EXAMPLES)
   add_subdirectory(examples/cpp/Transformer)
+  add_subdirectory(examples/cpp/Transformersim)
 endif()
 
 # installation

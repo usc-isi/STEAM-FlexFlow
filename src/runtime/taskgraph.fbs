@@ -1,0 +1,85 @@
+namespace FlatBufTaskGraph;
+
+enum SimTaskType {
+  TASK_FORWARD = 0,
+  TASK_BACKWARD = 1,
+  TASK_COMM = 2,
+  TASK_UPDATE = 3,
+  TASK_BARRIER = 4,
+  TASK_NOMINAL_COMM = 5,
+  TASK_ALLREDUCE = 6
+}
+
+enum DeviceType {
+  DEVICE_COMP_GPU = 0,
+  DEVICE_COMP_CPU = 1,
+  DEVICE_MEM_SYSTEM = 2,
+  DEVICE_MEM_Z_COPY = 3,
+  DEVICE_MEM_GPU_FB = 4,
+  DEVOCE_COMM_MEMBUS_COMM = 5,
+  DEVOCE_COMM_UPI_IN_COMM = 6,
+  DEVOCE_COMM_UPI_OUT_COMM = 7,
+  DEVOCE_COMM_NIC_IN_COMM = 8,
+  DEVOCE_COMM_NIC_OUT_COMM = 9,
+  DEVOCE_COMM_PCI_TO_HOST_COMM = 10,
+  DEVOCE_COMM_PCI_TO_DEV_COMM = 11,
+  DEVOCE_COMM_NVLINK_COMM = 12,
+  DEVOCE_COMM_NW_COMM = 13,
+  DEVOCE_COMM_NW_NOMINAL = 14,
+}
+
+table Task {
+  type: SimTaskType;
+  taskid: ulong;
+  deviceid: ulong;
+  opid: ulong;
+  runtime: float = 0;
+  xfersize: float = 0;
+  nexttasks: [ulong]; 
+}
+
+table Device {
+  type: DeviceType;
+  deviceid: ulong;
+  nodeid: uint = 0;
+  gpuid: uint = 0;
+  bandwidth: ulong = 0;
+  fromgpu: uint = 0;
+  togpu: uint = 0;
+  fromnode: uint = 0;
+  tonode: uint = 0;
+}
+
+table Connection {
+  fromnode: uint;
+  tonode: uint;
+  nconn: uint;
+}
+
+table Path {
+  hopnode: [uint];
+}
+
+table Route {
+  fromnode: uint;
+  tonode: uint;
+  paths: [Path];
+}
+
+table TaskGraph {
+  nGPUPerNode: uint;
+  nNode: uint;
+  interGPUBW: float;
+  dramBW: float;
+  netBW: float;
+  conn: [Connection];
+  ops: ulong;
+  tasks: [Task];
+  devices: [Device];
+  routes: [Route];
+}
+
+table Topology {
+  conn: [Connection]; 
+  routes: [Route];
+}
