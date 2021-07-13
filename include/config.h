@@ -162,6 +162,8 @@ public:
   std::string topofile;
   std::string measurefile;
   size_t local_batch_sz_upperlimit;
+  bool enable_control_replication;
+  int python_data_loader_type;
 };
 
 class FFIterationConfig {
