@@ -25,6 +25,7 @@ USE_HIP         ?= 0
 HIP_TARGET      ?= CUDA
 USE_GPU_REDUCTIONS ?= 0
 FF_USE_NCCL  ?= 0
+# FF_PYTHON_USE_INDEX_LOADER = 1
 
 USE_PYTHON := 1
 ifndef PYTHON_LIB
@@ -100,16 +101,22 @@ endif
 
 FF_USE_PYTHON = $(USE_PYTHON)
 
+FF_HOME ?= ../
+LG_RT_DIR ?= $(FF_HOME)/deps/legion/runtime
+
 include $(FF_HOME)/FlexFlow.mk
 
 NO_BUILD_ALL=1
 .PHONY: all
-all: $(OUTFILE) flexflow/core/legion_cffi.py $(FF_BYBIND_LIB)
+all: $(OUTFILE) flexflow/core/legion_cffi_header.py flexflow/core/flexflow_cffi_header.py $(FF_BYBIND_LIB)
 
 DEFINE_HEADERS_DIR ?= ./
 
-flexflow/core/legion_cffi.py: legion_cffi.py.in legion_cffi_build.py
+flexflow/core/legion_cffi_header.py: legion_cffi_header.py.in legion_cffi_build.py $(LG_RT_DIR)/legion.h
 	$(PYTHON_EXE) legion_cffi_build.py --runtime-dir $(LG_RT_DIR) --defines-dir $(DEFINE_HEADERS_DIR) --output-dir flexflow/core
+	
+flexflow/core/flexflow_cffi_header.py: flexflow_cffi_header.py.in flexflow_cffi_build.py flexflow_c.h
+	$(PYTHON_EXE) flexflow_cffi_build.py --ffhome-dir $(FF_HOME) --output-dir flexflow/core
 
 ifeq ($(strip $(FF_USE_NATIVE_PYTHON)), 0)
 $(FF_BYBIND_LIB): bindings.cc
@@ -120,5 +127,5 @@ $(FF_BYBIND_LIB): bindings.cc $(APP_OBJS) $(SLIB_LEGION) $(SLIB_REALM)
 endif
 
 clean::
-	$(RM) -f $(FF_BYBIND_LIB) legion_defines.h realm_defines.h flexflow/core/legion_cffi.py *.pyc
+	$(RM) -f $(FF_BYBIND_LIB) legion_defines.h realm_defines.h flexflow/core/legion_cffi_header.py flexflow/core/flexflow_cffi_header.py *.pyc
 	$(RM) -rf build dist *.egg-info

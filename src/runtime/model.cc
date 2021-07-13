@@ -269,10 +269,10 @@ Op::Op(FFModel& model,
   assert(pcname.length() < MAX_OPNAME);
   std::strcpy(name, pcname.c_str());
   inputs[0] = _input;
-  //for (int i = 0; i < numInputs; i++) {
-  //  trainableInputs[i] = true;
-  //  resetInputGrads[i] = true;
-  //}
+  for (int i = 0; i < numInputs; i++) {
+    trainableInputs[i] = true;
+    //resetInputGrads[i] = true;
+  }
   for (int i = 0; i < MAX_NUM_OUTPUTS; i++) {
     outputs[i].owner_op = this;
     outputs[i].owner_idx = i;
@@ -304,10 +304,10 @@ Op::Op(FFModel& model,
   assert(pcname.length() < MAX_OPNAME);
   std::strcpy(name, pcname.c_str());
   inputs[0] = _input;
-  //for (int i = 0; i < numInputs; i++) {
-  //  trainableInputs[i] = true;
-  //  resetInputGrads[i] = true;
-  //}
+  for (int i = 0; i < numInputs; i++) {
+    trainableInputs[i] = true;
+    //resetInputGrads[i] = true;
+  }
   for (int i = 0; i < MAX_NUM_OUTPUTS; i++) {
     outputs[i].owner_op = this;
     outputs[i].owner_idx = i;
@@ -336,10 +336,10 @@ Op::Op(FFModel& model,
   std::strcpy(name, pcname.c_str());
   inputs[0] = _input1;
   inputs[1] = _input2;
-  //for (int i = 0; i < numInputs; i++) {
-  //  trainableInputs[i] = true;
-  //  resetInputGrads[i] = true;
-  //}
+  for (int i = 0; i < numInputs; i++) {
+    trainableInputs[i] = true;
+    //resetInputGrads[i] = true;
+  }
   for (int i = 0; i < MAX_NUM_OUTPUTS; i++) {
     outputs[i].owner_op = this;
     outputs[i].owner_idx = i;
@@ -370,10 +370,10 @@ Op::Op(FFModel& model,
   inputs[0] = _input1;
   inputs[1] = _input2;
   inputs[2] = _input3;
-  //for (int i = 0; i < numInputs; i++) {
-  //  trainableInputs[i] = true;
-  //  resetInputGrads[i] = true;
-  //}
+  for (int i = 0; i < numInputs; i++) {
+    trainableInputs[i] = true;
+    //resetInputGrads[i] = true;
+  }
   for (int i = 0; i < MAX_NUM_OUTPUTS; i++) {
     outputs[i].owner_op = this;
     outputs[i].owner_idx = i;
@@ -402,10 +402,10 @@ Op::Op(FFModel& model,
   std::strcpy(name, pcname.c_str());
   for (int i = 0; i < n; i++)
     inputs[i] = _inputs[i];
-  //for (int i = 0; i < numInputs; i++) {
-  //  trainableInputs[i] = true;
-  //  resetInputGrads[i] = true;
-  //}
+  for (int i = 0; i < numInputs; i++) {
+    trainableInputs[i] = true;
+    //resetInputGrads[i] = true;
+  }
   for (int i = 0; i < MAX_NUM_OUTPUTS; i++) {
     outputs[i].owner_op = this;
     outputs[i].owner_idx = i;
@@ -431,10 +431,10 @@ Op::Op(FFModel& model,
   pcname = pcname + "_" + std::to_string(model.op_global_guid++);
   assert(pcname.length() < MAX_OPNAME);
   std::strcpy(name, pcname.c_str());
-  //for (int i = 0; i < numInputs; i++) {
-  //  trainableInputs[i] = true;
-  //  resetInputGrads[i] = true;
-  //}
+  for (int i = 0; i < numInputs; i++) {
+    trainableInputs[i] = true;
+    //resetInputGrads[i] = true;
+  }
   for (int i = 0; i < MAX_NUM_OUTPUTS; i++) {
     outputs[i].owner_op = this;
     outputs[i].owner_idx = i;
@@ -856,8 +856,11 @@ ncclComm_t Op::init_nccl_comms_task(const Task* task,
 #endif
 
 OpMeta::OpMeta(FFHandler _handle)
-: handle(_handle)
-{}
+: handle(_handle), profiling(false)
+{
+  for (int i = 0; i < MAX_NUM_INPUTS; i++)
+    trainableInputs[i] = true;
+}
 
 FFModel::FFModel(FFConfig& _config , bool simonly)
 : op_global_guid(100), config(_config),
@@ -1831,6 +1834,16 @@ void FFModel::compile(LossType loss_type,
     }
   }
 
+  // If an operator's input is training data
+  // No need to compute its gradients
+  for (size_t l = 0; l < layers.size(); l++) {
+    Op* op = layers[l];
+    for (int i = 0; i < op->numInputs; i++) {
+      if (op->inputs[i].owner_op == NULL)
+        op->trainableInputs[i] = false;
+    }
+  }
+
   // Perform fusion optimizations
   if (config.perform_fusion) {
     fprintf(stderr, "Applying fusion optimizations during compilation...\n");
@@ -2410,8 +2423,10 @@ struct DefaultConfig {
   const static bool enableAttributeParallel = false;
   const static bool allowTensorOpMathConversion = false;
   const static int machine_model_version = 0;
-  const static int simulator_segment_size = 1500; // 16777216; // 16 MB
-  const static int simulator_max_num_segments = 131072;
+  const static int simulator_segment_size = 16777216; // 16 MB
+  const static int simulator_max_num_segments = 1;
+  const static bool enable_control_replication = false;
+  const static int python_data_loader_type = 1;
 };
 
 FFConfig::FFConfig()
@@ -2438,6 +2453,8 @@ FFConfig::FFConfig()
   machine_model_version = DefaultConfig::machine_model_version;
   simulator_segment_size = DefaultConfig::simulator_segment_size;
   simulator_max_num_segments = DefaultConfig::simulator_max_num_segments;
+  enable_control_replication = DefaultConfig::enable_control_replication;
+  python_data_loader_type = DefaultConfig::python_data_loader_type;
   machine_model_file = "";
   import_strategy_file = "";
   export_strategy_file = "";
@@ -2624,6 +2641,14 @@ void FFConfig::parse_args(char **argv, int argc)
     }
     if (!strcmp(argv[i], "--max-localsz")) {
       local_batch_sz_upperlimit = atoi(argv[++i]);
+      continue;
+    }
+    if (!strcmp(argv[i], "--control-replication")) {
+      enable_control_replication = true;
+      continue;
+    }
+    if (!strcmp(argv[i], "--python-data-loader-type")) {
+      python_data_loader_type = atoi(argv[++i]);
       continue;
     }
   }
