@@ -41,7 +41,7 @@ Simulator::Simulator(const FFModel* model,
   base_ptr = (char*)simulatorInst.pointer_untyped(0, sizeof(char));
   capacity = model->config.simulator_work_space_size;
 
-  size_t max_num_tasks = 1024 * 1024;
+  size_t max_num_tasks = 256 * 1024 * 1024;
 
   cudaEventCreate(&start_event);
   cudaEventCreate(&end_event);
@@ -288,6 +288,7 @@ void LogicalTaskgraphBasedSimulator::simulation_task(const Task *task,
 
   DemandHeuristicNetworkOptimizer *dhopt = 
     new DemandHeuristicNetworkOptimizer(machine);
+  dhopt->if_cnt = model->config.node_degree;
   simulator->l1optimizer = dhopt;
 
   // Set cublas/cudnn streams to allow Realm catch the events

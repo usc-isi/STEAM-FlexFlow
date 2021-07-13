@@ -95,7 +95,7 @@ void top_level_task(const Task* task,
   }
 
   ffConfig.numNodes = dlrmConfig.nsimnode;
-  FFModel ff(ffConfig);
+  FFModel ff(ffConfig, true);
 
   std::vector<Tensor> sparse_inputs;
   for (size_t i = 0; i < dlrmConfig.embedding_size.size(); i++) {
@@ -260,6 +260,14 @@ void parse_input_args(char **argv, int argc, DLRMConfig& config)
       config.data_size = atoi(argv[++i]);
       continue;
     }
+    if (!strcmp(argv[i], "--nsimnode")) {
+      config.nsimnode = std::atoi(argv[++i]);
+      continue;
+    }
+    if (!strcmp(argv[i], "--nsimgpu")) {
+      config.nsimgpu = std::atoi(argv[++i]);
+      continue;
+    } 
   }
 }
 

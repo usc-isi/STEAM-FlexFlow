@@ -271,10 +271,10 @@ size_t data_type_size(DataType type) {
 
 void* Simulator::allocate(size_t num_elements, DataType type)
 {
-  size_t element_size = data_type_size(type);
+  off_t element_size = data_type_size(type);
   void* ret_ptr = base_ptr + offset;
   offset += element_size * num_elements;
-  if ((size_t)offset > capacity) {
+  if (offset > capacity) {
     fprintf(stderr, "Simulator cannot measure some operators' performance."
         " Increate --simulator-workspace-size to at least %zd\n", offset);
     exit(0);
@@ -653,8 +653,8 @@ float Simulator::simulate_runtime(const FFModel* model,
       nodeAttrs["shape"] = "record";
       taskGraph.add_node(cur_task, nodeAttrs);
     }
-    printf("task[%lu] type(%d) run_time(%.4lf) ready_time(%.4lf) start_time(%.4lf) device(%s)\n",
-          idx, cur_task->type, cur_task->run_time, ready_time, start_time, (cur_task->device->name).c_str());
+    // printf("task[%lu] type(%d) run_time(%.4lf) ready_time(%.4lf) start_time(%.4lf) device(%s)\n",
+    //       idx, cur_task->type, cur_task->run_time, ready_time, start_time, (cur_task->device->name).c_str());
     if (end_time > sim_time)
       sim_time = end_time;
     for (size_t i = 0; i < cur_task->next_tasks.size(); i++) {
@@ -907,31 +907,31 @@ float LogicalTaskgraphBasedSimulator::simulate_runtime(
   assert(idx == task_manager->global_task_id);
   
   // Step 6: add penalty to strategies that exceed the memory limits on devices
-  std::vector<size_t> gpu_mem_usage(machine->get_num_gpus(), 0);
-  float memory_penalty = 0.0f;
-  for (size_t l = 0; l < model->layers.size(); l++) {
-    Op* op = model->layers[l];
-    ParallelConfig config = global.find(op)->second;
-    CostMetrics cost_metrics = measure_operator_cost(op, config);
-    size_t memory_requirement = cost_metrics.memory_requirement;
-    for (int j = 0; j < config.num_parts(); j++) {
-      gpu_mem_usage[config.device_ids[j]] += memory_requirement;
-    }
-  }
-  if (export_file_name != "") {  
-    for (int i = 0; i < machine->get_num_gpus(); i++) {
-        printf("Before penalty, dev id %d, usage %zu \n", i, gpu_mem_usage[i]); 
-    }
-  }
-  // Penalize the total runtiem by 1ms if we exceed the memory budget by 1MB
-  for (int i = 0; i < machine->get_num_gpus(); i++) {
-    MemDevice* gpu_fb_mem = machine->get_gpu_fb_mem(i);
-    if (gpu_mem_usage[i] > gpu_fb_mem->capacity and gpu_fb_mem->capacity >= 0)
-      memory_penalty += (gpu_mem_usage[i] - gpu_fb_mem->capacity) * 1e-6;
-  }
+  // std::vector<size_t> gpu_mem_usage(machine->get_num_gpus(), 0);
+  // float memory_penalty = 0.0f;
+  // for (size_t l = 0; l < model->layers.size(); l++) {
+  //   Op* op = model->layers[l];
+  //   ParallelConfig config = global.find(op)->second;
+  //   CostMetrics cost_metrics = measure_operator_cost(op, config);
+  //   size_t memory_requirement = cost_metrics.memory_requirement;
+  //   for (int j = 0; j < config.num_parts(); j++) {
+  //     gpu_mem_usage[config.device_ids[j]] += memory_requirement;
+  //   }
+  // }
+  // if (export_file_name != "") {  
+  //   for (int i = 0; i < machine->get_num_gpus(); i++) {
+  //       printf("Before penalty, dev id %d, usage %zu \n", i, gpu_mem_usage[i]); 
+  //   }
+  // }
+  // // Penalize the total runtiem by 1ms if we exceed the memory budget by 1MB
+  // for (int i = 0; i < machine->get_num_gpus(); i++) {
+  //   MemDevice* gpu_fb_mem = machine->get_gpu_fb_mem(i);
+  //   if (gpu_mem_usage[i] > gpu_fb_mem->capacity and gpu_fb_mem->capacity >= 0)
+  //     memory_penalty += (gpu_mem_usage[i] - gpu_fb_mem->capacity) * 1e-6;
+  // }
   //if (memory_penalty > 0.0f)
   //  printf("Memory penalty = %.4lf ms\n", memory_penalty);
-  return sim_time + memory_penalty;
+  return sim_time;//  + memory_penalty;
       
 }
 
@@ -1024,6 +1024,7 @@ void LogicalTaskgraphBasedSimulator::expand_allreduce(SimTask * allreduce_task,
 
 #ifdef FF_USE_NCCL
   // recall that next_task stores node group in this case
+  final_task->device = machine->get_gpu(reinterpret_cast<uint64_t>(allreduce_task->next_tasks[0]));
   MemDevice * src_mem = machine->get_gpu_fb_mem(reinterpret_cast<uint64_t>(allreduce_task->next_tasks[0]));
   MemDevice * dst_mem;
 

@@ -680,8 +680,9 @@ ugly:
   //   }
   // }
 
-  // for (int i = 0; i < num_parts; i++)
-  //   printf("i: %d - pc.device_ids[i]: %d\n", i, pc.device_ids[i]);
+  printf("%s:\n", name);
+  for (int i = 0; i < num_parts; i++)
+    printf("i: %d - pc.device_ids[i]: %d\n", i, pc.device_ids[i]);
   // int start_idx = std::rand() % (total_num_devices - num_parts + 1);
   // for (int i = 0; i < num_parts; i++)
   //   pc.device_ids[i] = start_idx + i;
@@ -2128,8 +2129,8 @@ void FFModel::optimize(Simulator* simulator,
     rewrite(current, next, use_propagation);
     float next_runtime = simulator->simulate_runtime(this, next, comp_mode);
     if (iter % 10 == 0) {
-      printf("iteration(%zu) current_strategy(%.4lf) best_strategy(%.4lf)\n", iter,
-             current_runtime, best_runtime);
+      printf("iteration(%zu) current_strategy(%.4lf) next_strategy(%.4lf) best_strategy(%.4lf)\n", iter,
+             current_runtime, next_runtime, best_runtime);
     }
     float rn = static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX);
     //float ratio = (next_runtime - current_runtime) / current_runtime;

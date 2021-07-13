@@ -855,13 +855,13 @@ NetworkedMachineModel::NetworkedMachineModel(int num_nodes,
   total_devs = num_nodes + num_switches;
   for (int i = 0; i < total_devs; i++) {
     for (int j = 0; j < total_devs; j++) {
-      if (conn_matrix[i * total_devs + j] > 0) {
+      // if (conn_matrix[i * total_devs + j] > 0) {
         int device_id = i * total_devs + j;
         std::string link_name = "LINK " + std::to_string(i) + "-" + std::to_string(j);
         ids_to_nw_comm_device[device_id] = new CommDevice(link_name, CommDevice::NW_COMM, 
           -1, -1, device_id, 0, conn_matrix[i * total_devs + j] * link_bandwidth);
       }
-    }
+    // }
   }
 
   routing_strategy = new ShortestPathNetworkRoutingStrategy(conn_matrix, ids_to_nw_comm_device, total_devs);
@@ -1051,5 +1051,14 @@ void NetworkedMachineModel::set_pipeline(bool state)
 void NetworkedMachineModel::set_topology(const ConnectionMatrix &conn) 
 {
   conn_matrix = conn;
+  int total_devs = num_nodes + num_switches;
+  for (int i = 0; i < total_devs; i++) {
+    for (int j = 0; j < total_devs; j++) {
+      // if (conn_matrix[i * total_devs + j] > 0) {
+        int device_id = i * total_devs + j;
+        ids_to_nw_comm_device[device_id]->bandwidth = conn[i * total_devs + j] * link_bandwidth;
+      }
+    // }
+  }
   // update_route();
 }

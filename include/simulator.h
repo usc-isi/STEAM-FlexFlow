@@ -705,7 +705,7 @@ public:
   Memory memory;
   FFHandler handler;
   char* base_ptr;
-  size_t capacity;
+  off_t capacity;
   off_t offset;
   int warmup_times, repeat_times;
   TaskManager* task_manager;

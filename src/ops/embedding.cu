@@ -391,6 +391,10 @@ bool Embedding::measure_operator_cost(Simulator* sim,
                                       const ParallelConfig& pc,
                                       CostMetrics& cost_metrics)
 {
+  cost_metrics.forward_time = 0.0001;
+  cost_metrics.backward_time = 0.0001;
+  return true;
+  /*
   Tensor sub_input, sub_output;
   if (!outputs[0].get_output_sub_tensor(pc, sub_output, op_type)) {
     return false;
@@ -445,4 +449,5 @@ bool Embedding::measure_operator_cost(Simulator* sim,
   }
 
   return true;
+  */
 }

@@ -185,6 +185,7 @@ DemandHeuristicNetworkOptimizer::DemandHeuristicNetworkOptimizer(MachineModel* m
 : L1Optimizer(machine)
 {
   alpha = 0.1;
+  no_improvement_th = 100;
 }
 
 void DemandHeuristicNetworkOptimizer::task_added(SimTask * task) 
@@ -273,7 +274,7 @@ void DemandHeuristicNetworkOptimizer::optimize(int mcmc_iter, float sim_iter_tim
   for (int i = 0; i < nnode; i++) {
     for (int j = 0; j < nnode; j++) {
       size_t eid = edge_id(i, j);
-      if (logical_traffic_demand.find(eid) == logical_traffic_demand.end()) {
+      if (logical_traffic_demand.find(eid) != logical_traffic_demand.end()) {
         size_t ueid = unordered_edge_id(i, j);
         uint64_t traffic_amount = logical_traffic_demand[eid];
         if (max_of_bidir.find(ueid) == max_of_bidir.end() 
@@ -342,9 +343,8 @@ void DemandHeuristicNetworkOptimizer::optimize(int mcmc_iter, float sim_iter_tim
     }
   }
 
-  nm->set_topology(conn);
-  // simulator->topo->set_topology(conn); 
   // simulator->print_conn_matrix();
+  NetworkTopologyGenerator::print_conn_matrix(conn, nnode, 0);
 
   // set<size_t> used_nodes_set;
   std::set<size_t> linked_nodes;
@@ -353,16 +353,16 @@ void DemandHeuristicNetworkOptimizer::optimize(int mcmc_iter, float sim_iter_tim
   }
   std::vector<size_t> unlinked_nodes;
 
-  for (size_t i = 0; i < ndevs; i++) {
+  for (size_t i = 0; i < nnode; i++) {
     if (linked_nodes.find(i) == linked_nodes.end())
       unlinked_nodes.push_back(i);
   }
   // add all un-used nodes to a CC
-  // std::cout << "unused node: " << std::endl;
-  // for (auto n: unlinked_nodes) {
-    // std::cout << "\t" << n;
-  // }
-  // std::cout << std::endl;
+  std::cout << "unused node: " << std::endl;
+  for (auto n: unlinked_nodes) {
+    std::cout << "\t" << n;
+  }
+  std::cout << std::endl;
   if (unlinked_nodes.size() > 1) {
 
     int allocated = 0;
@@ -373,8 +373,6 @@ void DemandHeuristicNetworkOptimizer::optimize(int mcmc_iter, float sim_iter_tim
     visited_node.insert(curr_node);
 
     std::uniform_int_distribution<> distrib(0, num_nodes - 1);
-
-    // conn_matrix = vector<vector<int> >(num_nodes, vector<int>(num_nodes, 0));
 
     while ((long)visited_node.size() != num_nodes) {
       // distrib(gen);
@@ -433,8 +431,8 @@ void DemandHeuristicNetworkOptimizer::optimize(int mcmc_iter, float sim_iter_tim
       size_t node0 = node_with_avail_if[a].first;
       size_t node1 = node_with_avail_if[b].first;
 
-        conn[edge_id(node0, node1)]++;
-        conn[edge_id(node1, node0)]++;
+      conn[edge_id(node0, node1)]++;
+      conn[edge_id(node1, node0)]++;
 
       if (node_if_allocated.find(node0) == node_if_allocated.end()) {
         node_if_allocated[node0] = 1;
@@ -448,7 +446,7 @@ void DemandHeuristicNetworkOptimizer::optimize(int mcmc_iter, float sim_iter_tim
       }
       else {
         node_if_allocated[node1]++;
-        }
+      }
       allocated += 1;
 
       bool changed = false;
@@ -468,7 +466,8 @@ void DemandHeuristicNetworkOptimizer::optimize(int mcmc_iter, float sim_iter_tim
       }
     }
     std::cerr << "finished allocating CC for unused nodes. Network:" << std::endl;
-    //simulator->print_conn_matrix();
+    // simulator->print_conn_matrix();
+    NetworkTopologyGenerator::print_conn_matrix(conn, num_nodes, 0);
   }
 
   // Make all CC connected
@@ -554,20 +553,20 @@ void DemandHeuristicNetworkOptimizer::connect_cc(
     }
   }
 
-  // std::cout << "n_cc " << n_cc << std::endl;
-  // std::cout << "node_to_ccid:" << std::endl;
+  std::cout << "n_cc " << n_cc << std::endl;
+  std::cout << "node_to_ccid:" << std::endl;
 
-  // for (size_t i = 0; i < node_to_ccid.size(); i++) {
-  //   std::cout << "\t" << i << ", " << node_to_ccid[i] << std::endl;
-  // }
+  for (size_t i = 0; i < node_to_ccid.size(); i++) {
+    std::cout << "\t" << i << ", " << node_to_ccid[i] << std::endl;
+  }
   
-  // for (size_t i = 0; i < ccs.size(); i++) {
-  //   std::cout << "CC " << i << ": " << std::endl;
-  //   for (size_t v: ccs[i]) {
-  //     std::cout << "\t" << v;
-  //   }
-  //   std::cout << std::endl;
-  // }
+  for (size_t i = 0; i < ccs.size(); i++) {
+    std::cout << "CC " << i << ": " << std::endl;
+    for (size_t v: ccs[i]) {
+      std::cout << "\t" << v;
+    }
+    std::cout << std::endl;
+  }
   
   assert(n_cc > 0);
   if (n_cc > 1) {
