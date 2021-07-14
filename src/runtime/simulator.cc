@@ -18,6 +18,7 @@
 #include "model.h"
 #include "queue"
 
+// #include "flatbuffers/util.h"
 #include "taskgraph_generated.h"
 
 // #define DEBUG_PRINT
@@ -1132,14 +1133,22 @@ SimTask* LogicalTaskgraphBasedSimulator::new_update_task_unrecorded() {
   return task;
 }
 
-// TODO
-void LogicalTaskgraphBasedSimulator::searlize_logical_taskgraph(std::string const &export_file_name) {
-  return;
+bool LogicalTaskgraphBasedSimulator::searlize_logical_taskgraph(const FFModel* model, std::string const &export_file_name) {
+  flatbuffers::FlatBufferBuilder builder(262144);
+  get_taskgraph_flatbuf(model, builder);
+  std::ofstream ofs(export_file_name, std::ofstream::binary);
+  if (!ofs.is_open()) return false;
+  ofs.write((const char *) builder.GetBufferPointer(), (size_t)builder.GetSize());
+  return !ofs.bad();
+  // flatbuffers::SaveFile(export_file_name.c_str(),
+  //                       (const char *) builder.GetBufferPointer(),
+  //                       (size_t) builder.GetSize(), true);
+  // return;
 }
 
-void LogicalTaskgraphBasedSimulator::get_taskgraph_flatbuf(const FFModel* model, flatbuffers::Offset<FlatBufTaskGraph::TaskGraph> & ftg) 
+void LogicalTaskgraphBasedSimulator::get_taskgraph_flatbuf(const FFModel* model, flatbuffers::FlatBufferBuilder &builder) 
 {
-  flatbuffers::FlatBufferBuilder builder(1024);
+  builder.Clear();
   FlatBufTaskGraph::TaskGraphBuilder tg_builder = FlatBufTaskGraph::TaskGraphBuilder(builder);
 
   tg_builder.add_ngpupernode(machine->get_num_gpus()/ machine->get_num_nodes());
@@ -1149,7 +1158,7 @@ void LogicalTaskgraphBasedSimulator::get_taskgraph_flatbuf(const FFModel* model,
   tg_builder.add_netbw(machine->get_inter_node_gpu_bandwidth());
 
   // Store topology
-  flatbuffers::FlatBufferBuilder inner_builder = flatbuffers::FlatBufferBuilder();
+  // flatbuffers::FlatBufferBuilder builder = flatbuffers::FlatBufferBuilder();
   NetworkedMachineModel *nm = static_cast<NetworkedMachineModel*>(machine);
   size_t total_devs = nm->get_total_devs();
   std::vector<flatbuffers::Offset<FlatBufTaskGraph::Connection>> conns_v = 
@@ -1158,28 +1167,28 @@ void LogicalTaskgraphBasedSimulator::get_taskgraph_flatbuf(const FFModel* model,
     for (size_t j = 0; j < i; j++) {
       size_t nlink;
       if ((nlink = nm->get_conn_matrix()[i * total_devs + j]) > 0) {
-        conns_v.emplace_back(FlatBufTaskGraph::CreateConnection(inner_builder, i, j, nlink));
+        conns_v.emplace_back(FlatBufTaskGraph::CreateConnection(builder, i, j, nlink));
       }
     }
   }
-  auto conns = inner_builder.CreateVector(conns_v);
+  auto conns = builder.CreateVector(conns_v);
   tg_builder.add_conn(conns);
 
   // store operators
-  inner_builder.Clear();
+  // builder.Clear();
   std::vector<flatbuffers::Offset<FlatBufTaskGraph::Operator>> op_v = 
     std::vector<flatbuffers::Offset<FlatBufTaskGraph::Operator>>();
   for (size_t l = 0; l < model->layers.size(); l++) {
     Op* op = model->layers[l];
-    auto opname = inner_builder.CreateString(op->name);
-    op_v.emplace_back(FlatBufTaskGraph::CreateOperator(inner_builder, 
+    auto opname = builder.CreateString(op->name);
+    op_v.emplace_back(FlatBufTaskGraph::CreateOperator(builder, 
       reinterpret_cast<uint64_t>(op), (int)op->op_type, opname));
   }
-  auto ops = inner_builder.CreateVector(op_v);
+  auto ops = builder.CreateVector(op_v);
   tg_builder.add_ops(ops);
 
   // store tasks
-  inner_builder.Clear();
+  // builder.Clear();
   std::vector<flatbuffers::Offset<FlatBufTaskGraph::Task>> task_v = 
     std::vector<flatbuffers::Offset<FlatBufTaskGraph::Task>>();
   // change: since there is no universal storage of device, creat a set of
@@ -1194,7 +1203,7 @@ void LogicalTaskgraphBasedSimulator::get_taskgraph_flatbuf(const FFModel* model,
       for (SimTask *t: curr->next_tasks) {
         nexttasks.push_back(reinterpret_cast<uint64_t>(t));
       }
-      auto ntv = inner_builder.CreateVector(nexttasks);
+      auto ntv = builder.CreateVector(nexttasks);
       switch (curr->type) {
       case SimTask::TASK_FORWARD:
         tasktype = FlatBufTaskGraph::SimTaskType_TASK_FORWARD;
@@ -1219,7 +1228,7 @@ void LogicalTaskgraphBasedSimulator::get_taskgraph_flatbuf(const FFModel* model,
       break;
       }
       task_v.emplace_back(FlatBufTaskGraph::CreateTask(
-        inner_builder,
+        builder,
         tasktype,
         taskid, 
         reinterpret_cast<uint64_t>(curr->device),
@@ -1231,11 +1240,11 @@ void LogicalTaskgraphBasedSimulator::get_taskgraph_flatbuf(const FFModel* model,
     if (curr->device)
       devices.insert(curr->device);
   }
-  auto tasks = inner_builder.CreateVector(task_v);
+  auto tasks = builder.CreateVector(task_v);
   tg_builder.add_tasks(tasks);
 
   // devices
-  inner_builder.Clear();
+  // builder.Clear();
   std::vector<flatbuffers::Offset<FlatBufTaskGraph::Device>> dev_v = 
     std::vector<flatbuffers::Offset<FlatBufTaskGraph::Device>>();
   for (Device *curr: devices) {
@@ -1245,7 +1254,7 @@ void LogicalTaskgraphBasedSimulator::get_taskgraph_flatbuf(const FFModel* model,
     switch (curr->type) {
     case Device::DEVICE_COMP: 
       dev_v.emplace_back(FlatBufTaskGraph::CreateDevice(
-        inner_builder, 
+        builder, 
         reinterpret_cast<CompDevice*>(curr)->comp_type == CompDevice::LOC_PROC 
           ? FlatBufTaskGraph::DeviceType_DEVICE_COMP_CPU
           : FlatBufTaskGraph::DeviceType_DEVICE_COMP_GPU,
@@ -1287,7 +1296,7 @@ void LogicalTaskgraphBasedSimulator::get_taskgraph_flatbuf(const FFModel* model,
       break;
       }
       dev_v.emplace_back(FlatBufTaskGraph::CreateDevice(
-        inner_builder, 
+        builder, 
         type,
         deviceid, curr->node_id, curr->device_id, comm_dev->bandwidth
       ));
@@ -1296,11 +1305,11 @@ void LogicalTaskgraphBasedSimulator::get_taskgraph_flatbuf(const FFModel* model,
       assert("Shouldn't store a memory device to taskgraph!" && false);
     }
   }
-  auto devs = inner_builder.CreateVector(dev_v);
+  auto devs = builder.CreateVector(dev_v);
   tg_builder.add_devices(devs);
 
   // routes
-  inner_builder.Clear();
+  // builder.Clear();
   std::vector<flatbuffers::Offset<FlatBufTaskGraph::Route>> route_v = 
     std::vector<flatbuffers::Offset<FlatBufTaskGraph::Route>>();
   for (auto ncd: nm->get_nomm_comm_devs()) {
@@ -1312,19 +1321,19 @@ void LogicalTaskgraphBasedSimulator::get_taskgraph_flatbuf(const FFModel* model,
       for (CommDevice * c: physical_routes.second[i]) {
         hops_v.push_back(c->node_id);
       }
-      auto hops = inner_builder.CreateVector(hops_v);
-      auto path = FlatBufTaskGraph::CreatePath(inner_builder, hops, physical_routes.first[i]);
+      auto hops = builder.CreateVector(hops_v);
+      auto path = FlatBufTaskGraph::CreatePath(builder, hops, physical_routes.first[i]);
       path_v.push_back(path);
     }
-    auto paths = inner_builder.CreateVector(path_v);
+    auto paths = builder.CreateVector(path_v);
     route_v.push_back(FlatBufTaskGraph::CreateRoute(
-      inner_builder, 
+      builder, 
       ncd.second->device_id / nm->get_total_devs(),
       ncd.second->device_id % nm->get_total_devs(),
       paths
     ));
   }
 
-  ftg = tg_builder.Finish();
-
+  auto ftg = tg_builder.Finish();
+  builder.Finish(ftg);
 }

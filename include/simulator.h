@@ -38,12 +38,7 @@ class Op;
 class FFModel;
 
 namespace flatbuffers {
-template<typename Type>
-  class Offset;
-}
-
-namespace FlatBufTaskGraph {
-  class TaskGraph;
+  class FlatBufferBuilder;
 }
 
 struct CostMetrics {
@@ -773,10 +768,12 @@ public:
   void expand_allreduce(SimTask * allreduce_task, float start_time,std::priority_queue<SimTask*, std::vector<SimTask*>, SimTaskCompare>& ready_queue);
   void add_task_dependencies_with_xfer(
       SimTask* src_task, SimTask* dst_task, size_t message_size);
-  void searlize_logical_taskgraph(std::string const &export_file_name);
+  bool searlize_logical_taskgraph(const FFModel* model, std::string const &export_file_name);
   static void simulation_task(const Task *task,
                                   const std::vector<PhysicalRegion> &regions,
                                   Context ctx, Runtime *runtime);
-  void get_taskgraph_flatbuf(const FFModel * model, flatbuffers::Offset<FlatBufTaskGraph::TaskGraph> & ftg);
+  void get_taskgraph_flatbuf(const FFModel* model, flatbuffers::FlatBufferBuilder &builder);
+
+  // flatbuffers::FlatBufferBuilder builder;
 };
 #endif
