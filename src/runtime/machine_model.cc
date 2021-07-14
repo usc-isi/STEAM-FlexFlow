@@ -1062,3 +1062,13 @@ void NetworkedMachineModel::set_topology(const ConnectionMatrix &conn)
   }
   // update_route();
 }
+
+const ConnectionMatrix & NetworkedMachineModel::get_conn_matrix() 
+{
+  return conn_matrix;
+}
+
+const std::map<size_t, NominalCommDevice*>& NetworkedMachineModel::get_nomm_comm_devs() 
+{
+  return ids_to_nw_nominal_device;
+}

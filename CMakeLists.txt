@@ -133,11 +133,13 @@ link_libraries(${FF_LD_FLAGS})
 
 list(APPEND FLEXFLOW_INCLUDE_DIRS
   ${FLEXFLOW_ROOT}/include
+  ${FLEXFLOW_ROOT}/fbuf2/include
   ${FLEXFLOW_ROOT})
 
 file(GLOB_RECURSE FLEXFLOW_HDR 
   LIST_DIRECTORIES False 
-  ${FLEXFLOW_ROOT}/include/*.h)
+  ${FLEXFLOW_ROOT}/include/*.h
+  ${FLEXFLOW_ROOT}/fbuf2/include/*.h)
 
 file(GLOB_RECURSE FLEXFLOW_SRC 
   LIST_DIRECTORIES False 

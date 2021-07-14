@@ -37,6 +37,15 @@ class TransposeMeta;
 class Op;
 class FFModel;
 
+namespace flatbuffers {
+template<typename Type>
+  class Offset;
+}
+
+namespace FlatBufTaskGraph {
+  class TaskGraph;
+}
+
 struct CostMetrics {
   float forward_time, backward_time;
   size_t memory_requirement;
@@ -117,6 +126,7 @@ public:
   NominalCommDevice(std::string const &name, int device_id);
   /* pick one of the weighted ECMP path */
   Route expand_to_physical() const;
+  const EcmpRoutes & get_all_routes();
   void set_physical_paths(const EcmpRoutes& rs);
   // static inline int get_from_dev(int devid, int total) {return devid / total;}
   // static inline int get_to_dev(int devid, int total) {return devid % total;}
@@ -354,6 +364,8 @@ public:
   void update_route();
 
   void set_topology(const std::vector<int>& topology);
+  const ConnectionMatrix & get_conn_matrix();
+  const std::map<size_t, NominalCommDevice*>& get_nomm_comm_devs();
 
   void set_pcie(bool state);
   void set_pipeline(bool state);
@@ -765,5 +777,6 @@ public:
   static void simulation_task(const Task *task,
                                   const std::vector<PhysicalRegion> &regions,
                                   Context ctx, Runtime *runtime);
+  void get_taskgraph_flatbuf(const FFModel * model, flatbuffers::Offset<FlatBufTaskGraph::TaskGraph> & ftg);
 };
 #endif

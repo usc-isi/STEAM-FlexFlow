@@ -146,8 +146,10 @@ ConnectionMatrix FlatDegConstraintNetworkTopologyGenerator::generate_topology() 
     }
   }
 
+#ifdef DEBUG_PRINT
   std::cout << "Topology generated: " << std::endl;
   NetworkTopologyGenerator::print_conn_matrix(conn, num_nodes, 0);
+#endif
   return conn;
   
 }
@@ -343,8 +345,9 @@ void DemandHeuristicNetworkOptimizer::optimize(int mcmc_iter, float sim_iter_tim
     }
   }
 
-  // simulator->print_conn_matrix();
+#ifdef DEBUG_PRINT
   NetworkTopologyGenerator::print_conn_matrix(conn, nnode, 0);
+#endif
 
   // set<size_t> used_nodes_set;
   std::set<size_t> linked_nodes;
@@ -357,12 +360,16 @@ void DemandHeuristicNetworkOptimizer::optimize(int mcmc_iter, float sim_iter_tim
     if (linked_nodes.find(i) == linked_nodes.end())
       unlinked_nodes.push_back(i);
   }
+
   // add all un-used nodes to a CC
+#ifdef DEBUG_PRINT
   std::cout << "unused node: " << std::endl;
   for (auto n: unlinked_nodes) {
     std::cout << "\t" << n;
   }
   std::cout << std::endl;
+#endif
+
   if (unlinked_nodes.size() > 1) {
 
     int allocated = 0;
@@ -465,9 +472,11 @@ void DemandHeuristicNetworkOptimizer::optimize(int mcmc_iter, float sim_iter_tim
         distrib = std::uniform_int_distribution<>(0, node_with_avail_if.size() - 1);
       }
     }
+#ifdef DEBUG_PRINT
     std::cerr << "finished allocating CC for unused nodes. Network:" << std::endl;
     // simulator->print_conn_matrix();
     NetworkTopologyGenerator::print_conn_matrix(conn, num_nodes, 0);
+#endif
   }
 
   // Make all CC connected
@@ -553,6 +562,7 @@ void DemandHeuristicNetworkOptimizer::connect_cc(
     }
   }
 
+#ifdef DEBUG_PRINT
   std::cout << "n_cc " << n_cc << std::endl;
   std::cout << "node_to_ccid:" << std::endl;
 
@@ -567,6 +577,7 @@ void DemandHeuristicNetworkOptimizer::connect_cc(
     }
     std::cout << std::endl;
   }
+#endif
   
   assert(n_cc > 0);
   if (n_cc > 1) {

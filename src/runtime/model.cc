@@ -568,7 +568,10 @@ ParallelConfig Op::get_random_parallel_config(const FFModel& ff, int nparts) con
         opsz = weights[i].get_volume() * sizeof(float);
       }
     }
+
+#ifdef DEBUG_PRINT
     cout << name << " sz: " << opsz << endl;
+#endif
     
     if (opsz > 5120000000ULL) {
       const_cast<vector<int>*>(&candidates)->push_back(1);
@@ -680,9 +683,11 @@ ugly:
   //   }
   // }
 
+#ifdef DEBUG_PRINT
   printf("%s:\n", name);
   for (int i = 0; i < num_parts; i++)
     printf("i: %d - pc.device_ids[i]: %d\n", i, pc.device_ids[i]);
+#endif
   // int start_idx = std::rand() % (total_num_devices - num_parts + 1);
   // for (int i = 0; i < num_parts; i++)
   //   pc.device_ids[i] = start_idx + i;
