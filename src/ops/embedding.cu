@@ -407,7 +407,7 @@ bool Embedding::measure_operator_cost(Simulator* sim,
   assert (input_ptr != NULL);
   float *output_ptr = (float *)sim->allocate(sub_output.get_volume(), DT_FLOAT);
   assert (output_ptr != NULL);
-  float *weight_ptr = (float *)sim->allocate(num_entries * out_channels, DT_FLOAT);
+  float *weight_ptr = (float *)sim->allocate((uint64_t)num_entries * out_channels, DT_FLOAT);
   assert (weight_ptr != NULL);
   int in_dim = sub_input.adim[0];
   int out_dim = sub_input.adim[0];

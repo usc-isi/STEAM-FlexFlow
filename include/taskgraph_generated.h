@@ -618,20 +618,24 @@ struct TaskGraph FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_NGPUPERNODE = 4,
     VT_NNODE = 6,
-    VT_INTERGPUBW = 8,
-    VT_DRAMBW = 10,
-    VT_NETBW = 12,
-    VT_CONN = 14,
-    VT_OPS = 16,
-    VT_TASKS = 18,
-    VT_DEVICES = 20,
-    VT_ROUTES = 22
+    VT_NSWITCH = 8,
+    VT_INTERGPUBW = 10,
+    VT_DRAMBW = 12,
+    VT_NETBW = 14,
+    VT_CONN = 16,
+    VT_OPS = 18,
+    VT_TASKS = 20,
+    VT_DEVICES = 22,
+    VT_ROUTES = 24
   };
   uint32_t ngpupernode() const {
     return GetField<uint32_t>(VT_NGPUPERNODE, 0);
   }
   uint32_t nnode() const {
     return GetField<uint32_t>(VT_NNODE, 0);
+  }
+  uint32_t nswitch() const {
+    return GetField<uint32_t>(VT_NSWITCH, 0);
   }
   float intergpubw() const {
     return GetField<float>(VT_INTERGPUBW, 0.0f);
@@ -661,6 +665,7 @@ struct TaskGraph FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     return VerifyTableStart(verifier) &&
            VerifyField<uint32_t>(verifier, VT_NGPUPERNODE) &&
            VerifyField<uint32_t>(verifier, VT_NNODE) &&
+           VerifyField<uint32_t>(verifier, VT_NSWITCH) &&
            VerifyField<float>(verifier, VT_INTERGPUBW) &&
            VerifyField<float>(verifier, VT_DRAMBW) &&
            VerifyField<float>(verifier, VT_NETBW) &&
@@ -692,6 +697,9 @@ struct TaskGraphBuilder {
   }
   void add_nnode(uint32_t nnode) {
     fbb_.AddElement<uint32_t>(TaskGraph::VT_NNODE, nnode, 0);
+  }
+  void add_nswitch(uint32_t nswitch) {
+    fbb_.AddElement<uint32_t>(TaskGraph::VT_NSWITCH, nswitch, 0);
   }
   void add_intergpubw(float intergpubw) {
     fbb_.AddElement<float>(TaskGraph::VT_INTERGPUBW, intergpubw, 0.0f);
@@ -732,6 +740,7 @@ inline flatbuffers::Offset<TaskGraph> CreateTaskGraph(
     flatbuffers::FlatBufferBuilder &_fbb,
     uint32_t ngpupernode = 0,
     uint32_t nnode = 0,
+    uint32_t nswitch = 0,
     float intergpubw = 0.0f,
     float drambw = 0.0f,
     float netbw = 0.0f,
@@ -749,6 +758,7 @@ inline flatbuffers::Offset<TaskGraph> CreateTaskGraph(
   builder_.add_netbw(netbw);
   builder_.add_drambw(drambw);
   builder_.add_intergpubw(intergpubw);
+  builder_.add_nswitch(nswitch);
   builder_.add_nnode(nnode);
   builder_.add_ngpupernode(ngpupernode);
   return builder_.Finish();
@@ -758,6 +768,7 @@ inline flatbuffers::Offset<TaskGraph> CreateTaskGraphDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     uint32_t ngpupernode = 0,
     uint32_t nnode = 0,
+    uint32_t nswitch = 0,
     float intergpubw = 0.0f,
     float drambw = 0.0f,
     float netbw = 0.0f,
@@ -775,6 +786,7 @@ inline flatbuffers::Offset<TaskGraph> CreateTaskGraphDirect(
       _fbb,
       ngpupernode,
       nnode,
+      nswitch,
       intergpubw,
       drambw,
       netbw,

@@ -343,6 +343,7 @@ public:
   int get_num_gpus() const;
   int get_num_nodes() const {return num_nodes;}
   int get_total_devs() const {return num_nodes + num_switches;}
+  int get_num_switches() const {return num_switches;}
   float get_intra_node_gpu_bandwidth() const;
   float get_inter_node_gpu_bandwidth() const;
   float get_link_bandwidth() const;
@@ -689,7 +690,7 @@ public:
             MachineModel *machine);
   ~Simulator(void);
   virtual void free_all();
-  virtual void* allocate(size_t num_elements, DataType type);
+  virtual void* allocate(uint64_t num_elements, DataType type);
   virtual void add_task_dependencies_with_xfer(
       SimTask* src_task, SimTask* dst_task, size_t message_size);
   CostMetrics measure_operator_cost(Op* op, const ParallelConfig& config);
@@ -712,8 +713,8 @@ public:
   Memory memory;
   FFHandler handler;
   char* base_ptr;
-  off_t capacity;
-  off_t offset;
+  uint64_t capacity;
+  uint64_t offset;
   int warmup_times, repeat_times;
   TaskManager* task_manager;
   CompMode computationMode;

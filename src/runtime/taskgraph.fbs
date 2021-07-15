@@ -71,6 +71,7 @@ table Operator {
 table TaskGraph {
   ngpupernode: uint;
   nnode: uint;
+  nswitch: uint;
   intergpubw: float;
   drambw: float;
   netbw: float;

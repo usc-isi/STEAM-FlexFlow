@@ -10,3 +10,6 @@
 [submodule "deps/googletest"]
 	path = deps/googletest
 	url = https://github.com/google/googletest.git
+[submodule "ffsim-opera"]
+	path = ffsim-opera
+	url = https://github.com/Flasew/ffsim-opera.git

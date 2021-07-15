@@ -279,14 +279,14 @@ size_t data_type_size(DataType type) {
   }
 }
 
-void* Simulator::allocate(size_t num_elements, DataType type)
+void* Simulator::allocate(uint64_t num_elements, DataType type)
 {
-  off_t element_size = data_type_size(type);
+  uint64_t element_size = data_type_size(type);
   void* ret_ptr = base_ptr + offset;
   offset += element_size * num_elements;
   if (offset > capacity) {
     fprintf(stderr, "Simulator cannot measure some operators' performance."
-        " Increate --simulator-workspace-size to at least %zd\n", offset);
+        " Increate --simulator-workspace-size to at least %lu. element_size: %lu, num_elements: %lu, capacity: %lu\n", offset, element_size, num_elements, capacity);
     exit(0);
   }
   return ret_ptr;
@@ -947,6 +947,7 @@ float LogicalTaskgraphBasedSimulator::simulate_runtime(
   // }
   //if (memory_penalty > 0.0f)
   //  printf("Memory penalty = %.4lf ms\n", memory_penalty);
+  searlize_logical_taskgraph(model, "exp");
   return sim_time;//  + memory_penalty;
       
 }
@@ -1149,13 +1150,6 @@ bool LogicalTaskgraphBasedSimulator::searlize_logical_taskgraph(const FFModel* m
 void LogicalTaskgraphBasedSimulator::get_taskgraph_flatbuf(const FFModel* model, flatbuffers::FlatBufferBuilder &builder) 
 {
   builder.Clear();
-  FlatBufTaskGraph::TaskGraphBuilder tg_builder = FlatBufTaskGraph::TaskGraphBuilder(builder);
-
-  tg_builder.add_ngpupernode(machine->get_num_gpus()/ machine->get_num_nodes());
-  tg_builder.add_nnode(machine->get_num_nodes());
-  tg_builder.add_intergpubw(machine->get_intra_node_gpu_bandwidth());
-  tg_builder.add_drambw(32 * 1024 * 1024.0f); // PCIE gen 4
-  tg_builder.add_netbw(machine->get_inter_node_gpu_bandwidth());
 
   // Store topology
   // flatbuffers::FlatBufferBuilder builder = flatbuffers::FlatBufferBuilder();
@@ -1172,7 +1166,6 @@ void LogicalTaskgraphBasedSimulator::get_taskgraph_flatbuf(const FFModel* model,
     }
   }
   auto conns = builder.CreateVector(conns_v);
-  tg_builder.add_conn(conns);
 
   // store operators
   // builder.Clear();
@@ -1185,7 +1178,6 @@ void LogicalTaskgraphBasedSimulator::get_taskgraph_flatbuf(const FFModel* model,
       reinterpret_cast<uint64_t>(op), (int)op->op_type, opname));
   }
   auto ops = builder.CreateVector(op_v);
-  tg_builder.add_ops(ops);
 
   // store tasks
   // builder.Clear();
@@ -1241,7 +1233,6 @@ void LogicalTaskgraphBasedSimulator::get_taskgraph_flatbuf(const FFModel* model,
       devices.insert(curr->device);
   }
   auto tasks = builder.CreateVector(task_v);
-  tg_builder.add_tasks(tasks);
 
   // devices
   // builder.Clear();
@@ -1306,7 +1297,6 @@ void LogicalTaskgraphBasedSimulator::get_taskgraph_flatbuf(const FFModel* model,
     }
   }
   auto devs = builder.CreateVector(dev_v);
-  tg_builder.add_devices(devs);
 
   // routes
   // builder.Clear();
@@ -1333,6 +1323,19 @@ void LogicalTaskgraphBasedSimulator::get_taskgraph_flatbuf(const FFModel* model,
       paths
     ));
   }
+
+  FlatBufTaskGraph::TaskGraphBuilder tg_builder = FlatBufTaskGraph::TaskGraphBuilder(builder);
+
+  tg_builder.add_ngpupernode(machine->get_num_gpus()/ machine->get_num_nodes());
+  tg_builder.add_nnode(machine->get_num_nodes());
+  tg_builder.add_nswitch(nm->get_num_switches());
+  tg_builder.add_intergpubw(machine->get_intra_node_gpu_bandwidth());
+  tg_builder.add_drambw(32 * 1024 * 1024.0f); // PCIE gen 4
+  tg_builder.add_netbw(machine->get_inter_node_gpu_bandwidth());
+  tg_builder.add_conn(conns);
+  tg_builder.add_ops(ops);
+  tg_builder.add_tasks(tasks);
+  tg_builder.add_devices(devs);
 
   auto ftg = tg_builder.Finish();
   builder.Finish(ftg);
