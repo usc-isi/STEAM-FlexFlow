@@ -421,7 +421,7 @@ bool Embedding::measure_operator_cost(Simulator* sim,
     forward_kernel(input_ptr, output_ptr, weight_ptr, in_dim, out_dim, batch_size, this->aggr, sub_output.get_volume(), stream);
   };
   if (sim->computationMode == COMP_MODE_TRAINING) {
-    float *weight_grad_ptr = (float *)sim->allocate(num_entries * out_channels, DT_FLOAT);
+    float *weight_grad_ptr = (float *)sim->allocate((uint64_t)num_entries * out_channels, DT_FLOAT);
     assert (weight_grad_ptr != NULL);
     float *output_grad_ptr = (float *)sim->allocate(sub_output.get_volume(), DT_FLOAT);
     assert (output_grad_ptr != NULL);
