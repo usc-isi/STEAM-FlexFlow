@@ -266,13 +266,44 @@ void DemandHeuristicNetworkOptimizer::optimize(int mcmc_iter, float sim_iter_tim
   num_iter_nochange = 0;
   NetworkedMachineModel * nm = static_cast<NetworkedMachineModel*>(this->machine);
   
+  // TODO: copy machine-switch link?
+  size_t nnode = machine->get_num_nodes();
+  size_t ndevs = machine->get_total_devs();
+  ConnectionMatrix conn = std::vector<int>(ndevs*ndevs, 0);
+  std::unordered_map<size_t, uint64_t> max_of_bidir;
+  std::unordered_map<size_t, size_t> node_if_allocated;
+
+  optimize_demand(conn, max_of_bidir, node_if_allocated);
+#ifdef DEBUG_PRINT
+  NetworkTopologyGenerator::print_conn_matrix(conn, nnode, 0);
+#endif
+
+  connect_unused_node(conn, node_if_allocated);
+
+  // Make all CC connected
+  std::unordered_map<uint64_t, uint64_t> logical_id_to_demand;
+  for (auto & item: max_of_bidir) {
+    logical_id_to_demand[item.second] = item.first;
+  }
+
+  connect_cc(logical_id_to_demand, conn); 
+  nm->set_topology(conn); 
+  nm->update_route();
+  // simulator->print_conn_matrix();
+
+}
+
+void DemandHeuristicNetworkOptimizer::optimize_demand(
+  ConnectionMatrix &conn,
+  std::unordered_map<size_t, uint64_t> &max_of_bidir,
+  std::unordered_map<size_t, size_t> &node_if_allocated) 
+{
   // This only works for flat network at the moment. 
   // to extend this to a rack based design do this for the other part of
   // the connection matrix, but the demand need to be summed.
   size_t nnode = machine->get_num_nodes();
   size_t ndevs = machine->get_total_devs();
     
-  std::unordered_map<size_t, uint64_t> max_of_bidir;
   for (int i = 0; i < nnode; i++) {
     for (int j = 0; j < nnode; j++) {
       size_t eid = edge_id(i, j);
@@ -288,13 +319,9 @@ void DemandHeuristicNetworkOptimizer::optimize(int mcmc_iter, float sim_iter_tim
   }
   std::set<DemandToIdMap, std::greater<DemandToIdMap>> pq;
   for (auto &item: max_of_bidir) {
-    pq.insert(DemandToIdMap(item.second, item.first));
+    // mod: pre-unscale the demand
+    pq.insert(DemandToIdMap(item.second/(1 << conn[item.first]), item.first));
   }
-
-  // TODO: copy machine-switch link?
-  ConnectionMatrix conn = std::vector<int>(ndevs*ndevs, 0);
-
-  std::unordered_map<size_t, size_t> node_if_allocated;
 
   while (pq.size() > 0) {
 
@@ -344,11 +371,14 @@ void DemandHeuristicNetworkOptimizer::optimize(int mcmc_iter, float sim_iter_tim
       } 
     }
   }
+}
 
-#ifdef DEBUG_PRINT
-  NetworkTopologyGenerator::print_conn_matrix(conn, nnode, 0);
-#endif
-
+void DemandHeuristicNetworkOptimizer::connect_unused_node(
+  ConnectionMatrix &conn,
+  std::unordered_map<size_t, size_t> &node_if_allocated) 
+{
+  size_t nnode = machine->get_num_nodes();
+  size_t ndevs = machine->get_total_devs();
   // set<size_t> used_nodes_set;
   std::set<size_t> linked_nodes;
   for (auto item: node_if_allocated) {
@@ -478,18 +508,6 @@ void DemandHeuristicNetworkOptimizer::optimize(int mcmc_iter, float sim_iter_tim
     NetworkTopologyGenerator::print_conn_matrix(conn, num_nodes, 0);
 #endif
   }
-
-  // Make all CC connected
-  std::unordered_map<uint64_t, uint64_t> logical_id_to_demand;
-  for (auto & item: max_of_bidir) {
-    logical_id_to_demand[item.second] = item.first;
-  }
-
-  connect_cc(logical_id_to_demand, conn); 
-  nm->set_topology(conn); 
-  nm->update_route();
-  // simulator->print_conn_matrix();
-
 }
 
 size_t DemandHeuristicNetworkOptimizer::get_if_in_use(size_t node, const ConnectionMatrix & conn) 
@@ -711,4 +729,153 @@ void DemandHeuristicNetworkOptimizer::reset()
 void* DemandHeuristicNetworkOptimizer::export_information()
 {
   return nullptr;
+}
+
+NSDI22Heuristic::NSDI22Heuristic(MachineModel* machine, size_t dp_deg, size_t mp_deg)
+{
+  this->net_machine = static_cast<NetworkedMachineModel*>(machine);
+  this->dp_deg = dp_deg;
+  this->mp_deg = mp_deg;
+}
+
+
+void NSDI22Heuristic::fw_task_added(SimTask* task) 
+{
+  return;
+}
+
+void NSDI22Heuristic::bw_task_added(SimTask* task) 
+{
+  return;
+}
+
+void NSDI22Heuristic::mp_lcomm_added(SimTask* task) 
+{
+  assert(task->type == SimTask::TASK_NOMINAL_COMM);
+  mp_tm_logical[task->device->device_id] += task->xfer_size;
+}
+
+void NSDI22Heuristic::dp_lcomm_added(SimTask* task) 
+{
+  assert(task->type == SimTask::TASK_NOMINAL_COMM);
+  dp_tm_logical[task->device->device_id] += task->xfer_size;
+}
+
+void NSDI22Heuristic::mp_pcomm_added(SimTask* task, bool dir) 
+{
+  assert(task->type == SimTask::TASK_COMM);
+  if (dir)
+    mp_tm_physical_dir[task->device->device_id] += task->xfer_size;
+  else 
+    mp_tm_physical_indir[task->device->device_id] += task->xfer_size;
+}
+
+void NSDI22Heuristic::dp_pcomm_added(SimTask* task, bool dir) 
+{
+  assert(task->type == SimTask::TASK_COMM);
+  if (dir)
+    dp_tm_physical_dir[task->device->device_id] += task->xfer_size;
+  else 
+    dp_tm_physical_indir[task->device->device_id] += task->xfer_size;
+}
+
+void NSDI22Heuristic::ar_task_added(SimTask* task) 
+{
+  assert(task->type == SimTask::TASK_ALLREDUCE);
+  ar_tasks.push_back(task);
+}
+
+void NSDI22Heuristic::generate_dp_topology() 
+{
+  DemandHeuristicNetworkOptimizer dheuristic{net_machine};
+  dheuristic.if_cnt = dp_deg + mp_deg;
+  dheuristic.logical_traffic_demand = dp_tm_logical;
+  dheuristic.machine = net_machine;
+
+  size_t nnode = net_machine->get_num_nodes();
+  size_t ndevs = net_machine->get_total_devs();
+  std::unordered_map<size_t, uint64_t> max_of_bidir;
+  std::unordered_map<size_t, size_t> node_if_allocated;
+  // ConnectionMatrix conn = std::vector<int>(ndevs*ndevs, 0);
+
+  dheuristic.optimize_demand(net_machine->conn_matrix, max_of_bidir, node_if_allocated);
+  // for (int i = 0; i < net_machine->get_num_nodes(); i++) {
+  //   for (int j = 0; net_machine->get_num_nodes(); j++) {
+  //     net_machine->conn_matrix[edge_id(i, j)] += conn[edge_id(i, j)];
+  //   }
+  // }
+
+}
+
+void NSDI22Heuristic::simplify_mp_topology() 
+{
+  for (int i = 0; i < net_machine->get_num_nodes(); i++) {
+    for (int j = 0; j < i; j++) {
+      if (net_machine->conn_matrix[edge_id(i, j)] > 0 && 
+          mp_tm_logical[edge_id(i, j)] == 0 && 
+          mp_tm_logical[edge_id(j, i)] == 0) {
+        net_machine->conn_matrix[edge_id(i, j)] = 0;
+        net_machine->conn_matrix[edge_id(j, i)] = 0;
+      }
+    }
+  }
+}
+
+void NSDI22Heuristic::optimize_indirection() 
+{
+  // std::map<uint64_t, uint64_t> edge_to_indirection;
+  return;
+}
+
+void NSDI22Heuristic::construct_dp_pmat() 
+{
+  for (SimTask * allreduce_task: ar_tasks) {
+    int n_participants = allreduce_task->next_tasks.size();
+  
+    // recall that next_task stores node group in this case
+    CompDevice * device = net_machine->get_gpu(reinterpret_cast<uint64_t>(allreduce_task->next_tasks[0]));
+    MemDevice * src_mem = net_machine->get_gpu_fb_mem(reinterpret_cast<uint64_t>(allreduce_task->next_tasks[0]));
+    MemDevice * dst_mem;
+    float indiv_xfersize = (2.0 * (n_participants-1))/n_participants * allreduce_task->xfer_size;
+    for (int i = 0; i < n_participants; i++) {
+      dst_mem = net_machine->get_gpu_fb_mem(reinterpret_cast<uint64_t>(allreduce_task->next_tasks[(i+1)%n_participants]));
+      std::vector<CommDevice *> path = net_machine->get_comm_path(src_mem, dst_mem);
+      assert(path.size() == 1 && path[0]->type == CommDevice::NW_NOMINAL);
+      dp_tm_logical[path[0]->device_id] += indiv_xfersize;
+      src_mem = dst_mem;
+      std::vector<CommDevice *> route = 
+        static_cast<NominalCommDevice*>(path[0])->expand_to_physical(); 
+      for (CommDevice * d: route) {
+        if (net_machine->conn_matrix[d->device_id] > 0) {
+          dp_tm_physical_dir[d->device_id] 
+        }
+      }
+    }
+  }
+}
+
+#define INSERT_OR_ADD(_map, _key, _val) do {                                \
+  if ((_map).find(_key) == )
+
+void NSDI22Heuristic::reset() 
+{
+  dp_tm_logical.clear();
+  dp_tm_physical_dir.clear();
+  dp_tm_physical_indir.clear();
+  
+  mp_tm_logical.clear();
+  mp_tm_physical_dir.clear();
+  mp_tm_physical_indir.clear();
+
+  ar_tasks.clear();
+}
+
+size_t NSDI22Heuristic::edge_id(int i, int j) 
+{
+  return i * net_machine->get_total_devs() + j;
+}
+
+size_t NSDI22Heuristic::unordered_edge_id(int i, int j) 
+{
+  return i > j ? edge_id(i, j) : edge_id(j, i);
 }

@@ -309,6 +309,7 @@ private:
 };
 
 class DLSSchedulerBasedSimulator;
+class NSDI22Heuristic;
 /**
  * A model that is network topology-aware.
  * The network topology is represented as follows:
@@ -327,6 +328,7 @@ class DLSSchedulerBasedSimulator;
 class NetworkedMachineModel : public MachineModel  {
   friend class DemandHeuristicNetworkOptimizer;
   friend class DLSSchedulerBasedSimulator;
+  friend class NSDI22Heuristic;
 public:
   /**
    * Constructor. A network topology specified as above needs to be provided
@@ -522,8 +524,7 @@ public:
     virtual void task_added(SimTask * task) { return; };
     virtual void reset() = 0;
     virtual void* export_information() = 0;
-
-protected:
+    
     MachineModel *machine; // Would really like to do a T extends MachineModel...
 };
  
@@ -543,13 +544,18 @@ public:
   virtual void* export_information();
   size_t edge_id(int i, int j);
   size_t unordered_edge_id(int i, int j);
+  void optimize_demand(
+      ConnectionMatrix &conn,
+      std::unordered_map<size_t, uint64_t> &max_of_bidir,
+      std::unordered_map<size_t, size_t> &node_if_allocated); 
+  void connect_unused_node(ConnectionMatrix &conn, std::unordered_map<size_t, size_t> &node_if_allocated);
+  void connect_cc(std::unordered_map<uint64_t, uint64_t> &logical_id_to_demand, 
+                  ConnectionMatrix &conn);
 
   size_t get_if_in_use(size_t node, const ConnectionMatrix & conn);
   bool add_link(size_t i, size_t j, ConnectionMatrix & conn);
   void remove_link(size_t i, size_t j, ConnectionMatrix & conn);
 
-  void connect_cc(std::unordered_map<uint64_t, uint64_t> &logical_id_to_demand, 
-                  ConnectionMatrix &conn);
 
   inline static bool has_endpoint(uint64_t e, size_t v, size_t n) {
     return e / n == v || e % n == v;
@@ -786,23 +792,32 @@ public:
 class NSDI22Heuristic {
   friend class DLSSchedulerBasedSimulator;
 public:
-  NSDI22Heuristic(MachineModel* machine);
+  NSDI22Heuristic(MachineModel* machine, size_t dp_deg, size_t mp_deg);
   ~NSDI22Heuristic() = default;
 
   void fw_task_added(SimTask* task);
   void bw_task_added(SimTask* task);
-  void mp_comm_added(SimTask* task);
-  void dp_comm_added(SimTask* task);
+  void mp_lcomm_added(SimTask* task);
+  void mp_pcomm_added(SimTask* task, bool dir);
+  void dp_lcomm_added(SimTask* task);
+  void dp_pcomm_added(SimTask* task, bool dir);
   void ar_task_added(SimTask* task);
 
   void generate_dp_topology();
   void simplify_mp_topology();
   void optimize_indirection();
+  void construct_dp_pmat();
 
   void reset();
 
-  ConnectionMatrix* curr_network;
+  inline size_t edge_id(int i, int j);
+  inline size_t unordered_edge_id(int i, int j);
+
+  size_t dp_deg;
+  size_t mp_deg;
   NetworkedMachineModel* net_machine;
+
+  std::vector<SimTask*> ar_tasks;
 
   std::unordered_map<uint64_t, uint64_t> dp_tm_logical;
   std::unordered_map<uint64_t, uint64_t> dp_tm_physical_dir;
@@ -811,7 +826,6 @@ public:
   std::unordered_map<uint64_t, uint64_t> mp_tm_logical;
   std::unordered_map<uint64_t, uint64_t> mp_tm_physical_dir;
   std::unordered_map<uint64_t, uint64_t> mp_tm_physical_indir;
-  
 };
 
 typedef std::unordered_map<SimTask*, std::vector<std::pair<SimTask*, size_t>>> DLSTaskDag;
