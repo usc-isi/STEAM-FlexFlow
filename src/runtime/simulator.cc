@@ -779,6 +779,7 @@ float LogicalTaskgraphBasedSimulator::simulate_runtime(
     CostMetrics cost_metrics = measure_operator_cost(op, config);
     float forward_time = cost_metrics.forward_time;
     float backward_time = cost_metrics.backward_time;
+    SimTask *ar_task = nullptr;
     for (int j = 0; j < config.num_parts(); j++) {
       SimTask* task1 = task_manager->new_forward_task(op, j);
       task1->device = machine->get_gpu(config.device_ids[j]);
@@ -794,36 +795,39 @@ float LogicalTaskgraphBasedSimulator::simulate_runtime(
         task1->add_next_task(task2);
         if (l1optimizer) 
           l1optimizer->task_added(task2);
-        // NER step: add allreduce task after backward propogation
-        size_t element_size = data_type_size(DT_FLOAT); // assume all weights have float elements
-        ParallelConfig pc = global.find(op)->second;
-        for (int j = 0; j < op->numWeights; j++) {
-          std::set<int> synched;
-          std::vector<int> node_ids;
-          for (int firstId = 0; firstId < pc.num_parts(); firstId++) {
-            if (synched.find(firstId) == synched.end()) {
-              synched.insert(firstId);
-              Domain firstR = op->get_weight_tensor_shape(pc, j, firstId);
-              size_t xfer_size = firstR.get_volume() * element_size;
-              node_ids.push_back(pc.device_ids[firstId]);
-              for (int nextId = firstId+1; nextId < pc.num_parts(); nextId++) {
-                Domain nextR = op->get_weight_tensor_shape(pc, j, nextId);
-                if (firstR.intersection(nextR).get_volume() > 0) {
-                  // Assert all or nothing:
-                  // The two weights must be fully overlapped or not at all
-                  assert(firstR == nextR);
-                  assert(synched.find(nextId) == synched.end());
-                  synched.insert(nextId);
-                  node_ids.push_back(pc.device_ids[nextId]);
+        if (!ar_task) {
+          // NER step: add allreduce task after backward propogation
+          size_t element_size = data_type_size(DT_FLOAT); // assume all weights have float elements
+          ParallelConfig pc = global.find(op)->second;
+          for (int j = 0; j < op->numWeights; j++) {
+            std::set<int> synched;
+            std::vector<int> node_ids;
+            for (int firstId = 0; firstId < pc.num_parts(); firstId++) {
+              if (synched.find(firstId) == synched.end()) {
+                synched.insert(firstId);
+                Domain firstR = op->get_weight_tensor_shape(pc, j, firstId);
+                size_t xfer_size = firstR.get_volume() * element_size;
+                node_ids.push_back(pc.device_ids[firstId]);
+                for (int nextId = firstId+1; nextId < pc.num_parts(); nextId++) {
+                  Domain nextR = op->get_weight_tensor_shape(pc, j, nextId);
+                  if (firstR.intersection(nextR).get_volume() > 0) {
+                    // Assert all or nothing:
+                    // The two weights must be fully overlapped or not at all
+                    assert(firstR == nextR);
+                    assert(synched.find(nextId) == synched.end());
+                    synched.insert(nextId);
+                    node_ids.push_back(pc.device_ids[nextId]);
+                  }
                 }
+                
+                ar_task = task_manager->new_allreduce_task(op, node_ids, xfer_size);
+                if (l1optimizer) 
+                  l1optimizer->task_added(ar_task);
               }
-              SimTask *ar_task = task_manager->new_allreduce_task(op, node_ids, xfer_size);
-              task2->add_next_task(ar_task);
-              if (l1optimizer) 
-                l1optimizer->task_added(ar_task);
             }
           }
         }
+        task2->add_next_task(ar_task);
       }
     }
   }
