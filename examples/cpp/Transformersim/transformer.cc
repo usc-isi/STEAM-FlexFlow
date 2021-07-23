@@ -118,7 +118,7 @@ void top_level_task(const Task* task,
     log_app.print("Sequence Length(%d)", tfConfig.sequence_length);
   }
   ffConfig.numNodes = tfConfig.nsimnode;
-  FFModel ff(ffConfig);
+  FFModel ff(ffConfig, true);
   Tensor input;
   {
     const int dims[] = {ffConfig.batchSize, tfConfig.sequence_length, tfConfig.hidden_size};
