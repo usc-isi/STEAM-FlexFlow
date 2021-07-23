@@ -831,31 +831,43 @@ public:
       const std::map<Op*, ParallelConfig>& global,
       CompMode comp_mode,
       std::string const &export_file_name);
-  float compute_null_xfertime(SimTask* src, SimTask* dst, size_t message_size);
+  // float compute_null_xfertime(SimTask* src, SimTask* dst, size_t message_size);
   void add_task_dependencies_with_xfer_sch(
       SimTask* src_task, SimTask* dst_task, size_t message_size,
       DLSTaskDag& bp_taskdag);
   std::vector<SimTask*> rev_topological_sort(
       const std::unordered_set<SimTask*>& entry_nodes,
-      const std::vector<SimTaskOp>& bp_tasks,
+      const std::unordered_set<SimTask*>& bp_tasks,
       const DLSTaskDag& bp_taskdag);
   std::unordered_map<SimTask*, float> get_slevels(
       const std::vector<SimTask*>&& sorted_bp_tasks, 
       const DLSTaskDag& bp_taskdag);
-  double dls_schedule(std::vector<SimTaskOp>& bp_tasks, DLSTaskDag& bp_taskdag); 
+  double dls_schedule(std::unordered_set<SimTask*>& bp_tasks, DLSTaskDag& bp_taskdag); 
   std::map<Op*, ParallelConfig> get_device_placements(
-      std::vector<SimTaskOp>& bp_tasks);
+      std::unordered_set<SimTask*>& bp_tasks,
+      const std::map<Op*, ParallelConfig>& global);
   std::unordered_set<SimTask*> get_entry_nodes(
-      const std::vector<SimTaskOp>& bp_tasks, const DLSTaskDag& bp_taskdag);
+      const std::unordered_set<SimTask*>& bp_tasks, const DLSTaskDag& bp_taskdag);
   DLSTaskDag get_predecessors(
-      const std::vector<SimTaskOp>& bp_tasks, const DLSTaskDag& bp_taskdag);
-  inline float compute_da(const CompDevice* proc, const SimTask* task, 
+      const std::unordered_set<SimTask*>& bp_tasks, const DLSTaskDag& bp_taskdag);
+  inline float compute_da(const CompDevice* proc, SimTask* task, 
       const DLSTaskDag& pred, 
       const std::unordered_map<CompDevice*, float>& processors, 
-      const std::unordered_map<CommDevice*, float>& links);
-  inline void schedule(const CompDevice* proc, SimTask* task, 
+      const std::unordered_map<CommDevice*, float>& links,
+      const std::unordered_map<SimTask*, float>& task_finish_time);
+  inline void schedule(CompDevice* proc, SimTask* task, 
+      const DLSTaskDag& pred, 
       std::unordered_map<CompDevice*, float>& processors, 
-      std::unordered_map<CommDevice*, float>& links);
+      std::unordered_map<CommDevice*, float>& links,
+      std::unordered_map<SimTask*, float>& task_finish_time);
+  inline float sch_try_route_transfer(
+    SimTask* src, SimTask* dst, size_t xfersize, 
+    const std::unordered_map<CommDevice*, float>& links,
+    const std::unordered_map<SimTask*, float>& task_finish_time);
+  inline float sch_route_transfer(
+    SimTask* src, SimTask* dst, size_t xfersize, 
+    std::unordered_map<CommDevice*, float>& links,
+    std::unordered_map<SimTask*, float>& task_finish_time);
   NetworkedMachineModel* net_machine;
   NSDI22Heuristic * topofinder;
 };

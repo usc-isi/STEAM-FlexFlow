@@ -1365,7 +1365,7 @@ float DLSSchedulerBasedSimulator::simulate_runtime(const FFModel* model,
   topofinder->reset();
 
   // Step 1: register forward and backward tasks. Add BP to a separate taskdag
-  std::vector<SimTaskOp> bp_tasks;
+  std::unordered_set<SimTask*> bp_tasks;
   DLSTaskDag bp_taskdag;
   for (size_t l = 0; l < model->layers.size(); l++) {
     Op* op = model->layers[l];
@@ -1375,18 +1375,18 @@ float DLSSchedulerBasedSimulator::simulate_runtime(const FFModel* model,
     float backward_time = cost_metrics.backward_time;
     for (int j = 0; j < config.num_parts(); j++) {
       SimTask* task1 = task_manager->new_forward_task(op, j);
-      task1->device = machine->get_gpu(config.device_ids[j]);
-      task1->mem = machine->get_gpu_fb_mem(config.device_ids[j]);
+      // task1->device = machine->get_gpu(config.device_ids[j]);
+      // task1->mem = machine->get_gpu_fb_mem(config.device_ids[j]);
       task1->run_time = forward_time;
-      topofinder->fw_task_added(task1);
+      // topofinder->fw_task_added(task1);
       if (comp_mode == COMP_MODE_TRAINING) {
         SimTask* task2 = task_manager->new_backward_task(op, j);
-        task2->device = machine->get_gpu(config.device_ids[j]);
-        task2->mem = machine->get_gpu_fb_mem(config.device_ids[j]);
+        // task2->device = machine->get_gpu(config.device_ids[j]);
+        // task2->mem = machine->get_gpu_fb_mem(config.device_ids[j]);
         task2->run_time = backward_time;
-        bp_tasks.push_back(std::make_pair(task2, op));
+        bp_tasks.insert(task2);
         task1->add_next_task(task2);
-        topofinder->bw_task_added(task2);
+        // topofinder->bw_task_added(task2);
       }
     }
   }
@@ -1418,7 +1418,7 @@ float DLSSchedulerBasedSimulator::simulate_runtime(const FFModel* model,
   } 
   dls_schedule(bp_tasks, bp_taskdag);
   // now we should have device placement. get the new PC
-  std::map<Op*, ParallelConfig> dev_placement = get_device_placements(bp_tasks);
+  std::map<Op*, ParallelConfig> dev_placement = get_device_placements(bp_tasks, global);
 
   for (size_t l = 0; l < model->layers.size(); l++) {
     Op* op = model->layers[l];
@@ -1556,10 +1556,9 @@ float DLSSchedulerBasedSimulator::simulate_runtime(const FFModel* model,
   return sim_time;
 }
 
-float DLSSchedulerBasedSimulator::compute_null_xfertime(SimTask* src, SimTask* dst, size_t message_size) 
-{
-
-}
+// float DLSSchedulerBasedSimulator::compute_null_xfertime(SimTask* src, SimTask* dst, size_t message_size) 
+// {
+// }
 
 void DLSSchedulerBasedSimulator::add_task_dependencies_with_xfer_sch(
     SimTask* src_task, SimTask* dst_task, size_t message_size,
@@ -1575,8 +1574,8 @@ void DLSSchedulerBasedSimulator::add_task_dependencies_with_xfer_sch(
 }
 
 std::vector<SimTask*> DLSSchedulerBasedSimulator::rev_topological_sort(
-    const std::vector<SimTask*>& entry_nodes,
-    const std::vector<SimTaskOp>& bp_tasks,
+    const std::unordered_set<SimTask*>& entry_nodes,
+    const std::unordered_set<SimTask*>& bp_tasks,
     const DLSTaskDag& bp_taskdag) 
 {
   std::vector<SimTask*> result;
@@ -1584,8 +1583,8 @@ std::vector<SimTask*> DLSSchedulerBasedSimulator::rev_topological_sort(
   std::unordered_map<SimTask*, bool> visited;
   std::stack<std::pair<SimTask*, bool>> dfs_stack;
 
-  for (auto & p: bp_tasks) {
-    visited[p.first] = false;
+  for (SimTask* p: bp_tasks) {
+    visited[p] = false;
   }
   for (SimTask *t: entry_nodes) {
     dfs_stack.push({t, false});
@@ -1642,12 +1641,12 @@ std::unordered_map<SimTask*, float> DLSSchedulerBasedSimulator::get_slevels(
 }
 
 std::unordered_set<SimTask*> DLSSchedulerBasedSimulator::get_entry_nodes(
-      const std::vector<SimTaskOp>& bp_tasks,
+      const std::unordered_set<SimTask*>& bp_tasks,
       const DLSTaskDag& bp_taskdag)
 {
   std::unordered_set<SimTask*> entryset;
-  for (auto & p: bp_tasks) {
-    entryset.insert(p.first);
+  for (SimTask* p: bp_tasks) {
+    entryset.insert(p);
   }
   for (auto & tp: bp_taskdag) {
     for (auto & p: tp.second) {
@@ -1659,7 +1658,7 @@ std::unordered_set<SimTask*> DLSSchedulerBasedSimulator::get_entry_nodes(
   return entryset;
 }
 
-double DLSSchedulerBasedSimulator::dls_schedule(std::vector<SimTaskOp>& bp_tasks,
+double DLSSchedulerBasedSimulator::dls_schedule(std::unordered_set<SimTask*>& bp_tasks,
     DLSTaskDag& bp_taskdag)  
 {
   std::unordered_set<SimTask*> entry_nodes = get_entry_nodes(bp_tasks, bp_taskdag);
@@ -1669,13 +1668,14 @@ double DLSSchedulerBasedSimulator::dls_schedule(std::vector<SimTaskOp>& bp_tasks
   
   std::unordered_set<SimTask*> ready_pool;
   std::unordered_set<SimTask*> unsched_node;
+  std::unordered_map<SimTask*, float> task_finish_time;
   std::unordered_map<SimTask*, size_t> num_predecessor_cleared;
   std::unordered_map<CompDevice*, float> processors;
   std::unordered_map<CommDevice*, float> links;
   
   // all nodes are not scheduled
-  for (auto & tp: bp_tasks) {
-    unsched_node.insert(tp.first);
+  for (SimTask* tp: bp_tasks) {
+    unsched_node.insert(tp);
   }
   // add entry nodes
   for (auto & task: entry_nodes) {
@@ -1697,7 +1697,8 @@ double DLSSchedulerBasedSimulator::dls_schedule(std::vector<SimTaskOp>& bp_tasks
     // for each node, for each processor, compute the DL
     for (auto & processor_time: processors) {
       for (SimTask* ready_task: ready_pool) {
-        float da = compute_da(processor_time.first, ready_task, predecessor_map, processors, links);
+        float da = compute_da(processor_time.first, ready_task, 
+          predecessor_map, processors, links, task_finish_time);
         float dl = slevels[ready_task] - std::max(da, processor_time.second);
         if (dl > max_dl) {
           max_dl = dl;
@@ -1707,7 +1708,7 @@ double DLSSchedulerBasedSimulator::dls_schedule(std::vector<SimTaskOp>& bp_tasks
       }
     }
     assert(final_gpu != nullptr && final_task != nullptr);
-    schedule(final_gpu, final_task, processors, links);
+    schedule(final_gpu, final_task, predecessor_map, processors, links, task_finish_time);
     for (auto& s: bp_taskdag[final_task]) {
       if (num_predecessor_cleared.find(s.first) == num_predecessor_cleared.end()) {
         num_predecessor_cleared[s.first] = 1;
@@ -1724,7 +1725,7 @@ double DLSSchedulerBasedSimulator::dls_schedule(std::vector<SimTaskOp>& bp_tasks
 }
 
 DLSTaskDag DLSSchedulerBasedSimulator::get_predecessors(
-    const std::vector<SimTaskOp>& bp_tasks, const DLSTaskDag& bp_taskdag) 
+    const std::unordered_set<SimTask*>& bp_tasks, const DLSTaskDag& bp_taskdag) 
 {
   DLSTaskDag rev_map;
   for (auto& s: bp_taskdag) {
@@ -1741,24 +1742,188 @@ DLSTaskDag DLSSchedulerBasedSimulator::get_predecessors(
 }
 
 inline float DLSSchedulerBasedSimulator::compute_da(
-    const CompDevice* proc, const SimTask* task, 
+    const CompDevice* proc, SimTask* task, 
     const DLSTaskDag& pred, 
     const std::unordered_map<CompDevice*, float>& processors, 
-    const std::unordered_map<CommDevice*, float>& links) 
+    const std::unordered_map<CommDevice*, float>& links,
+    const std::unordered_map<SimTask*, float>& task_finish_time)
 {
-
+  if (pred.find(task) == pred.end())
+    return 0;
+  float final_da = std::numeric_limits<float>::min();
+  for (auto & ps: pred.at(task)) {
+    float da = sch_try_route_transfer(ps.first, task, ps.second, links, task_finish_time);
+    if (da > final_da) {
+      final_da = da;
+    }
+  }
+  return final_da;
 }
 
-inline void DLSSchedulerBasedSimulator::schedule(const CompDevice* proc, SimTask* task, 
+inline void DLSSchedulerBasedSimulator::schedule(CompDevice* proc, SimTask* task,
+    const DLSTaskDag& pred,  
     std::unordered_map<CompDevice*, float>& processors, 
-    std::unordered_map<CommDevice*, float>& links) 
+    std::unordered_map<CommDevice*, float>& links,
+    std::unordered_map<SimTask*, float>& task_finish_time)
 {
-
+  task->device = proc;
+  float final_ready_time = 0;
+  if (pred.find(task) != pred.end()) {
+    for (auto & ps: pred.at(task)) {
+      float da = sch_route_transfer(ps.first, task, ps.second, links, task_finish_time);
+      if (da > final_ready_time) {
+        final_ready_time = da;
+      }
+    }
+  }
+  processors[proc] = final_ready_time + task->run_time;
+  task_finish_time[task] = final_ready_time + task->run_time;
 }
 
     
 std::map<Op*, ParallelConfig> DLSSchedulerBasedSimulator::get_device_placements(
-    std::vector<SimTaskOp>& bp_tasks)
+    std::unordered_set<SimTask*>& bp_tasks,
+    const std::map<Op*, ParallelConfig>& global)
 {
+  std::map<Op*, ParallelConfig> result = global;
 
+  for (auto& op_pc: result) {
+    Op* op = op_pc.first;
+    ParallelConfig &config = result.find(op)->second;
+    for (int j = 0; j < config.num_parts(); j++) {
+      SimTask* bw = task_manager->get_backward_task(op, j);
+      config.device_ids[j] = bw->device->device_id;
+    }
+  } 
+  return result;
+}
+
+float DLSSchedulerBasedSimulator::sch_try_route_transfer(
+    SimTask* src, SimTask* dst, size_t xfersize, 
+    const std::unordered_map<CommDevice*, float>& links,
+    const std::unordered_map<SimTask*, float>& task_finish_time) 
+{
+  std::vector<CommDevice *> path = machine->get_comm_path(src->mem, dst->mem);
+  assert(path.size() == 1);
+
+  std::vector<CommDevice *> route = 
+    static_cast<NominalCommDevice*>(path[0])->expand_to_physical();
+
+  float curr_task_start_time; 
+  float curr_task_finish_time; 
+  float curr_task_run_time = 0; 
+  float ready_time = task_finish_time.at(src);
+  float curr_task_ready_time = ready_time; 
+  float xfer_size = xfer_size;
+  
+  std::unordered_map<CommDevice*, float> local_lat_device;
+
+  float final_start_time = 0;
+  float final_finish_time = 0;
+
+  for (unsigned int i = 0; i < route.size(); i++) {
+    CommDevice * latency_task_device = route[i];
+    float latency_task_run_time = machine->get_inter_node_gpu_latency();
+    float latency_task_ready_time; 
+    float latency_task_start_time; 
+    if (i == 0) {
+      latency_task_ready_time = curr_task_ready_time + curr_task_run_time;
+      latency_task_start_time = std::max(links.at(latency_task_device), latency_task_ready_time);
+      local_lat_device[latency_task_device] = latency_task_start_time;
+      final_start_time = latency_task_start_time;
+    }
+    else {
+      latency_task_ready_time = curr_task_finish_time;
+      latency_task_start_time = std::max(links.at(latency_task_device), latency_task_ready_time);
+      local_lat_device[latency_task_device] = latency_task_start_time;
+    }
+    float latency_task_finish_time = latency_task_start_time + latency_task_run_time;
+    local_lat_device[latency_task_device] = latency_task_finish_time;
+    float dram_to_dram_run_time = xfer_size / latency_task_device->bandwidth;
+
+    float dram_to_dram_start_time = latency_task_finish_time;
+    float dram_to_dram_finish_time = dram_to_dram_start_time + dram_to_dram_run_time;
+    local_lat_device[latency_task_device] = dram_to_dram_finish_time;
+
+    if (dram_to_dram_finish_time > final_finish_time) {
+      final_finish_time = dram_to_dram_finish_time;
+    }
+
+    curr_task_ready_time = latency_task_ready_time;
+    curr_task_start_time = latency_task_start_time;
+    curr_task_finish_time = latency_task_finish_time;
+    curr_task_run_time = latency_task_run_time;
+    
+#ifdef DEBUG_PRINT
+    printf("\texpand: route[%u] run_time(%.4lf) ready_time(%.4lf) start_time(%.4lf) device(%s)\n",
+          i, curr_task_run_time, curr_task_ready_time, curr_task_start_time, (latency_task_device->name).c_str());
+    printf("\t\td2d: run_time(%.4lf) start_time(%.4lf) device(%s)\n",
+          dram_to_dram_run_time, dram_to_dram_start_time, (latency_task_device->name).c_str());
+#endif
+  }
+  return final_finish_time;
+}
+
+float DLSSchedulerBasedSimulator::sch_route_transfer(
+    SimTask* src, SimTask* dst, size_t xfersize, 
+    std::unordered_map<CommDevice*, float>& links,
+    std::unordered_map<SimTask*, float>& task_finish_time) 
+{
+  std::vector<CommDevice *> path = machine->get_comm_path(src->mem, dst->mem);
+  assert(path.size() == 1);
+
+  std::vector<CommDevice *> route = 
+    static_cast<NominalCommDevice*>(path[0])->expand_to_physical();
+
+  float curr_task_start_time; 
+  float curr_task_finish_time; 
+  float curr_task_run_time = 0; 
+  float ready_time = task_finish_time.at(src);
+  float curr_task_ready_time = ready_time; 
+  float xfer_size = xfer_size;
+  
+  float final_start_time = 0;
+  float final_finish_time = 0;
+
+  for (unsigned int i = 0; i < route.size(); i++) {
+    CommDevice * latency_task_device = route[i];
+    float latency_task_run_time = machine->get_inter_node_gpu_latency();
+    float latency_task_ready_time; 
+    float latency_task_start_time; 
+    if (i == 0) {
+      latency_task_ready_time = curr_task_ready_time + curr_task_run_time;
+      latency_task_start_time = std::max(links.at(latency_task_device), latency_task_ready_time);
+      links[latency_task_device] = latency_task_start_time;
+      final_start_time = latency_task_start_time;
+    }
+    else {
+      latency_task_ready_time = curr_task_finish_time;
+      latency_task_start_time = std::max(links.at(latency_task_device), latency_task_ready_time);
+      links[latency_task_device] = latency_task_start_time;
+    }
+    float latency_task_finish_time = latency_task_start_time + latency_task_run_time;
+    links[latency_task_device] = latency_task_finish_time;
+    float dram_to_dram_run_time = xfer_size / latency_task_device->bandwidth;
+
+    float dram_to_dram_start_time = latency_task_finish_time;
+    float dram_to_dram_finish_time = dram_to_dram_start_time + dram_to_dram_run_time;
+    links[latency_task_device] = dram_to_dram_finish_time;
+
+    if (dram_to_dram_finish_time > final_finish_time) {
+      final_finish_time = dram_to_dram_finish_time;
+    }
+
+    curr_task_ready_time = latency_task_ready_time;
+    curr_task_start_time = latency_task_start_time;
+    curr_task_finish_time = latency_task_finish_time;
+    curr_task_run_time = latency_task_run_time;
+    
+#ifdef DEBUG_PRINT
+    printf("\texpand: route[%u] run_time(%.4lf) ready_time(%.4lf) start_time(%.4lf) device(%s)\n",
+          i, curr_task_run_time, curr_task_ready_time, curr_task_start_time, (latency_task_device->name).c_str());
+    printf("\t\td2d: run_time(%.4lf) start_time(%.4lf) device(%s)\n",
+          dram_to_dram_run_time, dram_to_dram_start_time, (latency_task_device->name).c_str());
+#endif
+  }
+  return final_finish_time;
 }
