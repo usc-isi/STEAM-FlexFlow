@@ -9,6 +9,14 @@
 // #define EDGE(a, b, n) ((a) > (b) ? ((a) * (n) + (b)) : ((b) * (n) + (a)))
 #define PRINT_EDGE(e, n) do {std::cout << "(" << e / n << ", " << e % n << ")";} while (0);
 
+#define INSERT_OR_ADD(_map, _key, _val) do {                                \
+  if ((_map).find(_key) == (_map).end()) {                                  \
+    (_map)[(_key)] = _val;                                                  \
+  } else {                                                                  \
+    (_map)[(_key)] += _val;                                                 \
+  }                                                                         \
+} while (0);                                                                \
+
 static std::random_device rd; 
 static std::mt19937 gen = std::mt19937(rd()); 
 
@@ -199,25 +207,16 @@ void DemandHeuristicNetworkOptimizer::task_added(SimTask * task)
   
   case SimTask::TASK_COMM:
     commDev = reinterpret_cast<CommDevice*>(task->device);
-    if (physical_traffic_demand.find(commDev->device_id) != physical_traffic_demand.end()) 
-      physical_traffic_demand[commDev->device_id] = task->xfer_size;
-    else
-      physical_traffic_demand[commDev->device_id] += task->xfer_size;
+    INSERT_OR_ADD(physical_traffic_demand, commDev->device_id, task->xfer_size);
   case SimTask::TASK_BACKWARD: 
   case SimTask::TASK_FORWARD:
     key = reinterpret_cast<uint64_t>(task->device);
-    if (dev_busy_time.find(key) == dev_busy_time.end())
-      dev_busy_time[key] = task->run_time;
-    else
-      dev_busy_time[key] += task->run_time;
+    INSERT_OR_ADD(dev_busy_time, key, task->run_time);
   break;
 
   case SimTask::TASK_NOMINAL_COMM:
     ncommDev = reinterpret_cast<NominalCommDevice*>(task->device);
-    if (logical_traffic_demand.find(ncommDev->device_id) != logical_traffic_demand.end()) 
-      logical_traffic_demand[ncommDev->device_id] = task->xfer_size;
-    else
-      logical_traffic_demand[ncommDev->device_id] += task->xfer_size;
+    INSERT_OR_ADD(logical_traffic_demand, ncommDev->device_id, task->xfer_size);
   break;
 
   case SimTask::TASK_ALLREDUCE:
@@ -335,19 +334,8 @@ void DemandHeuristicNetworkOptimizer::optimize_demand(
     conn[edge_id(node0, node1)]++;
     conn[edge_id(node1, node0)]++;
 
-    if (node_if_allocated.find(node0) == node_if_allocated.end()) {
-      node_if_allocated[node0] = 1;
-    }
-    else {
-      node_if_allocated[node0]++;
-    }
-    
-    if (node_if_allocated.find(node1) == node_if_allocated.end()) {
-      node_if_allocated[node1] = 1;
-    }
-    else {
-      node_if_allocated[node1]++;
-    }
+    INSERT_OR_ADD(node_if_allocated, node0, 1);
+    INSERT_OR_ADD(node_if_allocated, node1, 1);
 
     // std::cout << "first is " << target.first << std::endl;
     target.first /= 2; //*= (double)conn[target.second]/(conn[target.second] + 1);
@@ -422,19 +410,9 @@ void DemandHeuristicNetworkOptimizer::connect_unused_node(
         conn[edge_id(next_step, curr_node)]++;
         conn[edge_id(curr_node, next_step)]++;
 
-        if (node_if_allocated.find(next_step) == node_if_allocated.end()) {
-          node_if_allocated[next_step] = 1;
-        }
-        else {
-          node_if_allocated[next_step]++;
-        }
+        INSERT_OR_ADD(node_if_allocated, next_step, 1);
+        INSERT_OR_ADD(node_if_allocated, curr_node, 1);
         
-        if (node_if_allocated.find(curr_node) == node_if_allocated.end()) {
-          node_if_allocated[curr_node] = 1;
-        }
-        else {
-          node_if_allocated[curr_node]++;
-        }
         visited_node.insert(next_step);
         curr_node = next_step;
         allocated += 1;
@@ -471,19 +449,8 @@ void DemandHeuristicNetworkOptimizer::connect_unused_node(
       conn[edge_id(node0, node1)]++;
       conn[edge_id(node1, node0)]++;
 
-      if (node_if_allocated.find(node0) == node_if_allocated.end()) {
-        node_if_allocated[node0] = 1;
-      }
-      else {
-        node_if_allocated[node0]++;
-      }
-      
-      if (node_if_allocated.find(node1) == node_if_allocated.end()) {
-        node_if_allocated[node1] = 1;
-      }
-      else {
-        node_if_allocated[node1]++;
-      }
+      INSERT_OR_ADD(node_if_allocated, node0, 1);
+      INSERT_OR_ADD(node_if_allocated, node1, 1);
       allocated += 1;
 
       bool changed = false;
@@ -845,17 +812,15 @@ void NSDI22Heuristic::construct_dp_pmat()
       src_mem = dst_mem;
       std::vector<CommDevice *> route = 
         static_cast<NominalCommDevice*>(path[0])->expand_to_physical(); 
+      if (route.size() == 1)
+        INSERT_OR_ADD(dp_tm_physical_dir, route[0]->device_id, indiv_xfersize);
       for (CommDevice * d: route) {
-        if (net_machine->conn_matrix[d->device_id] > 0) {
-          dp_tm_physical_dir[d->device_id] 
-        }
+        INSERT_OR_ADD(dp_tm_physical_indir, d->device_id, indiv_xfersize);
       }
     }
   }
 }
 
-#define INSERT_OR_ADD(_map, _key, _val) do {                                \
-  if ((_map).find(_key) == )
 
 void NSDI22Heuristic::reset() 
 {
