@@ -172,6 +172,9 @@ enum TaskIDs {
   CUSTOM_SIMULATION_TASK_ID,
   CUSTOM_SIMULATION_TASK_ID_2,
   CUSTOM_SIMULATION_TASK_ID_3,
+  CUSTOM_MEASUREMENT_TASK_ID_1,
+  CUSTOM_MEASUREMENT_TASK_ID_2,
+  CUSTOM_MEASUREMENT_TASK_ID_3,
   // Make sure PYTHON_TOP_LEVEL_TASK_ID is
   // consistent with python/main.cc
   PYTHON_TOP_LEVEL_TASK_ID = 11111,
@@ -213,6 +216,7 @@ struct OpMeasurement {
   std::string pc_str;
   float fwtime;
   float bwtime;
+  size_t mem_req; 
 };
 
 class Op {
@@ -248,7 +252,7 @@ public:
   virtual Domain get_input_tensor_shape(const ParallelConfig& pc, int input_idx, int part_idx);
   virtual Domain get_output_tensor_shape(const ParallelConfig& pc, int output_idx, int part_idx);
   virtual Domain get_weight_tensor_shape(const ParallelConfig& pc, int weight_idx, int part_idx);
-  virtual void measure_all(Simulator * sim, FFModel&, OpMeasurement& opm);
+  virtual void measure_all(Simulator * sim, FFModel&, std::vector<OpMeasurement>& opm);
   // Helper functions
   void prefetch(const FFModel&);
   void zero_grad(const FFModel&);
@@ -555,6 +559,8 @@ public:
   void recompile_on_condition(RecompileState& r);
   void zero_gradients();
   void print_layers(int id);
+  void measure(Simulator * sim);
+  void write_measurement_to_json(size_t batch_size, size_t ngpus, const std::vector<OpMeasurement>& measurements);
   std::string get_operator_type_name(OperatorType type) const;
 
   std::unordered_map<Op *, std::vector<std::pair<Op *, int>>> get_bwd_edge_map() const;

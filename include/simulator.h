@@ -707,6 +707,9 @@ public:
   static void simulation_task(const Task *task,
                                    const std::vector<PhysicalRegion> &regions,
                                    Context ctx, Runtime *runtime);                                   
+  static void measurement_task(const Task *task,
+                                   const std::vector<PhysicalRegion> &regions,
+                                   Context ctx, Runtime *runtime);                                   
 public:
   Realm::RegionInstance simulatorInst;
   MachineModel *machine;

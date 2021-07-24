@@ -246,6 +246,35 @@ void Simulator::simulation_task(const Task *task,
   delete(machine);
 }
 
+
+__host__
+void Simulator::measurement_task(const Task *task,
+                                     const std::vector<PhysicalRegion> &regions,
+                                     Context ctx, Runtime *runtime)
+{
+  const FFModel* model = *((FFModel**) task->args);
+  Memory gpu_mem = Machine::MemoryQuery(Machine::get_machine())
+         .only_kind(Memory::GPU_FB_MEM).best_affinity_to(task->target_proc).first();
+
+  SimpleMachineModel* nmachine = new SimpleMachineModel(model->config.numNodes, model->config.workersPerNode, gpu_mem.capacity());
+  MachineModel *machine;
+  machine = reinterpret_cast<MachineModel*>(nmachine);
+
+  // Assume this task is running on GPU0
+  Simulator* simulator = new Simulator(model, model->handlers[0], gpu_mem, machine);
+  // Set cublas/cudnn streams to allow Realm catch the events
+
+  cudaStream_t stream;
+  checkCUDA(get_legion_stream(&stream));
+  checkCUDA(cublasSetStream(simulator->handler.blas, stream));
+  checkCUDNN(cudnnSetStream(simulator->handler.dnn, stream));
+
+  model->measure(simulator);
+  delete(simulator);
+  delete(machine);
+}
+
+
 LogicalTaskgraphBasedSimulator::LogicalTaskgraphBasedSimulator(const FFModel* model,
   FFHandler handler, Memory memory, MachineModel *machine)
 : Simulator(model, handler, memory, machine)

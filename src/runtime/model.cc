@@ -2127,6 +2127,112 @@ void FFModel::rewrite(const std::map<Op*, ParallelConfig>& current,
   }
 }
 
+void FFModel::measure(Simulator * sim) {
+
+  std::vector<OpMeasurement> measurements;
+
+  std::unordered_set<std::string> measured;
+
+  // measured.insert("Attention_102416");
+  for (size_t l = 0; l < layers.size(); l++) {
+    if (measured.find(layers[l]->generic_name) != measured.end()) {
+      cout << "Measureing "  << layers[l]->generic_name << endl;
+      layers[l]->measure_all(sim, *this, measurements);
+      measured.insert(layers[l]->generic_name);
+    }
+  }
+
+  write_measurement_to_json(config.batchSize, 
+    config.numNodes * config.workersPerNode,
+    measurements);
+
+}
+
+void FFModel::write_measurement_to_json(size_t batch_size, 
+  size_t ngpus, 
+  const std::vector<OpMeasurement>& measurements) 
+{
+  std::string fname = string("measure_")
+                  .append(to_string(batch_size))
+                  .append("_")
+                  .append(to_string(ngpus))
+                  .append(".json");
+  std::ofstream output(fname, std::ios::out);
+  output << "{" << std::endl;
+  output << "\t\"batch_size\": " << batch_size << ", " << std::endl;
+  output << "\t\"ngpus\": " << ngpus << ", " << std::endl;
+  output << "\t\"measurements\": [" << std::endl;
+  for (size_t i = 0; i < measurements.size(); i++) {
+    const OpMeasurement & meas = measurements[i];
+    output << "\t\t{" << std::endl;
+    output << "\t\t\t\"name\": \"" << meas.name << "\"," << std::endl;
+    output << "\t\t\t\"fw_time\": " << meas.fwtime << "," << std::endl;
+    output << "\t\t\t\"bw_time\": " << meas.bwtime << ","  << std::endl;
+    output << "\t\t\t\"mem_req\": " << meas.mem_req << std::endl;
+    output << "\t\t}";
+    
+    if (i == measurements.size() - 1) {
+      output << ", ";
+    }
+    output << std::endl;
+  }
+  output << "\t]" << std::endl;
+  output << "}" << std::endl;
+  output.close();
+}
+
+
+void Op::measure_all(Simulator * sim, FFModel& ff, std::vector<OpMeasurement>& opm) 
+{
+  std::unordered_set<int> candidates;
+    
+  int batch_size = outputs[0].adim[outputs[0].numDim-1];
+  printf("batch_size: %d, local_batch_sz_upperlimit: %d\n", batch_size, ff.config.local_batch_sz_upperlimit);
+  for (int i = 1; i <= ff.config.workersPerNode; i++) {
+    if (ff.config.workersPerNode % i == 0) {
+      if (batch_size % i != 0)
+        continue;
+      if (batch_size / i > ff.config.local_batch_sz_upperlimit) {
+        continue;
+      }
+      candidates.insert(i);
+    }
+  }
+  for (int i = 1; i <= ff.config.numNodes; i++) {
+    if (ff.config.numNodes % i == 0) {
+      if (batch_size % (i * ff.config.workersPerNode) != 0)
+        continue;
+      if (batch_size / (i * ff.config.workersPerNode) > ff.config.local_batch_sz_upperlimit) {
+        continue;
+      }
+      candidates.insert(i * ff.config.workersPerNode);
+    }
+  }
+
+  for (int num_parts: candidates) {
+    ParallelConfig pc;
+    pc.device_type = ParallelConfig::GPU;
+    pc.nDims = outputs[0].numDim;
+    for (int i = 0; i < pc.nDims; i++)
+      pc.dim[i] = i == pc.nDims - 1 ? num_parts : 1;
+
+    float fwtime = 0, bwtime = 0;
+    CostMetrics cost;
+    measure_operator_cost(sim, pc, cost);
+
+    opm.emplace_back(
+      OpMeasurement {
+        .name = generic_name,
+        .pc_str = pc.get_pc_str(),
+        .fwtime = cost.forward_time,
+        .bwtime = cost.backward_time,
+        .mem_req = cost.memory_requirement
+      }
+    );
+    std::cout << "Measured " << generic_name << " " << pc.get_pc_str() << " fw: " << fwtime << " bw: " << bwtime << endl;
+  }
+}
+
 void FFModel::optimize(Simulator* simulator,
                        std::map<Op*, ParallelConfig>& best,
                        size_t budget, float alpha,
@@ -3385,6 +3491,14 @@ void register_flexflow_internal_tasks()
     registrar.set_leaf();
     Runtime::preregister_task_variant<Simulator::simulation_task>(
         registrar, "Simulation Task 2");
+  }
+  {
+    TaskVariantRegistrar registrar(CUSTOM_MEASUREMENT_TASK_ID_1,
+                                   "Simulator measurement");
+    registrar.add_constraint(ProcessorConstraint(Processor::TOC_PROC));
+    registrar.set_leaf();
+    Runtime::preregister_task_variant<Simulator::measurement_task>(
+        registrar, "Simulator measurement");
   }
   // Parameter Server Prefetch task
   {
