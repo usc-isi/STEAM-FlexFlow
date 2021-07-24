@@ -208,6 +208,13 @@ public:
   bool trainableInputs[MAX_NUM_INPUTS];
 };
 
+struct OpMeasurement {
+  std::string name;
+  std::string pc_str;
+  float fwtime;
+  float bwtime;
+};
+
 class Op {
 protected:
   void inner_measure_operator_cost(Simulator *sim,
@@ -241,6 +248,7 @@ public:
   virtual Domain get_input_tensor_shape(const ParallelConfig& pc, int input_idx, int part_idx);
   virtual Domain get_output_tensor_shape(const ParallelConfig& pc, int output_idx, int part_idx);
   virtual Domain get_weight_tensor_shape(const ParallelConfig& pc, int weight_idx, int part_idx);
+  virtual void measure_all(Simulator * sim, FFModel&, OpMeasurement& opm);
   // Helper functions
   void prefetch(const FFModel&);
   void zero_grad(const FFModel&);
@@ -261,6 +269,7 @@ public:
 public:
   OperatorType op_type;
   char name[MAX_OPNAME];
+  std::string generic_name;
   IndexSpace task_is;
   Tensor outputs[MAX_NUM_OUTPUTS];
   Tensor inputs[MAX_NUM_INPUTS];

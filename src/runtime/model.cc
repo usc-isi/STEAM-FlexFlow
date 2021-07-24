@@ -256,7 +256,7 @@ Op::Op(FFModel& model,
        OperatorType _op_type,
        const char* _name,
        const Tensor& _input)
-: op_type(_op_type), numInputs(1), numWeights(0), numOutputs(1),
+: op_type(_op_type), generic_name(_name), numInputs(1), numWeights(0), numOutputs(1),
   profiling(model.config.profiling)
 {
   std::string pcname;
@@ -287,7 +287,7 @@ Op::Op(FFModel& model,
        const Op* shared_op,
        const char* _name,
        const Tensor& _input)
-: op_type(_op_type), numInputs(1), numWeights(0), numOutputs(1),
+: op_type(_op_type), generic_name(_name), numInputs(1), numWeights(0), numOutputs(1),
   profiling(model.config.profiling)
 {
   std::string pcname;
@@ -322,7 +322,7 @@ Op::Op(FFModel& model,
        const char* _name,
        const Tensor& _input1,
        const Tensor& _input2)
-: op_type(_op_type), numInputs(2), numWeights(0), numOutputs(1),
+: op_type(_op_type), generic_name(_name), numInputs(2), numWeights(0), numOutputs(1),
   profiling(model.config.profiling)
 {
   std::string pcname;
@@ -355,7 +355,7 @@ Op::Op(FFModel& model,
        const Tensor& _input1,
        const Tensor& _input2,
        const Tensor& _input3)
-: op_type(_op_type), numInputs(3), numWeights(0), numOutputs(1),
+: op_type(_op_type), generic_name(_name), numInputs(3), numWeights(0), numOutputs(1),
   profiling(model.config.profiling)
 {
   std::string pcname;
@@ -387,7 +387,7 @@ Op::Op(FFModel& model,
        OperatorType _op_type,
        const char* _name,
        int n, const Tensor* _inputs)
-: op_type(_op_type), numInputs(n), numWeights(0), numOutputs(1),
+: op_type(_op_type), generic_name(_name), numInputs(n), numWeights(0), numOutputs(1),
   profiling(model.config.profiling)
 {
   std::string pcname;
@@ -419,7 +419,7 @@ Op::Op(FFModel& model,
        OperatorType _op_type,
        const char* _name,
        int _numInputs)
-: op_type(_op_type), numInputs(_numInputs), numWeights(0), numOutputs(1),
+: op_type(_op_type), generic_name(_name), numInputs(_numInputs), numWeights(0), numOutputs(1),
   profiling(model.config.profiling)
 {
   std::string pcname;

@@ -68,6 +68,15 @@ struct ParallelConfig {
   int nDims, dim[MAX_TENSOR_DIM];
   int device_ids[MAX_NUM_WORKERS];
   int pserver;
+
+  std::string str_rep = "";
+  inline std::string get_pc_str() {
+    if (str_rep != "") return str_rep;
+    str_rep.append(std::to_string(nDims));
+    for (int i = 0; i < nDims; i++)
+      str_rep.append("-").append(std::to_string(dim[i]));
+    return str_rep;
+  }
 #ifdef FF_USE_NCCL
   ncclComm_t nccl_comms[MAX_NUM_WORKERS];
 #endif
