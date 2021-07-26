@@ -18,10 +18,12 @@
 #include "test_utils.h"
 #include "dirent.h"
 #include "random_utils.h"
+#include "json.hpp"
 #include <unordered_set>
 #include <limits>
 
 using namespace std;
+using json = nlohmann::json;
 static const uint64_t GPU_MEM = 42949672960ULL;
 
 LegionRuntime::Logger::Category log_model("Model");
@@ -256,7 +258,7 @@ Op::Op(FFModel& model,
        OperatorType _op_type,
        const char* _name,
        const Tensor& _input)
-: op_type(_op_type), generic_name(_name), numInputs(1), numWeights(0), numOutputs(1),
+: op_type(_op_type), numInputs(1), numWeights(0), numOutputs(1),
   profiling(model.config.profiling)
 {
   std::string pcname;
@@ -287,7 +289,7 @@ Op::Op(FFModel& model,
        const Op* shared_op,
        const char* _name,
        const Tensor& _input)
-: op_type(_op_type), generic_name(_name), numInputs(1), numWeights(0), numOutputs(1),
+: op_type(_op_type), numInputs(1), numWeights(0), numOutputs(1),
   profiling(model.config.profiling)
 {
   std::string pcname;
@@ -322,7 +324,7 @@ Op::Op(FFModel& model,
        const char* _name,
        const Tensor& _input1,
        const Tensor& _input2)
-: op_type(_op_type), generic_name(_name), numInputs(2), numWeights(0), numOutputs(1),
+: op_type(_op_type), numInputs(2), numWeights(0), numOutputs(1),
   profiling(model.config.profiling)
 {
   std::string pcname;
@@ -355,7 +357,7 @@ Op::Op(FFModel& model,
        const Tensor& _input1,
        const Tensor& _input2,
        const Tensor& _input3)
-: op_type(_op_type), generic_name(_name), numInputs(3), numWeights(0), numOutputs(1),
+: op_type(_op_type), numInputs(3), numWeights(0), numOutputs(1),
   profiling(model.config.profiling)
 {
   std::string pcname;
@@ -387,7 +389,7 @@ Op::Op(FFModel& model,
        OperatorType _op_type,
        const char* _name,
        int n, const Tensor* _inputs)
-: op_type(_op_type), generic_name(_name), numInputs(n), numWeights(0), numOutputs(1),
+: op_type(_op_type), numInputs(n), numWeights(0), numOutputs(1),
   profiling(model.config.profiling)
 {
   std::string pcname;
@@ -419,7 +421,7 @@ Op::Op(FFModel& model,
        OperatorType _op_type,
        const char* _name,
        int _numInputs)
-: op_type(_op_type), generic_name(_name), numInputs(_numInputs), numWeights(0), numOutputs(1),
+: op_type(_op_type), numInputs(_numInputs), numWeights(0), numOutputs(1),
   profiling(model.config.profiling)
 {
   std::string pcname;
@@ -541,6 +543,45 @@ ParallelConfig get_basic_data_parallel_config(int num_parts, int dims)
 //     pc.device_ids[i] = start_idx + i;
 //   return pc;
 // }
+
+
+void FFModel::load_measurement(Simulator * sim, const std::string & fname) {
+
+  std::ifstream t(fname);
+  std::string meas_str;
+
+  t.seekg(0, std::ios::end);   
+  meas_str.reserve(t.tellg());
+  t.seekg(0, std::ios::beg);
+
+  meas_str.assign((std::istreambuf_iterator<char>(t)), std::istreambuf_iterator<char>());    
+
+  auto meas_json = json::parse(meas_str);
+  size_t batch_size = meas_json["batch_size"].get<size_t>();
+  size_t ngpus = meas_json["ngpus"].get<size_t>();
+  assert(batch_size == config.batchSize);
+  assert(ngpus == config.numNodes * config.workersPerNode); 
+  sim->measurements = new std::unordered_map<std::string, CostMetrics>();
+
+  for (auto & meas: meas_json["measurements"]) {
+    std::string name = meas["name"].get<std::string>();
+    std::string pc_str = meas["pc_str"].get<std::string>();
+    std::string key = name + pc_str;
+    CostMetrics cost = {
+      .forward_time = meas["fw_time"].get<float>(),
+      .backward_time = meas["bw_time"].get<float>(),
+      .memory_requirement = meas["mem_req"].get<size_t>()
+    };
+    (*sim->measurements)[key] = cost;
+    if (opcandidates.find(name) != opcandidates.end())
+      opcandidates[name].push_back(ParallelConfig::restore_pc_from_str(pc_str));
+    else {
+      opcandidates[name] = std::vector<ParallelConfig>();
+      opcandidates[name].push_back(ParallelConfig::restore_pc_from_str(pc_str));
+    }
+
+  }
+}
 
 ParallelConfig Op::get_random_parallel_config(const FFModel& ff, int nparts) const
 {
@@ -1753,6 +1794,19 @@ void FFModel::simulate2(CompMode comp_mode)
   future.get_void_result();
 }
 
+void FFModel::run_measurement() 
+{
+  Context ctx = config.lg_ctx;
+  Runtime* runtime = config.lg_hlr;
+  config.computationMode = COMP_MODE_TRAINING;
+  // Launch the simulation task
+  FFModel* model = this;
+  TaskLauncher launcher(CUSTOM_MEASUREMENT_TASK_ID_1,
+      TaskArgument(&model, sizeof(FFModel*)));
+  Future future = runtime->execute_task(ctx, launcher);
+  future.get_void_result();
+}
+
 void FFModel::compile(LossType loss_type,
                       const std::vector<MetricsType>& metrics,
                       CompMode comp_mode)
@@ -2135,10 +2189,10 @@ void FFModel::measure(Simulator * sim) {
 
   // measured.insert("Attention_102416");
   for (size_t l = 0; l < layers.size(); l++) {
-    if (measured.find(layers[l]->generic_name) != measured.end()) {
-      cout << "Measureing "  << layers[l]->generic_name << endl;
+    if (measured.find(layers[l]->get_name_structure()) == measured.end()) {
+      cout << "Measureing "  << layers[l]->get_name_structure() << endl;
       layers[l]->measure_all(sim, *this, measurements);
-      measured.insert(layers[l]->generic_name);
+      measured.insert(layers[l]->get_name_structure());
     }
   }
 
@@ -2166,6 +2220,7 @@ void FFModel::write_measurement_to_json(size_t batch_size,
     const OpMeasurement & meas = measurements[i];
     output << "\t\t{" << std::endl;
     output << "\t\t\t\"name\": \"" << meas.name << "\"," << std::endl;
+    output << "\t\t\t\"pc_str\": \"" << meas.pc_str << "\"," << std::endl;
     output << "\t\t\t\"fw_time\": " << meas.fwtime << "," << std::endl;
     output << "\t\t\t\"bw_time\": " << meas.bwtime << ","  << std::endl;
     output << "\t\t\t\"mem_req\": " << meas.mem_req << std::endl;
@@ -2222,14 +2277,14 @@ void Op::measure_all(Simulator * sim, FFModel& ff, std::vector<OpMeasurement>& o
 
     opm.emplace_back(
       OpMeasurement {
-        .name = generic_name,
+        .name = get_name_structure(),
         .pc_str = pc.get_pc_str(),
         .fwtime = cost.forward_time,
         .bwtime = cost.backward_time,
         .mem_req = cost.memory_requirement
       }
     );
-    std::cout << "Measured " << generic_name << " " << pc.get_pc_str() << " fw: " << fwtime << " bw: " << bwtime << endl;
+    std::cout << "Measured " << get_name_structure() << " " << pc.get_pc_str() << " fw: " << fwtime << " bw: " << bwtime << endl;
   }
 }
 

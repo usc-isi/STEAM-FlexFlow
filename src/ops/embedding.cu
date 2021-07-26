@@ -450,3 +450,7 @@ bool Embedding::measure_operator_cost(Simulator* sim,
 
   return true;
 }
+
+std::string Embedding::get_name_structure() const {
+  return "Embed_"+std::to_string(num_entries)+"x"+std::to_string(out_channels);
+}

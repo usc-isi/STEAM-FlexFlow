@@ -408,3 +408,7 @@ bool Cache::measure_operator_cost(Simulator* sim,
   cost_metrics.memory_requirement = 0;
   return false;
 }
+
+std::string Cache::get_name_structure() const {
+  return "Cache";
+}

@@ -755,3 +755,7 @@ bool TopK::measure_operator_cost(Simulator* sim,
   assert(false);
   return false;
 }
+
+std::string TopK::get_name_structure() const {
+  return "TopK";
+}

@@ -738,6 +738,8 @@ public:
   int segment_size;
   int max_num_segments; //simulation could be slow if the number of segments are too large
 
+  std::unordered_map<std::string, CostMetrics>* measurements;
+
   /* extra optimizer that changes physical properties.
    * Each time a task is added, a callback would be called into this 
    * optimizer to provide information 

@@ -452,3 +452,7 @@ bool Softmax::measure_operator_cost(Simulator* sim,
   delete m;
   return true;
 }
+
+std::string Softmax::get_name_structure() const {
+  return "Softmax"; 
+}

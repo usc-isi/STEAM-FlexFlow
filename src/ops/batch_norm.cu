@@ -687,3 +687,7 @@ bool BatchNorm::measure_operator_cost(Simulator* sim,
   delete m;
   return true;
 }
+
+std::string BatchNorm::get_name_structure() const {
+  return "BatchNorm";
+}

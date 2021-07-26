@@ -410,3 +410,7 @@ bool Dropout::measure_operator_cost(Simulator* sim,
   delete m;
   return true;
 }
+
+std::string Dropout::get_name_structure() const {
+  return "Dropout";
+}

@@ -673,3 +673,8 @@ bool BatchMatmul::measure_operator_cost(Simulator* sim,
 
   return true;
 }
+
+
+std::string BatchMatmul::get_name_structure() const {
+  return "BatchMatmul";
+}

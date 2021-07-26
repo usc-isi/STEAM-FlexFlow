@@ -873,3 +873,8 @@ bool ElementBinary::measure_operator_cost(Simulator* sim,
 
   return true;
 }
+
+
+std::string ElementBinary::get_name_structure() const {
+  return "ElementBinary_"+std::to_string(op_type);
+}

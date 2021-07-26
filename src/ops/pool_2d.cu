@@ -503,3 +503,7 @@ bool Pool2D::measure_operator_cost(Simulator* sim,
 
   return true;
 }
+
+std::string Pool2D::get_name_structure() const {
+  return "Pool2D_"+std::to_string(kernel_h)+std::to_string(kernel_w); 
+}

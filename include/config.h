@@ -77,6 +77,26 @@ struct ParallelConfig {
       str_rep.append("-").append(std::to_string(dim[i]));
     return str_rep;
   }
+
+  static inline ParallelConfig restore_pc_from_str(const std::string & s) {
+    std::vector<std::string>   result;
+    std::string                line;
+    std::stringstream          lineStream(s);
+    std::string                cell;
+    while(std::getline(lineStream,cell, '-')) {
+      result.push_back(cell);
+    }
+    ParallelConfig pc;
+    memset(&pc, 0, sizeof(pc));
+    pc.nDims = std::stoi(result[0]);
+    assert(result.size() == pc.nDims + 1);
+    for (int i = 1; i < result.size(); i++) {
+      pc.dim[i-1] = std::stoi(result[i]);
+    }
+    pc.device_type = ParallelConfig::GPU;
+    return pc;
+  }
+  
 #ifdef FF_USE_NCCL
   ncclComm_t nccl_comms[MAX_NUM_WORKERS];
 #endif

@@ -502,3 +502,7 @@ bool Group_by::measure_operator_cost(Simulator* sim,
   cost_metrics.memory_requirement = 0;
   return false;
 }
+
+std::string Group_by::get_name_structure() const {
+  return "Group_by";
+}

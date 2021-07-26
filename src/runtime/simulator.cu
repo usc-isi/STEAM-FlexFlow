@@ -269,7 +269,7 @@ void Simulator::measurement_task(const Task *task,
   checkCUDA(cublasSetStream(simulator->handler.blas, stream));
   checkCUDNN(cudnnSetStream(simulator->handler.dnn, stream));
 
-  model->measure(simulator);
+  const_cast<FFModel*>(model)->measure(simulator);
   delete(simulator);
   delete(machine);
 }
