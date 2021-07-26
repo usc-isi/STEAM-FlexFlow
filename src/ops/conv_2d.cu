@@ -1075,5 +1075,5 @@ bool Conv2D::measure_operator_cost(Simulator* sim,
 }
 
 std::string Conv2D::get_name_structure() const {
-  return "Conv2D_"+std::to_string(kernel_h)+std::to_string(kernel_w);
+  return "Conv2D_"+std::to_string(kernel_h)+"_"+std::to_string(kernel_w);
 }

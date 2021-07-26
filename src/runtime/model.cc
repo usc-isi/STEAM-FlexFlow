@@ -562,16 +562,19 @@ void FFModel::load_measurement(Simulator * sim, const std::string & fname) {
   assert(batch_size == config.batchSize);
   assert(ngpus == config.numNodes * config.workersPerNode); 
   sim->measurements = new std::unordered_map<std::string, CostMetrics>();
-
+  
+  printf("loaded num_nodes %u, num_gpus %u\n", batch_size, ngpus);
   for (auto & meas: meas_json["measurements"]) {
     std::string name = meas["name"].get<std::string>();
     std::string pc_str = meas["pc_str"].get<std::string>();
-    std::string key = name + pc_str;
+    std::string key = name + ":" + pc_str;
+    printf("name: %s, pc_str:%s\n", name.c_str(), pc_str.c_str());
     CostMetrics cost = {
       .forward_time = meas["fw_time"].get<float>(),
       .backward_time = meas["bw_time"].get<float>(),
       .memory_requirement = meas["mem_req"].get<size_t>()
     };
+    printf("fw: %f, bw: %f, mem: %u\n", cost.forward_time, cost.backward_time, cost.memory_requirement);
     (*sim->measurements)[key] = cost;
     if (opcandidates.find(name) != opcandidates.end())
       opcandidates[name].push_back(ParallelConfig::restore_pc_from_str(pc_str));
@@ -2226,7 +2229,7 @@ void FFModel::write_measurement_to_json(size_t batch_size,
     output << "\t\t\t\"mem_req\": " << meas.mem_req << std::endl;
     output << "\t\t}";
     
-    if (i == measurements.size() - 1) {
+    if (i != measurements.size() - 1) {
       output << ", ";
     }
     output << std::endl;
@@ -2642,7 +2645,7 @@ FFConfig::FFConfig()
   node_degree = 4;
   net_opt = 0;
   topofile = "";
-  measurefile = "";
+  mfile  = "";
   local_batch_sz_upperlimit = std::numeric_limits<size_t>::max();
 
   // Parse input arguments
@@ -2807,10 +2810,6 @@ void FFConfig::parse_args(char **argv, int argc)
       topofile = std::string(argv[++i]);
       continue;
     }
-    if (!strcmp(argv[i], "--meas-file")) {
-      measurefile = std::string(argv[++i]);
-      continue;
-    }
     if (!strcmp(argv[i], "--max-localsz")) {
       local_batch_sz_upperlimit = atoi(argv[++i]);
       continue;
@@ -2821,6 +2820,10 @@ void FFConfig::parse_args(char **argv, int argc)
     }
     if (!strcmp(argv[i], "--python-data-loader-type")) {
       python_data_loader_type = atoi(argv[++i]);
+      continue;
+    }
+    if (!strcmp(argv[i], "--mfile")) {
+      mfile = std::string(argv[++i]);
       continue;
     }
   }

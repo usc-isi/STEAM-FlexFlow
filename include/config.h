@@ -189,7 +189,7 @@ public:
   size_t node_degree;
   int net_opt;
   std::string topofile;
-  std::string measurefile;
+  std::string mfile;
   size_t local_batch_sz_upperlimit;
   bool enable_control_replication;
   int python_data_loader_type;
