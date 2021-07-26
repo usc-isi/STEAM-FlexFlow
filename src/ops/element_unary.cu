@@ -753,3 +753,7 @@ bool ElementUnary::measure_operator_cost(Simulator* sim,
   }
   return true;
 }
+
+std::string ElementUnary::get_name_structure() const {
+  return "ElementUnary_"+std::to_string(op_type);
+}

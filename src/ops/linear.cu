@@ -1146,3 +1146,6 @@ bool Linear::is_valid_parallel_config(const FFModel& ff, const ParallelConfig& p
   return true;
 }
 
+std::string Linear::get_name_structure() const {
+  return "Dense_"+std::to_string(out_channels);
+}

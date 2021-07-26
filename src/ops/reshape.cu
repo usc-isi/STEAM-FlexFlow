@@ -358,3 +358,7 @@ bool Reshape::measure_operator_cost(Simulator* sim,
   return true;
 }
 
+
+std::string Reshape::get_name_structure() const {
+  return "Reshape"; 
+}

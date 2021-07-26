@@ -441,3 +441,7 @@ bool Transpose::measure_operator_cost(Simulator* sim,
 
   return true;
 }
+
+std::string Transpose::get_name_structure() const {
+  return "Transpose";
+}

@@ -23,6 +23,7 @@ struct TransformerConfig {
   int hidden_size, embedding_size, num_heads, num_layers, sequence_length;
   int nsimnode = 1;
   int nsimgpu = 1;
+  int measure = 0;
 };
 
 class DataLoader {

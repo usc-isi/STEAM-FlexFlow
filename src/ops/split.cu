@@ -344,3 +344,7 @@ bool Split::measure_operator_cost(Simulator* sim,
   }
   return true;
 }
+
+std::string Split::get_name_structure() const {
+  return "Split_"+std::to_string(axis);
+}

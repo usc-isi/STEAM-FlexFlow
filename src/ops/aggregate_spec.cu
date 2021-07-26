@@ -653,3 +653,7 @@ bool AggregateSpec::measure_operator_cost(Simulator* sim,
   cost_metrics.memory_requirement = 0;
   return false;
 }
+
+std::string AggregateSpec::get_name_structure() const {
+  return "AggregateSpec"; 
+}

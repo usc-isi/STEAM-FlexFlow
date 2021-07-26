@@ -172,6 +172,9 @@ enum TaskIDs {
   CUSTOM_SIMULATION_TASK_ID,
   CUSTOM_SIMULATION_TASK_ID_2,
   CUSTOM_SIMULATION_TASK_ID_3,
+  CUSTOM_MEASUREMENT_TASK_ID_1,
+  CUSTOM_MEASUREMENT_TASK_ID_2,
+  CUSTOM_MEASUREMENT_TASK_ID_3,
   // Make sure PYTHON_TOP_LEVEL_TASK_ID is
   // consistent with python/main.cc
   PYTHON_TOP_LEVEL_TASK_ID = 11111,
@@ -208,6 +211,14 @@ public:
   bool trainableInputs[MAX_NUM_INPUTS];
 };
 
+struct OpMeasurement {
+  std::string name;
+  std::string pc_str;
+  float fwtime;
+  float bwtime;
+  size_t mem_req; 
+};
+
 class Op {
 protected:
   void inner_measure_operator_cost(Simulator *sim,
@@ -232,6 +243,7 @@ public:
   virtual bool measure_operator_cost(Simulator* sim,
       const ParallelConfig& pc,
       CostMetrics& cost_metrics) = 0;
+  virtual std::string get_name_structure() const = 0;
   // Other virtual functions that can be optionally overwritten
   // virtual ParallelConfig get_random_parallel_config(const FFModel& ff) const;
   virtual ParallelConfig get_random_parallel_config(const FFModel& ff, int nparts = -1) const;
@@ -241,6 +253,7 @@ public:
   virtual Domain get_input_tensor_shape(const ParallelConfig& pc, int input_idx, int part_idx);
   virtual Domain get_output_tensor_shape(const ParallelConfig& pc, int output_idx, int part_idx);
   virtual Domain get_weight_tensor_shape(const ParallelConfig& pc, int weight_idx, int part_idx);
+  virtual void measure_all(Simulator * sim, FFModel&, std::vector<OpMeasurement>& opm);
   // Helper functions
   void prefetch(const FFModel&);
   void zero_grad(const FFModel&);
@@ -248,6 +261,7 @@ public:
   virtual bool can_inplace_output();
   virtual bool has_inplace_output();
   virtual void do_inplace_output();
+
 
   int get_dimension() const;
 #ifdef FF_USE_NCCL
@@ -546,6 +560,10 @@ public:
   void recompile_on_condition(RecompileState& r);
   void zero_gradients();
   void print_layers(int id);
+  void run_measurement();
+  void measure(Simulator * sim);
+  void load_measurement(Simulator * sim, const std::string & fname);
+  void write_measurement_to_json(size_t batch_size, size_t ngpus, const std::vector<OpMeasurement>& measurements);
   std::string get_operator_type_name(OperatorType type) const;
 
   std::unordered_map<Op *, std::vector<std::pair<Op *, int>>> get_bwd_edge_map() const;
@@ -576,6 +594,7 @@ public:
   std::vector<Parameter> parameters;
   FFHandler handlers[MAX_NUM_WORKERS];
   Future current_metrics;
+  std::unordered_map<std::string, std::vector<ParallelConfig>> opcandidates;
   //DataLoader *dataLoader;
 private:
   bool debug;
@@ -621,6 +640,7 @@ public:
   void backward(const FFModel&);
   void print_layer(const FFModel& model) {assert(0);}
   //Parameter* get_parameter(int index) {assert(0); return NULL;}
+  std::string get_name_structure() const;
   void create_weights(FFModel& model);
   void create_output_and_partition(FFModel& model);
   bool can_inplace_output();
@@ -681,6 +701,7 @@ public:
   void backward(const FFModel&);
   void print_layer(const FFModel& model) {assert(0);}
   //Parameter* get_parameter(int index) {assert(0); return NULL;}
+  std::string get_name_structure() const;
   void create_weights(FFModel& model);
   void create_output_and_partition(FFModel& model);
   bool can_inplace_output();
@@ -754,6 +775,7 @@ public:
   //void update(const FFModel&);
   void print_layer(const FFModel& model);
   //Parameter* get_parameter(int index);
+  std::string get_name_structure() const;
   void create_weights(FFModel& model);
   void create_output_and_partition(FFModel& model);
 
@@ -806,6 +828,7 @@ public:
   void backward(const FFModel&);
   void print_layer(const FFModel& model) {assert(0);}
   //Parameter* get_parameter(int index) {assert(0); return NULL;}
+  std::string get_name_structure() const;
   void create_weights(FFModel& model);
   void create_output_and_partition(FFModel& model);
 
@@ -868,6 +891,7 @@ public:
   void update(const FFModel&);
   void print_layer(const FFModel& model) {assert(0);}
   //Parameter* get_parameter(int index) {assert(0); return NULL;}
+  std::string get_name_structure() const;
   void create_weights(FFModel& model);
   void create_output_and_partition(FFModel& model);
 
@@ -922,6 +946,7 @@ public:
   void update(const FFModel&);
   void print_layer(const FFModel& model) {assert(0);}
   //Parameter* get_parameter(int index) {assert(0);return NULL;}
+  std::string get_name_structure() const;
   void create_weights(FFModel& model);
   void create_output_and_partition(FFModel& model);
 
@@ -1005,6 +1030,7 @@ public:
   //void update(const FFModel&);
   void print_layer(const FFModel& model);
   //Parameter* get_parameter(int index);
+  std::string get_name_structure() const;
   void create_weights(FFModel& model);
   void create_output_and_partition(FFModel& model);
 
@@ -1096,6 +1122,7 @@ public:
   void forward(const FFModel&);
   void backward(const FFModel&);
   void print_layer(const FFModel& model);
+  std::string get_name_structure() const;
   void create_weights(FFModel& model);
   void create_output_and_partition(FFModel& model);
   static OpMeta* init_task(const Task *task,
@@ -1160,6 +1187,7 @@ public:
   //void update(const FFModel&);
   void print_layer(const FFModel& model) {assert(0);}
   //Parameter* get_parameter(int index);
+  std::string get_name_structure() const;
   void create_weights(FFModel& model);
   void create_output_and_partition(FFModel& model);
 
@@ -1231,6 +1259,7 @@ public:
   void forward(const FFModel&);
   void backward(const FFModel&);
   void print_layer(const FFModel& model) {assert(0);}
+  std::string get_name_structure() const;
   void create_weights(FFModel& model);
   void create_output_and_partition(FFModel& model);
 
@@ -1270,6 +1299,7 @@ public:
   void forward(const FFModel&);
   void backward(const FFModel&);
   void print_layer(const FFModel& model) {assert(0);}
+  std::string get_name_structure() const;
   void create_weights(FFModel& model);
   void create_output_and_partition(FFModel& model);
 
@@ -1314,6 +1344,7 @@ public:
   void forward(const FFModel&);
   void backward(const FFModel&);
   void print_layer(const FFModel& model) {assert(0);}
+  std::string get_name_structure() const;
   void create_weights(FFModel& model);
   void create_output_and_partition(FFModel& model);
 
@@ -1352,6 +1383,7 @@ public:
   void forward(const FFModel&);
   void backward(const FFModel&);
   void print_layer(const FFModel& model) {assert(0);}
+  std::string get_name_structure() const;
   void create_weights(FFModel& model);
   void create_output_and_partition(FFModel& model);
 
@@ -1385,6 +1417,7 @@ public:
   //void update(const FFModel&);
   void print_layer(const FFModel& model) {assert(0);}
   //Parameter* get_parameter(int index) {return NULL;}
+  std::string get_name_structure() const;
   void create_weights(FFModel& model);
   void create_output_and_partition(FFModel& model);
 
@@ -1435,6 +1468,7 @@ public:
   void forward(const FFModel&);
   void backward(const FFModel&);
   void print_layer(const FFModel& model) {assert(0);}
+  std::string get_name_structure() const;
   void create_weights(FFModel& model);
   void create_output_and_partition(FFModel& model);
 
@@ -1506,6 +1540,7 @@ public:
   //void update(const FFModel&);
   void print_layer(const FFModel& model) {assert(0);}
   //Parameter* get_parameter(int index) {assert(0); return NULL;}
+  std::string get_name_structure() const;
   void create_weights(FFModel& model);
   void create_output_and_partition(FFModel& model);
 
@@ -1573,6 +1608,7 @@ public:
   void forward(const FFModel&);
   void backward(const FFModel&);
   void print_layer(const FFModel& model) {assert(0);}
+  std::string get_name_structure() const;
   void create_weights(FFModel& model);
   void create_output_and_partition(FFModel& model);
 
@@ -1620,6 +1656,7 @@ public:
   void forward(const FFModel&);
   void backward(const FFModel&);
   void print_layer(const FFModel& model) {assert(0);}
+  std::string get_name_structure() const;
   void create_weights(FFModel& model);
   void create_output_and_partition(FFModel& model);
 
@@ -1666,6 +1703,7 @@ public:
   void forward(const FFModel&);
   void backward(const FFModel&);
   void print_layer(const FFModel& model) {assert(0);}
+  std::string get_name_structure() const;
   void create_weights(FFModel& model);
   void create_output_and_partition(FFModel& model);
 
@@ -1711,6 +1749,7 @@ public:
   void backward(const FFModel&);
   void print_layer(const FFModel& model) {assert(0);}
   //Parameter* get_parameter(int index) {assert(0); return NULL;}
+  std::string get_name_structure() const;
   void create_weights(FFModel& model);
   void create_output_and_partition(FFModel& model);
 
@@ -1767,6 +1806,7 @@ public:
   //void update(const FFModel&);
   void print_layer(const FFModel& model) {assert(0);}
   //Parameter* get_parameter(int index) {assert(0); return NULL;}
+  std::string get_name_structure() const;
   void create_weights(FFModel& model);
   void create_output_and_partition(FFModel& model);
 
@@ -1815,6 +1855,7 @@ public:
   //void update(const FFModel&);
   void print_layer(const FFModel& model) {assert(0);}
   //Parameter* get_parameter(int index) {assert(0); return NULL;}
+  std::string get_name_structure() const;
   void create_weights(FFModel& model);
   void create_output_and_partition(FFModel& model);
 
@@ -1871,6 +1912,7 @@ public:
   void forward(const FFModel&);
   void backward(const FFModel&);
   void print_layer(const FFModel& model) {assert(0);}
+  std::string get_name_structure() const;
   void create_weights(FFModel& model);
   void create_output_and_partition(FFModel& model);
   static OpMeta* init_task(const Task *task,

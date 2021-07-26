@@ -87,12 +87,16 @@ void parse_input_args(char **argv, int argc, TransformerConfig& config)
       config.sequence_length = atoi(argv[++i]);
       continue;
     }
-    else if (!strcmp(argv[i], "--nsimnode")) {
+    if (!strcmp(argv[i], "--nsimnode")) {
       config.nsimnode = std::atoi(argv[++i]);
       continue;
     }
-    else if (!strcmp(argv[i], "--nsimgpu")) {
+    if (!strcmp(argv[i], "--nsimgpu")) {
       config.nsimgpu = std::atoi(argv[++i]);
+      continue;
+    }
+    if (!strcmp(argv[i], "--measure")) {
+      config.measure = std::atoi(argv[++i]);
       continue;
     }
   }
@@ -138,7 +142,12 @@ void top_level_task(const Task* task,
   }
   t2 = ff.dense(t2, 1);
 
-  ff.simulate();
+  if (tfConfig.measure) {
+    ff.run_measurement();
+  }
+  else {
+    ff.simulate();
+  }
 
 #if 0
   Optimizer* optimizer = new SGDOptimizer(&ff, 0.01f);

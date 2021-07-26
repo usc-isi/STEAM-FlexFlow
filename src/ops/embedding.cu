@@ -405,6 +405,7 @@ bool Embedding::measure_operator_cost(Simulator* sim,
   sim->free_all();
   int64_t *input_ptr = (int64_t *)sim->allocate(sub_input.get_volume(), DT_INT64);
   assert (input_ptr != NULL);
+  checkCUDA(cudaMemset(input_ptr, 0, sizeof(int64_t)*sub_input.get_volume()));
   float *output_ptr = (float *)sim->allocate(sub_output.get_volume(), DT_FLOAT);
   assert (output_ptr != NULL);
   float *weight_ptr = (float *)sim->allocate((uint64_t)num_entries * out_channels, DT_FLOAT);
@@ -448,4 +449,8 @@ bool Embedding::measure_operator_cost(Simulator* sim,
   }
 
   return true;
+}
+
+std::string Embedding::get_name_structure() const {
+  return "Embed_"+std::to_string(num_entries)+"x"+std::to_string(out_channels);
 }

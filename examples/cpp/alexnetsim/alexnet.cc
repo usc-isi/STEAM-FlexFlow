@@ -36,6 +36,10 @@ void parse_input_args(char **argv, int argc, AlexNetConfig& config)
       config.nsimgpu = std::atoi(argv[++i]);
       continue;
     }
+    else if (!strcmp(argv[i], "--measure")) {
+      config.measure = std::atoi(argv[++i]);
+      continue;
+    }
   }
 }
 
@@ -87,7 +91,11 @@ void top_level_task(const Task* task,
   // std::vector<MetricsType> metrics;
   // metrics.push_back(METRICS_ACCURACY);
   // metrics.push_back(METRICS_SPARSE_CATEGORICAL_CROSSENTROPY);
-  ff.simulate();
+
+  if (alexnetConfig.measure)
+    ff.run_measurement();
+  else 
+    ff.simulate();
 #if 0
   // Data Loader
   DataLoader data_loader(ff, &alexnetConfig, input, ff.label_tensor);

@@ -25,8 +25,10 @@ struct AlexNetConfig {
     std::memset(dataset_path, 0, MAX_FILE_LENGTH);
   }
   char dataset_path[MAX_FILE_LENGTH];
+  char mfile[MAX_FILE_LENGTH] = {0};
   int nsimnode = 1;
   int nsimgpu = 1;
+  int measure = 0;
 };
 
 class DataLoader {

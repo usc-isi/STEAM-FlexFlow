@@ -991,3 +991,7 @@ bool FusedOp::measure_operator_cost(Simulator* sim,
   return false;
 }
 
+
+std::string FusedOp::get_name_structure() const {
+  return "FusedOp_" + (name == nullptr) ? name: "";
+}

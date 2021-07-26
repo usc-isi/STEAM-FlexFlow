@@ -753,3 +753,7 @@ bool MultiHeadAttention::measure_operator_cost(Simulator* sim,
   delete m;
   return true;
 }
+
+std::string MultiHeadAttention::get_name_structure() const {
+  return "MultiHeadAttention_"+std::to_string(oProjSize)+std::to_string(weights[0].adim[1]); 
+}

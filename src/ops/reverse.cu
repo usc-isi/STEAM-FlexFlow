@@ -332,3 +332,7 @@ bool Reverse::measure_operator_cost(Simulator* sim,
 
   return true;
 }
+
+std::string Reverse::get_name_structure() const {
+  return "Reverse_"+std::to_string(axis); 
+}

@@ -510,3 +510,7 @@ bool Concat::measure_operator_cost(Simulator* sim,
 
   return true;
 }
+
+std::string Concat::get_name_structure() const {
+  return "Concat_"+std::to_string(axis);
+}

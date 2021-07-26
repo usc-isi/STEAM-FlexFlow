@@ -18,10 +18,12 @@
 #include "test_utils.h"
 #include "dirent.h"
 #include "random_utils.h"
+#include "json.hpp"
 #include <unordered_set>
 #include <limits>
 
 using namespace std;
+using json = nlohmann::json;
 static const uint64_t GPU_MEM = 42949672960ULL;
 
 LegionRuntime::Logger::Category log_model("Model");
@@ -541,6 +543,48 @@ ParallelConfig get_basic_data_parallel_config(int num_parts, int dims)
 //     pc.device_ids[i] = start_idx + i;
 //   return pc;
 // }
+
+
+void FFModel::load_measurement(Simulator * sim, const std::string & fname) {
+
+  std::ifstream t(fname);
+  std::string meas_str;
+
+  t.seekg(0, std::ios::end);   
+  meas_str.reserve(t.tellg());
+  t.seekg(0, std::ios::beg);
+
+  meas_str.assign((std::istreambuf_iterator<char>(t)), std::istreambuf_iterator<char>());    
+
+  auto meas_json = json::parse(meas_str);
+  size_t batch_size = meas_json["batch_size"].get<size_t>();
+  size_t ngpus = meas_json["ngpus"].get<size_t>();
+  assert(batch_size == config.batchSize);
+  assert(ngpus == config.numNodes * config.workersPerNode); 
+  sim->measurements = new std::unordered_map<std::string, CostMetrics>();
+  
+  printf("loaded num_nodes %u, num_gpus %u\n", batch_size, ngpus);
+  for (auto & meas: meas_json["measurements"]) {
+    std::string name = meas["name"].get<std::string>();
+    std::string pc_str = meas["pc_str"].get<std::string>();
+    std::string key = name + ":" + pc_str;
+    printf("name: %s, pc_str:%s\n", name.c_str(), pc_str.c_str());
+    CostMetrics cost = {
+      .forward_time = meas["fw_time"].get<float>(),
+      .backward_time = meas["bw_time"].get<float>(),
+      .memory_requirement = meas["mem_req"].get<size_t>()
+    };
+    printf("fw: %f, bw: %f, mem: %u\n", cost.forward_time, cost.backward_time, cost.memory_requirement);
+    (*sim->measurements)[key] = cost;
+    if (opcandidates.find(name) != opcandidates.end())
+      opcandidates[name].push_back(ParallelConfig::restore_pc_from_str(pc_str));
+    else {
+      opcandidates[name] = std::vector<ParallelConfig>();
+      opcandidates[name].push_back(ParallelConfig::restore_pc_from_str(pc_str));
+    }
+
+  }
+}
 
 ParallelConfig Op::get_random_parallel_config(const FFModel& ff, int nparts) const
 {
@@ -1753,6 +1797,19 @@ void FFModel::simulate2(CompMode comp_mode)
   future.get_void_result();
 }
 
+void FFModel::run_measurement() 
+{
+  Context ctx = config.lg_ctx;
+  Runtime* runtime = config.lg_hlr;
+  config.computationMode = COMP_MODE_TRAINING;
+  // Launch the simulation task
+  FFModel* model = this;
+  TaskLauncher launcher(CUSTOM_MEASUREMENT_TASK_ID_1,
+      TaskArgument(&model, sizeof(FFModel*)));
+  Future future = runtime->execute_task(ctx, launcher);
+  future.get_void_result();
+}
+
 void FFModel::compile(LossType loss_type,
                       const std::vector<MetricsType>& metrics,
                       CompMode comp_mode)
@@ -2141,6 +2198,113 @@ void FFModel::rewrite(const std::map<Op*, ParallelConfig>& current,
   // }
 }
 
+void FFModel::measure(Simulator * sim) {
+
+  std::vector<OpMeasurement> measurements;
+
+  std::unordered_set<std::string> measured;
+
+  // measured.insert("Attention_102416");
+  for (size_t l = 0; l < layers.size(); l++) {
+    if (measured.find(layers[l]->get_name_structure()) == measured.end()) {
+      cout << "Measureing "  << layers[l]->get_name_structure() << endl;
+      layers[l]->measure_all(sim, *this, measurements);
+      measured.insert(layers[l]->get_name_structure());
+    }
+  }
+
+  write_measurement_to_json(config.batchSize, 
+    config.numNodes * config.workersPerNode,
+    measurements);
+
+}
+
+void FFModel::write_measurement_to_json(size_t batch_size, 
+  size_t ngpus, 
+  const std::vector<OpMeasurement>& measurements) 
+{
+  std::string fname = string("measure_")
+                  .append(to_string(batch_size))
+                  .append("_")
+                  .append(to_string(ngpus))
+                  .append(".json");
+  std::ofstream output(fname, std::ios::out);
+  output << "{" << std::endl;
+  output << "\t\"batch_size\": " << batch_size << ", " << std::endl;
+  output << "\t\"ngpus\": " << ngpus << ", " << std::endl;
+  output << "\t\"measurements\": [" << std::endl;
+  for (size_t i = 0; i < measurements.size(); i++) {
+    const OpMeasurement & meas = measurements[i];
+    output << "\t\t{" << std::endl;
+    output << "\t\t\t\"name\": \"" << meas.name << "\"," << std::endl;
+    output << "\t\t\t\"pc_str\": \"" << meas.pc_str << "\"," << std::endl;
+    output << "\t\t\t\"fw_time\": " << meas.fwtime << "," << std::endl;
+    output << "\t\t\t\"bw_time\": " << meas.bwtime << ","  << std::endl;
+    output << "\t\t\t\"mem_req\": " << meas.mem_req << std::endl;
+    output << "\t\t}";
+    
+    if (i != measurements.size() - 1) {
+      output << ", ";
+    }
+    output << std::endl;
+  }
+  output << "\t]" << std::endl;
+  output << "}" << std::endl;
+  output.close();
+}
+
+
+void Op::measure_all(Simulator * sim, FFModel& ff, std::vector<OpMeasurement>& opm) 
+{
+  std::unordered_set<int> candidates;
+    
+  int batch_size = outputs[0].adim[outputs[0].numDim-1];
+  printf("batch_size: %d, local_batch_sz_upperlimit: %d\n", batch_size, ff.config.local_batch_sz_upperlimit);
+  for (int i = 1; i <= ff.config.workersPerNode; i++) {
+    if (ff.config.workersPerNode % i == 0) {
+      if (batch_size % i != 0)
+        continue;
+      if (batch_size / i > ff.config.local_batch_sz_upperlimit) {
+        continue;
+      }
+      candidates.insert(i);
+    }
+  }
+  for (int i = 1; i <= ff.config.numNodes; i++) {
+    if (ff.config.numNodes % i == 0) {
+      if (batch_size % (i * ff.config.workersPerNode) != 0)
+        continue;
+      if (batch_size / (i * ff.config.workersPerNode) > ff.config.local_batch_sz_upperlimit) {
+        continue;
+      }
+      candidates.insert(i * ff.config.workersPerNode);
+    }
+  }
+
+  for (int num_parts: candidates) {
+    ParallelConfig pc;
+    pc.device_type = ParallelConfig::GPU;
+    pc.nDims = outputs[0].numDim;
+    for (int i = 0; i < pc.nDims; i++)
+      pc.dim[i] = i == pc.nDims - 1 ? num_parts : 1;
+
+    float fwtime = 0, bwtime = 0;
+    CostMetrics cost;
+    measure_operator_cost(sim, pc, cost);
+
+    opm.emplace_back(
+      OpMeasurement {
+        .name = get_name_structure(),
+        .pc_str = pc.get_pc_str(),
+        .fwtime = cost.forward_time,
+        .bwtime = cost.backward_time,
+        .mem_req = cost.memory_requirement
+      }
+    );
+    std::cout << "Measured " << get_name_structure() << " " << pc.get_pc_str() << " fw: " << fwtime << " bw: " << bwtime << endl;
+  }
+}
+
 void FFModel::optimize(Simulator* simulator,
                        std::map<Op*, ParallelConfig>& best,
                        size_t budget, float alpha,
@@ -2495,7 +2659,7 @@ FFConfig::FFConfig()
   node_degree = 4;
   net_opt = 0;
   topofile = "";
-  measurefile = "";
+  mfile  = "";
   local_batch_sz_upperlimit = std::numeric_limits<size_t>::max();
 
   // Parse input arguments
@@ -2660,10 +2824,6 @@ void FFConfig::parse_args(char **argv, int argc)
       topofile = std::string(argv[++i]);
       continue;
     }
-    if (!strcmp(argv[i], "--meas-file")) {
-      measurefile = std::string(argv[++i]);
-      continue;
-    }
     if (!strcmp(argv[i], "--max-localsz")) {
       local_batch_sz_upperlimit = atoi(argv[++i]);
       continue;
@@ -2674,6 +2834,10 @@ void FFConfig::parse_args(char **argv, int argc)
     }
     if (!strcmp(argv[i], "--python-data-loader-type")) {
       python_data_loader_type = atoi(argv[++i]);
+      continue;
+    }
+    if (!strcmp(argv[i], "--mfile")) {
+      mfile = std::string(argv[++i]);
       continue;
     }
   }
@@ -3399,6 +3563,14 @@ void register_flexflow_internal_tasks()
     registrar.set_leaf();
     Runtime::preregister_task_variant<Simulator::simulation_task>(
         registrar, "Simulation Task 2");
+  }
+  {
+    TaskVariantRegistrar registrar(CUSTOM_MEASUREMENT_TASK_ID_1,
+                                   "Simulator measurement");
+    registrar.add_constraint(ProcessorConstraint(Processor::TOC_PROC));
+    registrar.set_leaf();
+    Runtime::preregister_task_variant<Simulator::measurement_task>(
+        registrar, "Simulator measurement");
   }
   // Parameter Server Prefetch task
   {

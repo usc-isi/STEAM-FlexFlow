@@ -717,6 +717,9 @@ public:
   static void simulation_task(const Task *task,
                                    const std::vector<PhysicalRegion> &regions,
                                    Context ctx, Runtime *runtime);                                   
+  static void measurement_task(const Task *task,
+                                   const std::vector<PhysicalRegion> &regions,
+                                   Context ctx, Runtime *runtime);                                   
 public:
   Realm::RegionInstance simulatorInst;
   MachineModel *machine;
@@ -744,6 +747,8 @@ public:
   TransposeMeta *transpose_meta;
   int segment_size;
   int max_num_segments; //simulation could be slow if the number of segments are too large
+
+  std::unordered_map<std::string, CostMetrics>* measurements;
 
   /* extra optimizer that changes physical properties.
    * Each time a task is added, a callback would be called into this 

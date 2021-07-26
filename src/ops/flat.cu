@@ -305,3 +305,7 @@ Domain Flat::get_input_tensor_shape(const ParallelConfig& pc,
   d.rect_data[2*d.dim-1] = d.rect_data[d.dim-1] + dim_size - 1;
   return d;
 }
+
+std::string Flat::get_name_structure() const {
+  return "Flat";
+}
