@@ -383,7 +383,7 @@ void LogicalTaskgraphBasedSimulator::simulation_task(const Task *task,
 
 DLSSchedulerBasedSimulator::DLSSchedulerBasedSimulator(const FFModel* model,
   FFHandler handler, Memory memory, MachineModel *machine)
-: Simulator(model, handler, memory, machine)
+: LogicalTaskgraphBasedSimulator(model, handler, memory, machine)
 {
 
 }

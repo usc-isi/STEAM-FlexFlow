@@ -340,6 +340,7 @@ public:
       const std::vector<int>& topology, 
       size_t capacity, 
       float link_bandwidth);
+  explicit NetworkedMachineModel() = default;
   ~NetworkedMachineModel();
   int get_version() const;
   CompDevice *get_gpu(int device_id) const;
@@ -836,6 +837,7 @@ public:
 typedef std::unordered_map<SimTask*, std::vector<std::pair<SimTask*, size_t>>> DLSTaskDag;
 typedef std::pair<SimTask*, Op*> SimTaskOp;
 
+#define TEST_DLSSCHEDULER
 class DLSSchedulerBasedSimulator: public LogicalTaskgraphBasedSimulator {
 public:
   DLSSchedulerBasedSimulator(const FFModel* model,
@@ -887,6 +889,11 @@ public:
     SimTask* src, SimTask* dst, size_t xfersize, 
     std::unordered_map<CommDevice*, float>& links,
     std::unordered_map<SimTask*, float>& task_finish_time);
+
+#ifdef TEST_DLSSCHEDULER
+  void test();
+#endif
+
   NetworkedMachineModel* net_machine;
   NSDI22Heuristic * topofinder;
 };

@@ -563,7 +563,7 @@ void FFModel::load_measurement(Simulator * sim, const std::string & fname) {
   assert(ngpus == config.numNodes * config.workersPerNode); 
   sim->measurements = new std::unordered_map<std::string, CostMetrics>();
   
-  printf("loaded num_nodes %u, num_gpus %u\n", batch_size, ngpus);
+  printf("loaded num_nodes %zu, num_gpus %zu\n", batch_size, ngpus);
   for (auto & meas: meas_json["measurements"]) {
     std::string name = meas["name"].get<std::string>();
     std::string pc_str = meas["pc_str"].get<std::string>();
@@ -574,7 +574,7 @@ void FFModel::load_measurement(Simulator * sim, const std::string & fname) {
       .backward_time = meas["bw_time"].get<float>(),
       .memory_requirement = meas["mem_req"].get<size_t>()
     };
-    printf("fw: %f, bw: %f, mem: %u\n", cost.forward_time, cost.backward_time, cost.memory_requirement);
+    printf("fw: %f, bw: %f, mem: %zu\n", cost.forward_time, cost.backward_time, cost.memory_requirement);
     (*sim->measurements)[key] = cost;
     if (opcandidates.find(name) != opcandidates.end())
       opcandidates[name].push_back(ParallelConfig::restore_pc_from_str(pc_str));
@@ -2259,7 +2259,7 @@ void Op::measure_all(Simulator * sim, FFModel& ff, std::vector<OpMeasurement>& o
   std::unordered_set<int> candidates;
     
   int batch_size = outputs[0].adim[outputs[0].numDim-1];
-  printf("batch_size: %d, local_batch_sz_upperlimit: %d\n", batch_size, ff.config.local_batch_sz_upperlimit);
+  printf("batch_size: %d, local_batch_sz_upperlimit: %zu\n", batch_size, ff.config.local_batch_sz_upperlimit);
   for (int i = 1; i <= ff.config.workersPerNode; i++) {
     if (ff.config.workersPerNode % i == 0) {
       if (batch_size % i != 0)

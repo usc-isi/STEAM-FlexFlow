@@ -1707,6 +1707,9 @@ double DLSSchedulerBasedSimulator::dls_schedule(std::unordered_set<SimTask*>& bp
         float da = compute_da(processor_time.first, ready_task, 
           predecessor_map, processors, links, task_finish_time);
         float dl = slevels[ready_task] - std::max(da, processor_time.second);
+#ifdef TEST_DLSSCHEDULER
+        fprintf(stderr, "Checking %p on GPU %d, da = %f, dl = %f (max: %f)\n", ready_task, processor_time.first->device_id, da, dl, max_dl);
+#endif 
         if (dl > max_dl) {
           max_dl = dl;
           final_gpu = processor_time.first; 
@@ -1729,6 +1732,12 @@ double DLSSchedulerBasedSimulator::dls_schedule(std::unordered_set<SimTask*>& bp
     }
     unsched_node.erase(unsched_node.find(final_task));
   }
+  double final_makespan = std::numeric_limits<double>::min();
+  for (auto &tf: task_finish_time) {
+    if (tf.second > final_makespan)
+      final_makespan = tf.second;
+  }
+  return final_makespan;
 }
 
 DLSTaskDag DLSSchedulerBasedSimulator::get_predecessors(
@@ -1741,8 +1750,7 @@ DLSTaskDag DLSSchedulerBasedSimulator::get_predecessors(
       rev_map.emplace(std::make_pair(succ.first, 
         std::vector<std::pair<SimTask*, size_t>>({std::make_pair(s.first, succ.second)})));
     } else {
-      rev_map[succ.first].emplace_back(std::vector<std::pair<SimTask*, size_t>>(
-        {std::make_pair(s.first, succ.second)}));
+      rev_map[succ.first].emplace_back(std::pair<SimTask*, size_t>(std::make_pair(s.first, succ.second)));
     }
   }
   return rev_map;
@@ -1757,6 +1765,8 @@ inline float DLSSchedulerBasedSimulator::compute_da(
 {
   if (pred.find(task) == pred.end())
     return 0;
+  // task->device = proc;
+  task->mem = net_machine->get_gpu_fb_mem(proc->device_id);
   float final_da = std::numeric_limits<float>::min();
   for (auto & ps: pred.at(task)) {
     float da = sch_try_route_transfer(ps.first, task, ps.second, links, task_finish_time);
@@ -1773,7 +1783,11 @@ inline void DLSSchedulerBasedSimulator::schedule(CompDevice* proc, SimTask* task
     std::unordered_map<CommDevice*, float>& links,
     std::unordered_map<SimTask*, float>& task_finish_time)
 {
+#ifdef TEST_DLSSCHEDULER
+  fprintf(stderr, "Decided: %p on GPU %d\n", task, proc->device_id);
+#endif
   task->device = proc;
+  task->mem = net_machine->get_gpu_fb_mem(proc->device_id);
   float final_ready_time = 0;
   if (pred.find(task) != pred.end()) {
     for (auto & ps: pred.at(task)) {
@@ -1821,13 +1835,15 @@ float DLSSchedulerBasedSimulator::sch_try_route_transfer(
   float curr_task_run_time = 0; 
   float ready_time = task_finish_time.at(src);
   float curr_task_ready_time = ready_time; 
-  float xfer_size = xfer_size;
+  float xfer_size = xfersize;
   
   std::unordered_map<CommDevice*, float> local_lat_device;
 
   float final_start_time = 0;
   float final_finish_time = 0;
-
+#ifdef TEST_DLSSCHEDULER
+  fprintf(stderr, "DLS_TRY_ROUTE: src: %p, dst: %p, xfersize: %lf\n", src, dst, xfer_size);
+#endif
   for (unsigned int i = 0; i < route.size(); i++) {
     CommDevice * latency_task_device = route[i];
     float latency_task_run_time = machine->get_inter_node_gpu_latency();
@@ -1861,13 +1877,16 @@ float DLSSchedulerBasedSimulator::sch_try_route_transfer(
     curr_task_finish_time = latency_task_finish_time;
     curr_task_run_time = latency_task_run_time;
     
-#ifdef DEBUG_PRINT
-    printf("\texpand: route[%u] run_time(%.4lf) ready_time(%.4lf) start_time(%.4lf) device(%s)\n",
+#ifdef TEST_DLSSCHEDULER
+    fprintf(stderr, "\tDLS_TRY_ROUTE: expand: route[%u] run_time(%.4lf) ready_time(%.4lf) start_time(%.4lf) device(%s)\n",
           i, curr_task_run_time, curr_task_ready_time, curr_task_start_time, (latency_task_device->name).c_str());
-    printf("\t\td2d: run_time(%.4lf) start_time(%.4lf) device(%s)\n",
+    fprintf(stderr, "\t\ttDLS_TRY_ROUTE: d2d: run_time(%.4lf) start_time(%.4lf) device(%s)\n",
           dram_to_dram_run_time, dram_to_dram_start_time, (latency_task_device->name).c_str());
 #endif
   }
+#ifdef TEST_DLSSCHEDULER
+  fprintf(stderr, "DLS_TRY_ROUTE: fft: %f\n", final_finish_time);
+#endif
   return final_finish_time;
 }
 
@@ -1887,11 +1906,13 @@ float DLSSchedulerBasedSimulator::sch_route_transfer(
   float curr_task_run_time = 0; 
   float ready_time = task_finish_time.at(src);
   float curr_task_ready_time = ready_time; 
-  float xfer_size = xfer_size;
+  float xfer_size = xfersize;
   
   float final_start_time = 0;
   float final_finish_time = 0;
-
+#ifdef TEST_DLSSCHEDULER
+  fprintf(stderr, "DLS_TRY_ROUTE: src: %p, dst: %p, xfersize: %lf\n", src, dst, xfer_size);
+#endif
   for (unsigned int i = 0; i < route.size(); i++) {
     CommDevice * latency_task_device = route[i];
     float latency_task_run_time = machine->get_inter_node_gpu_latency();
@@ -1925,12 +1946,165 @@ float DLSSchedulerBasedSimulator::sch_route_transfer(
     curr_task_finish_time = latency_task_finish_time;
     curr_task_run_time = latency_task_run_time;
     
-#ifdef DEBUG_PRINT
-    printf("\texpand: route[%u] run_time(%.4lf) ready_time(%.4lf) start_time(%.4lf) device(%s)\n",
+#ifdef TEST_DLSSCHEDULER
+    fprintf(stderr, "\tDLS_TRY_ROUTE: expand: route[%u] run_time(%.4lf) ready_time(%.4lf) start_time(%.4lf) device(%s)\n",
           i, curr_task_run_time, curr_task_ready_time, curr_task_start_time, (latency_task_device->name).c_str());
-    printf("\t\td2d: run_time(%.4lf) start_time(%.4lf) device(%s)\n",
+    fprintf(stderr, "\t\ttDLS_TRY_ROUTE: d2d: run_time(%.4lf) start_time(%.4lf) device(%s)\n",
           dram_to_dram_run_time, dram_to_dram_start_time, (latency_task_device->name).c_str());
 #endif
   }
+#ifdef TEST_DLSSCHEDULER
+  fprintf(stderr, "DLS_TRY_ROUTE: fft: %f\n", final_finish_time);
+#endif
   return final_finish_time;
 }
+
+#ifdef TEST_DLSSCHEDULER
+void DLSSchedulerBasedSimulator::test() 
+{
+  DLSTaskDag tg;
+  std::unordered_set<SimTask*> tasks;
+  std::unordered_map<SimTask*, std::string> printables;
+  
+  SimTask * t1 = new SimTask();
+  t1->run_time = 3;
+  tasks.insert(t1);
+  printables[t1] = "t1";
+  SimTask * t2 = new SimTask();
+  t2->run_time = 3;
+  tasks.insert(t2);
+  printables[t2] = "t2";
+  SimTask * t3 = new SimTask();
+  t3->run_time = 3;
+  tasks.insert(t3);
+  printables[t3] = "t3";
+  SimTask * t4 = new SimTask();
+  t4->run_time = 4;
+  tasks.insert(t4);
+  printables[t4] = "t4";
+  SimTask * t5 = new SimTask();
+  t5->run_time = 5;
+  tasks.insert(t5);
+  printables[t5] = "t5";
+  SimTask * t6 = new SimTask();
+  t6->run_time = 4;
+  tasks.insert(t6);
+  printables[t6] = "t6";
+  SimTask * t7 = new SimTask();
+  t7->run_time = 4;
+  tasks.insert(t7);
+  printables[t7] = "t7";
+  SimTask * t8 = new SimTask();
+  t8->run_time = 4;
+  tasks.insert(t8);
+  printables[t8] = "t8";
+  SimTask * t9 = new SimTask();
+  t9->run_time = 1;
+  tasks.insert(t9);
+  printables[t9] = "t9";
+  add_task_dependencies_with_xfer_sch(t1, t2, 4, tg);
+  add_task_dependencies_with_xfer_sch(t1, t3, 3, tg);
+  add_task_dependencies_with_xfer_sch(t1, t4, 4, tg);
+  add_task_dependencies_with_xfer_sch(t1, t5, 5, tg);
+  add_task_dependencies_with_xfer_sch(t1, t7, 10, tg);
+  add_task_dependencies_with_xfer_sch(t2, t6, 1, tg);
+  add_task_dependencies_with_xfer_sch(t2, t7, 1, tg);
+  add_task_dependencies_with_xfer_sch(t3, t8, 1, tg);
+  add_task_dependencies_with_xfer_sch(t4, t8, 1, tg);
+  add_task_dependencies_with_xfer_sch(t6, t9, 5, tg);
+  add_task_dependencies_with_xfer_sch(t7, t9, 6, tg);
+  add_task_dependencies_with_xfer_sch(t8, t9, 5, tg);
+
+  auto entry_set = get_entry_nodes(tasks, tg);
+  std::cerr << "Entry set: " << std::endl;
+  for (auto t: entry_set) {
+    std::cerr << printables[t] << std::endl;
+  }
+   
+  auto toposorted = rev_topological_sort(entry_set, tasks, tg);
+  std::cerr << "toposorted order: " << std::endl;
+  for (auto t: toposorted) {
+    std::cerr << printables[t] << " ";
+  }
+  std::cerr << std::endl;
+
+  auto slevels = get_slevels(std::move(toposorted), tg);
+  std::cerr << "slevels: " << std::endl;
+  for (auto t: tasks) {
+    std::cerr << printables[t] << ": " << slevels[t] << std::endl;
+  }
+  std::cerr << std::endl;
+
+  auto preds = get_predecessors(tasks, tg);
+  std::cerr << "preds: " << std::endl;
+  for (auto t: tasks) {
+    std::cerr << printables[t] << ": ";
+    for (auto p: preds[t]) {
+      std::cerr << printables[p.first] << "(" << p.second << ") ";
+    }
+  }
+  std::cerr << std::endl;
+  
+  NetworkedMachineModel * nm = new NetworkedMachineModel();   
+  nm->num_nodes = 4;
+  nm->num_gpus_per_node = 1;
+  nm->num_gpus = 4;
+  nm->num_switches = 0;
+  nm->inter_gpu_bandwidth = 1;
+  nm->gpu_dram_bandwidth = 1;
+  nm->link_bandwidth = 1;
+  for (int i = 0; i < 4; i++) {
+    std::string gpu_name = "GPU " + std::to_string(i);
+    nm->id_to_gpu[i] = new CompDevice(gpu_name, CompDevice::TOC_PROC, i, i, i);
+    std::string gpu_mem_name = "GPU_FB_MEM " + std::to_string(i);
+    nm->id_to_gpu_fb_mem[i] = new MemDevice(gpu_mem_name, MemDevice::GPU_FB_MEM, i, i, i, 100000000000ULL);
+  }
+
+  ConnectionMatrix conn = ConnectionMatrix(16, 0);
+  auto addlink = [&](int i, int j) {
+    conn[i * 4 + j] = 1;
+    conn[j * 4 + i] = 1;
+  };
+  addlink(0, 1);
+  addlink(1, 2);
+  addlink(2, 3);
+  addlink(3, 0);
+  nm->conn_matrix = conn;
+ 
+  for (int i = 0; i < 4; i++) {
+    for (int j = 0; j < 4; j++) {
+      // if (conn_matrix[i * 4 + j] > 0) {
+        int device_id = i * 4 + j;
+        std::string link_name = "LINK " + std::to_string(i) + "-" + std::to_string(j);
+        nm->ids_to_nw_comm_device[device_id] = new CommDevice(link_name, CommDevice::NW_COMM, 
+          -1, -1, device_id, 0, conn[i * 4 + j]);
+      }
+    // }
+  }
+
+  auto get_routes = [&](int i, int j) -> EcmpRoutes {
+    if ((i+1)%4 == j)
+      return std::make_pair(std::vector<float>({1}), std::vector<Route>({Route({nm->ids_to_nw_comm_device[i*4+j]})}));
+    if ((j+1)%4 == i)
+      return std::make_pair(std::vector<float>({1}), std::vector<Route>({Route({nm->ids_to_nw_comm_device[j*4+i]})}));
+    return std::make_pair(
+      std::vector<float>({1}), 
+      std::vector<Route>({Route{nm->ids_to_nw_comm_device[i*4+(i+1)%4], nm->ids_to_nw_comm_device[((i+1)%4)*4+j]}})
+    );
+  };
+
+  for (int i = 0; i < nm->num_nodes; i++) {
+    for (int j = 0; j < nm->num_nodes; j++) {
+      int device_id = i * nm->total_devs + j;
+      std::string link_name = "NOMINAL " + std::to_string(i) + "-" + std::to_string(j);
+      nm->ids_to_nw_nominal_device[device_id] = new NominalCommDevice(link_name, device_id);
+      nm->ids_to_nw_nominal_device[device_id]->set_physical_paths(get_routes(i, j));
+    }
+  }
+
+  this->net_machine = nm;
+  double sch_len = dls_schedule(tasks, tg);
+
+  
+}
+#endif
