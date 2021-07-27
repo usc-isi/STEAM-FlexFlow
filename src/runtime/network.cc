@@ -716,10 +716,9 @@ void NSDI22Heuristic::bw_task_added(SimTask* task)
   return;
 }
 
-void NSDI22Heuristic::mp_lcomm_added(SimTask* task) 
+void NSDI22Heuristic::mp_lcomm_added(CommDevice* device, size_t xfer_size) 
 {
-  assert(task->type == SimTask::TASK_NOMINAL_COMM);
-  mp_tm_logical[task->device->device_id] += task->xfer_size;
+  mp_tm_logical[device->device_id] += xfer_size;
 }
 
 void NSDI22Heuristic::dp_lcomm_added(SimTask* task) 
@@ -728,13 +727,13 @@ void NSDI22Heuristic::dp_lcomm_added(SimTask* task)
   dp_tm_logical[task->device->device_id] += task->xfer_size;
 }
 
-void NSDI22Heuristic::mp_pcomm_added(SimTask* task, bool dir) 
+void NSDI22Heuristic::mp_pcomm_added(CommDevice* device, size_t xfer_size, bool dir) 
 {
-  assert(task->type == SimTask::TASK_COMM);
+  // assert(task->type == SimTask::TASK_COMM);
   if (dir)
-    mp_tm_physical_dir[task->device->device_id] += task->xfer_size;
+    mp_tm_physical_dir[device->device_id] += xfer_size;
   else 
-    mp_tm_physical_indir[task->device->device_id] += task->xfer_size;
+    mp_tm_physical_indir[device->device_id] += xfer_size;
 }
 
 void NSDI22Heuristic::dp_pcomm_added(SimTask* task, bool dir) 
@@ -754,6 +753,7 @@ void NSDI22Heuristic::ar_task_added(SimTask* task)
 
 void NSDI22Heuristic::generate_dp_topology() 
 {
+  construct_dp_mat();
   DemandHeuristicNetworkOptimizer dheuristic{net_machine};
   dheuristic.if_cnt = dp_deg + mp_deg;
   dheuristic.logical_traffic_demand = dp_tm_logical;
@@ -794,7 +794,7 @@ void NSDI22Heuristic::optimize_indirection()
   return;
 }
 
-void NSDI22Heuristic::construct_dp_pmat() 
+void NSDI22Heuristic::construct_dp_mat() 
 {
   for (SimTask * allreduce_task: ar_tasks) {
     int n_participants = allreduce_task->next_tasks.size();

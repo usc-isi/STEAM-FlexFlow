@@ -803,8 +803,8 @@ public:
 
   void fw_task_added(SimTask* task);
   void bw_task_added(SimTask* task);
-  void mp_lcomm_added(SimTask* task);
-  void mp_pcomm_added(SimTask* task, bool dir);
+  void mp_lcomm_added(CommDevice* device, size_t xfer_size);
+  void mp_pcomm_added(CommDevice* device, size_t xfer_size, bool dir);
   void dp_lcomm_added(SimTask* task);
   void dp_pcomm_added(SimTask* task, bool dir);
   void ar_task_added(SimTask* task);
@@ -812,7 +812,7 @@ public:
   void generate_dp_topology();
   void simplify_mp_topology();
   void optimize_indirection();
-  void construct_dp_pmat();
+  void construct_dp_mat();
 
   void reset();
 

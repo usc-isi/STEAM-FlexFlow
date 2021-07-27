@@ -1563,10 +1563,6 @@ float DLSSchedulerBasedSimulator::simulate_runtime(const FFModel* model,
   return sim_time;
 }
 
-// float DLSSchedulerBasedSimulator::compute_null_xfertime(SimTask* src, SimTask* dst, size_t message_size) 
-// {
-// }
-
 void DLSSchedulerBasedSimulator::add_task_dependencies_with_xfer_sch(
     SimTask* src_task, SimTask* dst_task, size_t message_size,
     DLSTaskDag& bp_taskdag) 
@@ -1708,6 +1704,8 @@ double DLSSchedulerBasedSimulator::dls_schedule(std::unordered_set<SimTask*>& bp
     // for each node, for each processor, compute the DL
     for (auto & processor_time: processors) {
       for (SimTask* ready_task: ready_pool) {
+        if (slevels[ready_task] - processor_time.second < max_dl)
+          continue;
         float da = compute_da(processor_time.first, ready_task, 
           predecessor_map, processors, links, task_finish_time);
         float dl = slevels[ready_task] - std::max(da, processor_time.second);
@@ -1917,6 +1915,8 @@ float DLSSchedulerBasedSimulator::sch_route_transfer(
 
   std::vector<CommDevice *> route = 
     static_cast<NominalCommDevice*>(path[0])->expand_to_physical();
+    
+  topofinder->mp_lcomm_added(path[0], xfersize);
 
   float curr_task_start_time; 
   float curr_task_finish_time; 
@@ -1932,6 +1932,7 @@ float DLSSchedulerBasedSimulator::sch_route_transfer(
 #endif
   for (unsigned int i = 0; i < route.size(); i++) {
     CommDevice * latency_task_device = route[i];
+    topofinder->mp_pcomm_added(latency_task_device, xfer_size, route.size()==1);
     float latency_task_run_time = net_machine->get_inter_node_gpu_latency();
     float latency_task_ready_time; 
     float latency_task_start_time; 
@@ -2020,9 +2021,9 @@ void DLSSchedulerBasedSimulator::test()
   tasks.insert(t9);
   printables[t9] = "t9";
   add_task_dependencies_with_xfer_sch(t1, t2, 4, tg);
-  add_task_dependencies_with_xfer_sch(t1, t3, 1, tg);
-  add_task_dependencies_with_xfer_sch(t1, t4, 1, tg);
-  add_task_dependencies_with_xfer_sch(t1, t5, 1, tg);
+  add_task_dependencies_with_xfer_sch(t1, t3, 3, tg);
+  add_task_dependencies_with_xfer_sch(t1, t4, 4, tg);
+  add_task_dependencies_with_xfer_sch(t1, t5, 5, tg);
   add_task_dependencies_with_xfer_sch(t1, t7, 10, tg);
   add_task_dependencies_with_xfer_sch(t2, t6, 1, tg);
   add_task_dependencies_with_xfer_sch(t2, t7, 1, tg);
