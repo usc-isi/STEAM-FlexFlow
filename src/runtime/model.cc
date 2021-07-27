@@ -1810,6 +1810,22 @@ void FFModel::run_measurement()
   future.get_void_result();
 }
 
+#ifdef TEST_DLSSCHEDULER
+void FFModel::test_dlssch() 
+{
+  Context ctx = config.lg_ctx;
+  Runtime* runtime = config.lg_hlr;
+  config.computationMode = COMP_MODE_TRAINING;
+  // Launch the simulation task
+  FFModel* model = this;
+  TaskLauncher launcher(CUSTOM_TEST_TASK_ID_1,
+      TaskArgument(&model, sizeof(FFModel*)));
+  Future future = runtime->execute_task(ctx, launcher);
+  future.get_void_result();
+}
+#endif
+
+
 void FFModel::compile(LossType loss_type,
                       const std::vector<MetricsType>& metrics,
                       CompMode comp_mode)
@@ -3564,6 +3580,16 @@ void register_flexflow_internal_tasks()
     Runtime::preregister_task_variant<Simulator::simulation_task>(
         registrar, "Simulation Task 2");
   }
+  #ifdef TEST_DLSSCHEDULER
+  {
+    TaskVariantRegistrar registrar(CUSTOM_TEST_TASK_ID_1,
+                                   "TEST DLSSch");
+    registrar.add_constraint(ProcessorConstraint(Processor::TOC_PROC));
+    registrar.set_leaf();
+    Runtime::preregister_task_variant<DLSSchedulerBasedSimulator::test_task>(
+        registrar, "TEST DLSSch");
+  }
+  #endif
   {
     TaskVariantRegistrar registrar(CUSTOM_MEASUREMENT_TASK_ID_1,
                                    "Simulator measurement");

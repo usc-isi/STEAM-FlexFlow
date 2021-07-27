@@ -1606,7 +1606,7 @@ std::vector<SimTask*> DLSSchedulerBasedSimulator::rev_topological_sort(
       result.push_back(task);
       continue;
     }
-    if(!visited[task])
+    if(visited[task])
       continue;
 
     visited[task] = true;
@@ -1692,13 +1692,17 @@ double DLSSchedulerBasedSimulator::dls_schedule(std::unordered_set<SimTask*>& bp
   for (auto & id_to_gpu: net_machine->id_to_gpu) {
     processors[id_to_gpu.second] = 0.0f;
   }
+  // prepare links
+  for (auto & l: net_machine->ids_to_nw_comm_device) {
+    links[l.second] = 0.0f;
+  }
 
   // TODOOO: initial assignemet
   // TODOOO: insersion based scheduling
 
   while (!unsched_node.empty()) {
     // std::set<std::pair<float, std::pair<CompDevice*, SimTask*>>> dlevels;
-    float max_dl = std::numeric_limits<float>::min();
+    float max_dl = std::numeric_limits<float>::lowest();
     CompDevice* final_gpu = nullptr;
     SimTask* final_task = nullptr;
     // for each node, for each processor, compute the DL
@@ -1715,6 +1719,13 @@ double DLSSchedulerBasedSimulator::dls_schedule(std::unordered_set<SimTask*>& bp
           final_gpu = processor_time.first; 
           final_task = ready_task;
         }
+        else if (dl == max_dl) {
+          if ((float)std::rand() / RAND_MAX > 0.5) {
+            max_dl = dl;
+            final_gpu = processor_time.first; 
+            final_task = ready_task;
+          }
+        }
       }
     }
     assert(final_gpu != nullptr && final_task != nullptr);
@@ -1730,6 +1741,7 @@ double DLSSchedulerBasedSimulator::dls_schedule(std::unordered_set<SimTask*>& bp
         ready_pool.insert(s.first);
       }
     }
+    ready_pool.erase(ready_pool.find(final_task));
     unsched_node.erase(unsched_node.find(final_task));
   }
   double final_makespan = std::numeric_limits<double>::min();
@@ -1767,7 +1779,7 @@ inline float DLSSchedulerBasedSimulator::compute_da(
     return 0;
   // task->device = proc;
   task->mem = net_machine->get_gpu_fb_mem(proc->device_id);
-  float final_da = std::numeric_limits<float>::min();
+  float final_da = std::numeric_limits<float>::lowest();
   for (auto & ps: pred.at(task)) {
     float da = sch_try_route_transfer(ps.first, task, ps.second, links, task_finish_time);
     if (da > final_da) {
@@ -1824,8 +1836,11 @@ float DLSSchedulerBasedSimulator::sch_try_route_transfer(
     const std::unordered_map<CommDevice*, float>& links,
     const std::unordered_map<SimTask*, float>& task_finish_time) 
 {
-  std::vector<CommDevice *> path = machine->get_comm_path(src->mem, dst->mem);
-  assert(path.size() == 1);
+  std::vector<CommDevice *> path = net_machine->get_comm_path(src->mem, dst->mem);
+  assert(path.size() <= 1);
+
+  if (path.size() == 0)
+    return task_finish_time.at(src);
 
   std::vector<CommDevice *> route = 
     static_cast<NominalCommDevice*>(path[0])->expand_to_physical();
@@ -1846,7 +1861,7 @@ float DLSSchedulerBasedSimulator::sch_try_route_transfer(
 #endif
   for (unsigned int i = 0; i < route.size(); i++) {
     CommDevice * latency_task_device = route[i];
-    float latency_task_run_time = machine->get_inter_node_gpu_latency();
+    float latency_task_run_time = net_machine->get_inter_node_gpu_latency();
     float latency_task_ready_time; 
     float latency_task_start_time; 
     if (i == 0) {
@@ -1895,8 +1910,10 @@ float DLSSchedulerBasedSimulator::sch_route_transfer(
     std::unordered_map<CommDevice*, float>& links,
     std::unordered_map<SimTask*, float>& task_finish_time) 
 {
-  std::vector<CommDevice *> path = machine->get_comm_path(src->mem, dst->mem);
-  assert(path.size() == 1);
+  std::vector<CommDevice *> path = net_machine->get_comm_path(src->mem, dst->mem);
+  assert(path.size() <= 1);
+  if (path.size() == 0)
+    return task_finish_time.at(src);
 
   std::vector<CommDevice *> route = 
     static_cast<NominalCommDevice*>(path[0])->expand_to_physical();
@@ -1915,7 +1932,7 @@ float DLSSchedulerBasedSimulator::sch_route_transfer(
 #endif
   for (unsigned int i = 0; i < route.size(); i++) {
     CommDevice * latency_task_device = route[i];
-    float latency_task_run_time = machine->get_inter_node_gpu_latency();
+    float latency_task_run_time = net_machine->get_inter_node_gpu_latency();
     float latency_task_ready_time; 
     float latency_task_start_time; 
     if (i == 0) {
@@ -1967,7 +1984,7 @@ void DLSSchedulerBasedSimulator::test()
   std::unordered_map<SimTask*, std::string> printables;
   
   SimTask * t1 = new SimTask();
-  t1->run_time = 3;
+  t1->run_time = 2;
   tasks.insert(t1);
   printables[t1] = "t1";
   SimTask * t2 = new SimTask();
@@ -2003,9 +2020,9 @@ void DLSSchedulerBasedSimulator::test()
   tasks.insert(t9);
   printables[t9] = "t9";
   add_task_dependencies_with_xfer_sch(t1, t2, 4, tg);
-  add_task_dependencies_with_xfer_sch(t1, t3, 3, tg);
-  add_task_dependencies_with_xfer_sch(t1, t4, 4, tg);
-  add_task_dependencies_with_xfer_sch(t1, t5, 5, tg);
+  add_task_dependencies_with_xfer_sch(t1, t3, 1, tg);
+  add_task_dependencies_with_xfer_sch(t1, t4, 1, tg);
+  add_task_dependencies_with_xfer_sch(t1, t5, 1, tg);
   add_task_dependencies_with_xfer_sch(t1, t7, 10, tg);
   add_task_dependencies_with_xfer_sch(t2, t6, 1, tg);
   add_task_dependencies_with_xfer_sch(t2, t7, 1, tg);
@@ -2014,6 +2031,10 @@ void DLSSchedulerBasedSimulator::test()
   add_task_dependencies_with_xfer_sch(t6, t9, 5, tg);
   add_task_dependencies_with_xfer_sch(t7, t9, 6, tg);
   add_task_dependencies_with_xfer_sch(t8, t9, 5, tg);
+
+  for (auto tn: printables) {
+    fprintf(stderr, "Task %p is %s.\n", tn.first, tn.second.c_str());
+  }
 
   auto entry_set = get_entry_nodes(tasks, tg);
   std::cerr << "Entry set: " << std::endl;
@@ -2049,10 +2070,14 @@ void DLSSchedulerBasedSimulator::test()
   nm->num_nodes = 4;
   nm->num_gpus_per_node = 1;
   nm->num_gpus = 4;
+  nm->total_devs = 4;
   nm->num_switches = 0;
   nm->inter_gpu_bandwidth = 1;
   nm->gpu_dram_bandwidth = 1;
   nm->link_bandwidth = 1;
+  nm->network_latency = 0;
+  nm->set_pcie(false);
+  nm->set_pipeline(true);
   for (int i = 0; i < 4; i++) {
     std::string gpu_name = "GPU " + std::to_string(i);
     nm->id_to_gpu[i] = new CompDevice(gpu_name, CompDevice::TOC_PROC, i, i, i);
@@ -2103,8 +2128,9 @@ void DLSSchedulerBasedSimulator::test()
   }
 
   this->net_machine = nm;
+  this->machine = nm;
   double sch_len = dls_schedule(tasks, tg);
-
+  std::cerr << "final makespan: " << sch_len << std::endl;
   
 }
 #endif

@@ -889,9 +889,14 @@ public:
     SimTask* src, SimTask* dst, size_t xfersize, 
     std::unordered_map<CommDevice*, float>& links,
     std::unordered_map<SimTask*, float>& task_finish_time);
+  
+  
 
 #ifdef TEST_DLSSCHEDULER
   void test();
+  static void test_task(const Task *task,
+                        const std::vector<PhysicalRegion> &regions,
+                        Context ctx, Runtime *runtime);
 #endif
 
   NetworkedMachineModel* net_machine;
