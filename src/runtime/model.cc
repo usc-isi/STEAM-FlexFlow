@@ -563,7 +563,7 @@ void FFModel::load_measurement(Simulator * sim, const std::string & fname) {
   assert(ngpus == config.numNodes * config.workersPerNode); 
   sim->measurements = new std::unordered_map<std::string, CostMetrics>();
   
-  printf("loaded num_nodes %u, num_gpus %u\n", batch_size, ngpus);
+  printf("loaded num_nodes %zu, num_gpus %zu\n", batch_size, ngpus);
   for (auto & meas: meas_json["measurements"]) {
     std::string name = meas["name"].get<std::string>();
     std::string pc_str = meas["pc_str"].get<std::string>();
@@ -574,7 +574,7 @@ void FFModel::load_measurement(Simulator * sim, const std::string & fname) {
       .backward_time = meas["bw_time"].get<float>(),
       .memory_requirement = meas["mem_req"].get<size_t>()
     };
-    printf("fw: %f, bw: %f, mem: %u\n", cost.forward_time, cost.backward_time, cost.memory_requirement);
+    printf("fw: %f, bw: %f, mem: %zu\n", cost.forward_time, cost.backward_time, cost.memory_requirement);
     (*sim->measurements)[key] = cost;
     if (opcandidates.find(name) != opcandidates.end())
       opcandidates[name].push_back(ParallelConfig::restore_pc_from_str(pc_str));
@@ -586,89 +586,82 @@ void FFModel::load_measurement(Simulator * sim, const std::string & fname) {
   }
 }
 
-ParallelConfig Op::get_random_parallel_config(const FFModel& ff, int nparts) const
+ParallelConfig Op::get_random_parallel_config(const FFModel& ff) const
 {
-  int num_parts;
-  if (nparts < 0) {
+  // int num_parts;
+  // if (nparts < 0) {
 
   if (candidates.size() == 0) {
-    // if (ff.config.measurefile != "") {
-    //   // std::vector<int> & const known_cds = ff.opcandidates[string(generic_name)];
-    //   for (int i: ff.opcandidates[string(generic_name)]) {
-    //     const_cast<vector<int>*>(&candidates)->push_back(i);
-    //     printf("Adding %d for op %s\n", i, name);
-    //   }
-    // }
-    // else {
-    /*
-    if (instanceof<Embedd>(this)) {
-      const_cast<vector<int>*>(&candidates)->push_back(1);
-      goto ugly;
-    }
-    */
-    uint64_t opsz = std::numeric_limits<uint64_t>::max();
-    for (int i = 0; i < numWeights; i++) {
-      if (weights[i].get_volume() < opsz)  {
-        opsz = weights[i].get_volume() * sizeof(float);
+    if (ff.config.mfile != "") {
+      // std::vector<int> & const known_cds = ff.opcandidates[string(generic_name)];
+      for (auto& i: ff.opcandidates.at(get_name_structure())) {
+        const_cast<vector<ParallelConfig>*>(&candidates)->push_back(i);
+        printf("Adding %d for op %s\n", i.dim[i.nDims - 1], name);
       }
     }
-
-#ifdef DEBUG_PRINT
-    cout << name << " sz: " << opsz << endl;
-#endif
-    
-    if (opsz > 5120000000ULL) {
-      const_cast<vector<int>*>(&candidates)->push_back(1);
-      goto ugly;
-    }
-
-    int batch_size = outputs[0].adim[outputs[0].numDim-1];
-    for (int i = 1; i <= ff.config.workersPerNode; i++) {
-      if (ff.config.workersPerNode % i == 0) {
-        if (batch_size % i != 0)
-          continue;
-        // bite me...
-        const_cast<vector<int>*>(&candidates)->push_back(i);
-        // printf("pushing %d\n", i);
-        if (i > opsz || i > (GPU_MEM / opsz))
-          break;
-        if (batch_size / i > ff.config.local_batch_sz_upperlimit) 
-          continue;
+    else {
+      uint64_t opsz = std::numeric_limits<uint64_t>::max();
+      for (int i = 0; i < numWeights; i++) {
+        if (weights[i].get_volume() < opsz)  {
+          opsz = weights[i].get_volume() * sizeof(float);
+        }
       }
-    }
-    for (int i = 1; i <= ff.config.numNodes; i++) {
-      if (ff.config.numNodes % i == 0) {
-        if (batch_size % (i * ff.config.workersPerNode) != 0)
-          continue;
-        if (i * ff.config.workersPerNode > opsz || i * ff.config.workersPerNode > (GPU_MEM / opsz))
-          break;
-        if (batch_size / (i * ff.config.workersPerNode) > ff.config.local_batch_sz_upperlimit) 
-          continue;
-        const_cast<vector<int>*>(&candidates)->push_back(i * ff.config.workersPerNode);
-        // printf("pupshing %d\n", i);
-
+      if (opsz > 5120000000ULL) {
+        ParallelConfig pc;
+        pc.device_type = ParallelConfig::GPU;
+        pc.nDims = outputs[0].numDim;
+        for (int i = 0; i < pc.nDims; i++)
+          pc.dim[i] = 1;
+        const_cast<vector<ParallelConfig>*>(&candidates)->push_back(pc);
+        goto ugly;
       }
+      int batch_size = outputs[0].adim[outputs[0].numDim-1];
+      for (int i = 1; i <= ff.config.workersPerNode; i++) {
+        if (ff.config.workersPerNode % i == 0) {
+          if (batch_size % i != 0)
+            continue;
+          // bite me...
+          ParallelConfig pc;
+          pc.device_type = ParallelConfig::GPU;
+          pc.nDims = outputs[0].numDim;
+          for (int x = 0; x < pc.nDims; x++)
+            pc.dim[x] = x == pc.nDims - 1 ? i : 1;
+          const_cast<vector<ParallelConfig>*>(&candidates)->push_back(pc);
+          // printf("pushing %d\n", i);
+          if (i > opsz || i > (GPU_MEM / opsz))
+            break;
+          if (batch_size / i > ff.config.local_batch_sz_upperlimit) 
+            continue;
+        }
+      }
+      for (int i = 1; i <= ff.config.numNodes; i++) {
+        if (ff.config.numNodes % i == 0) {
+          if (batch_size % (i * ff.config.workersPerNode) != 0)
+            continue;
+          if (i * ff.config.workersPerNode > opsz || i * ff.config.workersPerNode > (GPU_MEM / opsz))
+            break;
+          if (batch_size / (i * ff.config.workersPerNode) > ff.config.local_batch_sz_upperlimit) 
+            continue;
+          ParallelConfig pc;
+          pc.device_type = ParallelConfig::GPU;
+          pc.nDims = outputs[0].numDim;
+          for (int x = 0; x < pc.nDims; x++)
+            pc.dim[x] = x == pc.nDims - 1 ? i * ff.config.workersPerNode : 1;
+          const_cast<vector<ParallelConfig>*>(&candidates)->push_back(pc);
+        }
+      }
+      assert(candidates.size() > 0);
     }
-    // }
-    assert(candidates.size() > 0);
   }
 ugly:
-  int idx = std::rand() % candidates.size();
-  num_parts = candidates[idx];
-  }
-  else {
-    num_parts = nparts;
-  }
   ParallelConfig pc;
-  pc.device_type = ParallelConfig::GPU;
-  pc.nDims = outputs[0].numDim;
-  for (int i = 0; i < pc.nDims; i++)
-    pc.dim[i] = i == pc.nDims - 1 ? num_parts : 1;
+  int idx = std::rand() % candidates.size();
+  pc = candidates[idx];
+  // s dimention only
+  int num_parts = pc.dim[pc.nDims - 1];
   int total_num_devices = ff.config.workersPerNode * ff.config.numNodes;
 
   if (num_parts <= ff.config.workersPerNode) {
-    // printf("===NumParts: %d===\n", num_parts);
-  
     int start_node = std::rand() % ff.config.numNodes;
     int start_idx = start_node * ff.config.workersPerNode + 
                     std::rand() % (ff.config.workersPerNode - num_parts + 1); 
@@ -2245,7 +2238,7 @@ void Op::measure_all(Simulator * sim, FFModel& ff, std::vector<OpMeasurement>& o
   std::unordered_set<int> candidates;
     
   int batch_size = outputs[0].adim[outputs[0].numDim-1];
-  printf("batch_size: %d, local_batch_sz_upperlimit: %d\n", batch_size, ff.config.local_batch_sz_upperlimit);
+  printf("batch_size: %d, local_batch_sz_upperlimit: %zu\n", batch_size, ff.config.local_batch_sz_upperlimit);
   for (int i = 1; i <= ff.config.workersPerNode; i++) {
     if (ff.config.workersPerNode % i == 0) {
       if (batch_size % i != 0)

@@ -61,6 +61,7 @@ Simulator::Simulator(const FFModel* model,
   // Initialize task manager
   task_manager = new TaskManager(max_num_tasks);
 
+  measurements = nullptr;
   l1optimizer = nullptr;
 }
 

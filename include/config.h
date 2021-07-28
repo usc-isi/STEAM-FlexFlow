@@ -70,11 +70,11 @@ struct ParallelConfig {
   int pserver;
 
   std::string str_rep = "";
-  inline std::string get_pc_str() {
+  inline std::string get_pc_str() const {
     if (str_rep != "") return str_rep;
-    str_rep.append(std::to_string(nDims));
+    const_cast<std::string*>(&str_rep)->append(std::to_string(nDims));
     for (int i = 0; i < nDims; i++)
-      str_rep.append("-").append(std::to_string(dim[i]));
+      const_cast<std::string*>(&str_rep)->append(std::to_string(dim[i]));
     return str_rep;
   }
 

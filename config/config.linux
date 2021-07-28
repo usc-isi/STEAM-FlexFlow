@@ -25,7 +25,7 @@ CUDNN_DIR=/usr/local/cuda
 #CUDA_DIR=/usr/local/cuda
 
 # enable Python
-# FF_USE_PYTHON=ON
+FF_USE_PYTHON=OFF
 
 # enable NCCL
 FF_USE_NCCL=ON
