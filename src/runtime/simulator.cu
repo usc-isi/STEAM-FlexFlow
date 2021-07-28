@@ -388,3 +388,42 @@ void LogicalTaskgraphBasedSimulator::simulation_task(const Task *task,
   delete(simulator);
   delete(machine);
 }
+
+DLSSchedulerBasedSimulator::DLSSchedulerBasedSimulator(const FFModel* model,
+  FFHandler handler, Memory memory, MachineModel *machine)
+: LogicalTaskgraphBasedSimulator(model, handler, memory, machine)
+{
+
+}
+
+#ifdef TEST_DLSSCHEDULER
+__host__
+void DLSSchedulerBasedSimulator::test_task(const Task *task,
+                                     const std::vector<PhysicalRegion> &regions,
+                                     Context ctx, Runtime *runtime)
+{
+  const FFModel* model = *((FFModel**) task->args);
+  Memory gpu_mem = Machine::MemoryQuery(Machine::get_machine())
+         .only_kind(Memory::GPU_FB_MEM).best_affinity_to(task->target_proc).first();
+  
+  BigSwitchNetworkTopologyGenerator topo_gen = BigSwitchNetworkTopologyGenerator(model->config.numNodes);
+  NetworkedMachineModel *nmachine = new NetworkedMachineModel(model->config.numNodes, 
+    model->config.workersPerNode,  
+    0,
+    topo_gen.generate_topology(),
+    gpu_mem.capacity(),
+    20.0 * 1024 * 1024 / 8
+  );
+  nmachine->set_pcie(false);
+  nmachine->set_pipeline(true);
+
+  // SimpleMachineModel* nmachine = new SimpleMachineModel(model->config.numNodes, model->config.workersPerNode, gpu_mem.capacity());
+
+  MachineModel *machine;
+  machine = reinterpret_cast<MachineModel*>(nmachine);
+
+  // Assume this task is running on GPU0
+  DLSSchedulerBasedSimulator* simulator = new DLSSchedulerBasedSimulator(model, model->handlers[0], gpu_mem, machine);
+  simulator->test();
+}
+#endif

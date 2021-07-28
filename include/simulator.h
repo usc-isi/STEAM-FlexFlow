@@ -308,6 +308,8 @@ private:
     int total_devs;
 };
 
+class DLSSchedulerBasedSimulator;
+class NSDI22Heuristic;
 /**
  * A model that is network topology-aware.
  * The network topology is represented as follows:
@@ -325,6 +327,8 @@ private:
  */
 class NetworkedMachineModel : public MachineModel  {
   friend class DemandHeuristicNetworkOptimizer;
+  friend class DLSSchedulerBasedSimulator;
+  friend class NSDI22Heuristic;
 public:
   /**
    * Constructor. A network topology specified as above needs to be provided
@@ -336,6 +340,7 @@ public:
       const std::vector<int>& topology, 
       size_t capacity, 
       float link_bandwidth);
+  explicit NetworkedMachineModel() = default;
   ~NetworkedMachineModel();
   int get_version() const;
   CompDevice *get_gpu(int device_id) const;
@@ -520,8 +525,7 @@ public:
     virtual void task_added(SimTask * task) { return; };
     virtual void reset() = 0;
     virtual void* export_information() = 0;
-
-protected:
+    
     MachineModel *machine; // Would really like to do a T extends MachineModel...
 };
  
@@ -541,13 +545,18 @@ public:
   virtual void* export_information();
   size_t edge_id(int i, int j);
   size_t unordered_edge_id(int i, int j);
+  void optimize_demand(
+      ConnectionMatrix &conn,
+      std::unordered_map<size_t, uint64_t> &max_of_bidir,
+      std::unordered_map<size_t, size_t> &node_if_allocated); 
+  void connect_unused_node(ConnectionMatrix &conn, std::unordered_map<size_t, size_t> &node_if_allocated);
+  void connect_cc(std::unordered_map<uint64_t, uint64_t> &logical_id_to_demand, 
+                  ConnectionMatrix &conn);
 
   size_t get_if_in_use(size_t node, const ConnectionMatrix & conn);
   bool add_link(size_t i, size_t j, ConnectionMatrix & conn);
   void remove_link(size_t i, size_t j, ConnectionMatrix & conn);
 
-  void connect_cc(std::unordered_map<uint64_t, uint64_t> &logical_id_to_demand, 
-                  ConnectionMatrix &conn);
 
   inline static bool has_endpoint(uint64_t e, size_t v, size_t n) {
     return e / n == v || e % n == v;
@@ -595,6 +604,8 @@ public:
 
 };
 // #endif
+
+
 
 template <typename T>
 class DotFile {
@@ -781,5 +792,114 @@ public:
   void get_taskgraph_flatbuf(const FFModel* model, flatbuffers::FlatBufferBuilder &builder);
 
   // flatbuffers::FlatBufferBuilder builder;
+};
+
+
+class NSDI22Heuristic {
+  friend class DLSSchedulerBasedSimulator;
+public:
+  NSDI22Heuristic(MachineModel* machine, size_t dp_deg, size_t mp_deg);
+  ~NSDI22Heuristic() = default;
+
+  void fw_task_added(SimTask* task);
+  void bw_task_added(SimTask* task);
+  void mp_lcomm_added(CommDevice* device, size_t xfer_size);
+  void mp_pcomm_added(CommDevice* device, size_t xfer_size, bool dir);
+  void dp_lcomm_added(SimTask* task);
+  void dp_pcomm_added(SimTask* task, bool dir);
+  void ar_task_added(SimTask* task);
+
+  void generate_dp_topology();
+  void simplify_mp_topology();
+  void optimize_indirection();
+  void construct_dp_mat();
+
+  void reset();
+
+  inline size_t edge_id(int i, int j);
+  inline size_t unordered_edge_id(int i, int j);
+
+  size_t dp_deg;
+  size_t mp_deg;
+  NetworkedMachineModel* net_machine;
+
+  std::vector<SimTask*> ar_tasks;
+
+  std::unordered_map<uint64_t, uint64_t> dp_tm_logical;
+  std::unordered_map<uint64_t, uint64_t> dp_tm_physical_dir;
+  std::unordered_map<uint64_t, uint64_t> dp_tm_physical_indir;
+  
+  std::unordered_map<uint64_t, uint64_t> mp_tm_logical;
+  std::unordered_map<uint64_t, uint64_t> mp_tm_physical_dir;
+  std::unordered_map<uint64_t, uint64_t> mp_tm_physical_indir;
+};
+
+typedef std::unordered_map<SimTask*, std::vector<std::pair<SimTask*, size_t>>> DLSTaskDag;
+typedef std::pair<SimTask*, Op*> SimTaskOp;
+
+#define TEST_DLSSCHEDULER
+class DLSSchedulerBasedSimulator: public LogicalTaskgraphBasedSimulator {
+public:
+  DLSSchedulerBasedSimulator(const FFModel* model,
+          FFHandler handler,
+          Memory memory,
+          MachineModel *machine);
+  
+  virtual float simulate_runtime(const FFModel* model,
+      const std::map<Op*, ParallelConfig>& global,
+      CompMode comp_mode);
+  virtual float simulate_runtime(const FFModel* model,
+      const std::map<Op*, ParallelConfig>& global,
+      CompMode comp_mode,
+      std::string const &export_file_name);
+  // float compute_null_xfertime(SimTask* src, SimTask* dst, size_t message_size);
+  void add_task_dependencies_with_xfer_sch(
+      SimTask* src_task, SimTask* dst_task, size_t message_size,
+      DLSTaskDag& bp_taskdag);
+  std::vector<SimTask*> rev_topological_sort(
+      const std::unordered_set<SimTask*>& entry_nodes,
+      const std::unordered_set<SimTask*>& bp_tasks,
+      const DLSTaskDag& bp_taskdag);
+  std::unordered_map<SimTask*, float> get_slevels(
+      const std::vector<SimTask*>&& sorted_bp_tasks, 
+      const DLSTaskDag& bp_taskdag);
+  double dls_schedule(std::unordered_set<SimTask*>& bp_tasks, DLSTaskDag& bp_taskdag); 
+  std::map<Op*, ParallelConfig> get_device_placements(
+      std::unordered_set<SimTask*>& bp_tasks,
+      const std::map<Op*, ParallelConfig>& global);
+  std::unordered_set<SimTask*> get_entry_nodes(
+      const std::unordered_set<SimTask*>& bp_tasks, const DLSTaskDag& bp_taskdag);
+  DLSTaskDag get_predecessors(
+      const std::unordered_set<SimTask*>& bp_tasks, const DLSTaskDag& bp_taskdag);
+  inline float compute_da(const CompDevice* proc, SimTask* task, 
+      const DLSTaskDag& pred, 
+      const std::unordered_map<CompDevice*, float>& processors, 
+      const std::unordered_map<CommDevice*, float>& links,
+      const std::unordered_map<SimTask*, float>& task_finish_time);
+  inline void schedule(CompDevice* proc, SimTask* task, 
+      const DLSTaskDag& pred, 
+      std::unordered_map<CompDevice*, float>& processors, 
+      std::unordered_map<CommDevice*, float>& links,
+      std::unordered_map<SimTask*, float>& task_finish_time);
+  inline float sch_try_route_transfer(
+    SimTask* src, SimTask* dst, size_t xfersize, 
+    const std::unordered_map<CommDevice*, float>& links,
+    const std::unordered_map<SimTask*, float>& task_finish_time);
+  inline float sch_route_transfer(
+    SimTask* src, SimTask* dst, size_t xfersize, 
+    std::unordered_map<CommDevice*, float>& links,
+    std::unordered_map<SimTask*, float>& task_finish_time);
+  
+  
+
+#ifdef TEST_DLSSCHEDULER
+  void test();
+  static void test_task(const Task *task,
+                        const std::vector<PhysicalRegion> &regions,
+                        Context ctx, Runtime *runtime);
+#endif
+
+  NetworkedMachineModel* net_machine;
+  NSDI22Heuristic * topofinder;
 };
 #endif

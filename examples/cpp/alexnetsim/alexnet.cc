@@ -59,6 +59,7 @@ void top_level_task(const Task* task,
   }
   ffConfig.numNodes = alexnetConfig.nsimnode;
   FFModel ff(ffConfig, true);
+  ff.test_dlssch();
 
   Tensor input;
   {
