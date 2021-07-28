@@ -1019,6 +1019,47 @@ LinearMeta::LinearMeta(FFHandler handler, int batch_size)
     checkCUDNN(cudnnCreateTensorDescriptor(&outputTensor));
 }
 
+void Linear::measure_all(Simulator * sim, FFModel& ff, std::vector<OpMeasurement>& opm) 
+{
+  if (!ff.config.enable_parameter_parallel)
+    return Op::measure_all(sim, ff, opm);
+  int batch = outputs[0].adim[outputs[0].numDim-1];
+  int channel = outputs[0].adim[0];
+  int total_devices = ff.config.workersPerNode * ff.config.numNodes;
+  for (int i = 1; i <= total_devices; i++) {
+    if (channel % i == 0) {
+      for (int j = 1; i * j <= total_devices; j++) {
+        if (batch % j == 0) {
+          // batch_candidates.push_back(j);
+          // channel_candidates.push_back(i);
+          ParallelConfig pc;
+          pc.device_type = ParallelConfig::GPU;
+          pc.nDims = outputs[0].numDim;
+          pc.dim[0] = i;
+          pc.dim[pc.nDims-1] = j;
+          for (int x = 1; x < pc.nDims - 1; x++)
+            pc.dim[x] = 1;
+          const_cast<std::vector<ParallelConfig>*>(&candidates)->push_back(pc);
+        }
+      }
+    }
+  }
+  for (ParallelConfig pc: candidates) {
+    CostMetrics cost;
+    measure_operator_cost(sim, pc, cost);
+    opm.emplace_back(
+      OpMeasurement {
+        .name = get_name_structure(),
+        .pc_str = pc.get_pc_str(),
+        .fwtime = cost.forward_time,
+        .bwtime = cost.backward_time,
+        .mem_req = cost.memory_requirement
+      }
+    );
+    std::cout << "Measured " << get_name_structure() << " " << pc.get_pc_str() << " fw: " << cost.forward_time << " bw: " << cost.backward_time << std::endl;
+  } 
+}
+
 bool Linear::measure_operator_cost(Simulator* sim,
                                    const ParallelConfig& pc,
                                    CostMetrics& cost_metrics)
@@ -1110,12 +1151,12 @@ ParallelConfig Linear::get_random_parallel_config(const FFModel& ff) const
       // std::vector<int> & const known_cds = ff.opcandidates[string(generic_name)];
       for (auto& i: ff.opcandidates.at(get_name_structure())) {
         const_cast<std::vector<ParallelConfig>*>(&candidates)->push_back(i);
-        printf("Adding %d for op %s\n", i, name);
+        printf("Adding %s for op %s\n", i.get_pc_str().c_str(), name);
       }
     }
     else {
       int batch = outputs[0].adim[outputs[0].numDim-1];
-      int channel = outputs[0].adim[0];
+      int channel = inputs[0].adim[0];
       int total_devices = ff.config.workersPerNode * ff.config.numNodes;
       for (int i = 1; i <= ff.config.workersPerNode; i++) {
         if (channel % i == 0) {

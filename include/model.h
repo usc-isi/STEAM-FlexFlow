@@ -1033,6 +1033,7 @@ public:
   std::string get_name_structure() const;
   void create_weights(FFModel& model);
   void create_output_and_partition(FFModel& model);
+  void measure_all(Simulator * sim, FFModel& ff, std::vector<OpMeasurement>& opm);
 
   static OpMeta* init_task(const Task *task,
                            const std::vector<PhysicalRegion> &regions,

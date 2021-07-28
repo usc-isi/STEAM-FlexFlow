@@ -160,7 +160,7 @@ void Simulator::simulation_task(const Task *task,
                                      const std::vector<PhysicalRegion> &regions,
                                      Context ctx, Runtime *runtime)
 {
-  const FFModel* model = *((FFModel**) task->args);
+  FFModel* model = *((FFModel**) task->args);
   Memory gpu_mem = Machine::MemoryQuery(Machine::get_machine())
          .only_kind(Memory::GPU_FB_MEM).best_affinity_to(task->target_proc).first();
   // Realm::MemoryImpl* memImpl =
@@ -188,6 +188,10 @@ void Simulator::simulation_task(const Task *task,
   // Assume this task is running on GPU0
   Simulator* simulator = new Simulator(model, model->handlers[0], gpu_mem, machine);
   // Set cublas/cudnn streams to allow Realm catch the events
+
+  if (model->config.mfile != "") {
+    model->load_measurement(simulator, model->config.mfile);
+  }
 
   cudaStream_t stream;
   checkCUDA(get_legion_stream(&stream));
@@ -289,7 +293,7 @@ void LogicalTaskgraphBasedSimulator::simulation_task(const Task *task,
                                      const std::vector<PhysicalRegion> &regions,
                                      Context ctx, Runtime *runtime)
 {
-  const FFModel* model = *((FFModel**) task->args);
+  FFModel* model = *((FFModel**) task->args);
   Memory gpu_mem = Machine::MemoryQuery(Machine::get_machine())
          .only_kind(Memory::GPU_FB_MEM).best_affinity_to(task->target_proc).first();
   // Realm::MemoryImpl* memImpl =
@@ -315,8 +319,11 @@ void LogicalTaskgraphBasedSimulator::simulation_task(const Task *task,
   machine = reinterpret_cast<MachineModel*>(nmachine);
 
   // Assume this task is running on GPU0
+  
   Simulator* simulator = new LogicalTaskgraphBasedSimulator(model, model->handlers[0], gpu_mem, machine);
-
+  if (model->config.mfile != "") {
+    model->load_measurement(simulator, model->config.mfile);
+  }
   DemandHeuristicNetworkOptimizer *dhopt = 
     new DemandHeuristicNetworkOptimizer(machine);
   dhopt->if_cnt = model->config.node_degree;

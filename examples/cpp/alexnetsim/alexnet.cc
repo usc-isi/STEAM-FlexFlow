@@ -94,8 +94,9 @@ void top_level_task(const Task* task,
 
   if (alexnetConfig.measure)
     ff.run_measurement();
-  else 
+  else {
     ff.simulate();
+  }
 #if 0
   // Data Loader
   DataLoader data_loader(ff, &alexnetConfig, input, ff.label_tensor);

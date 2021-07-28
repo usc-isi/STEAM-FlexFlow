@@ -74,7 +74,7 @@ struct ParallelConfig {
     if (str_rep != "") return str_rep;
     const_cast<std::string*>(&str_rep)->append(std::to_string(nDims));
     for (int i = 0; i < nDims; i++)
-      const_cast<std::string*>(&str_rep)->append(std::to_string(dim[i]));
+      const_cast<std::string*>(&str_rep)->append("-"+std::to_string(dim[i]));
     return str_rep;
   }
 
