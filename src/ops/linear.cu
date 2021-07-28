@@ -1019,6 +1019,47 @@ LinearMeta::LinearMeta(FFHandler handler, int batch_size)
     checkCUDNN(cudnnCreateTensorDescriptor(&outputTensor));
 }
 
+void Linear::measure_all(Simulator * sim, FFModel& ff, std::vector<OpMeasurement>& opm) 
+{
+  if (!ff.config.enable_parameter_parallel)
+    return Op::measure_all(sim, ff, opm);
+  int batch = outputs[0].adim[outputs[0].numDim-1];
+  int channel = outputs[0].adim[0];
+  int total_devices = ff.config.workersPerNode * ff.config.numNodes;
+  for (int i = 1; i <= total_devices; i++) {
+    if (channel % i == 0) {
+      for (int j = 1; i * j <= total_devices; j++) {
+        if (batch % j == 0) {
+          // batch_candidates.push_back(j);
+          // channel_candidates.push_back(i);
+          ParallelConfig pc;
+          pc.device_type = ParallelConfig::GPU;
+          pc.nDims = outputs[0].numDim;
+          pc.dim[0] = i;
+          pc.dim[pc.nDims-1] = j;
+          for (int x = 1; x < pc.nDims - 1; x++)
+            pc.dim[x] = 1;
+          const_cast<std::vector<ParallelConfig>*>(&candidates)->push_back(pc);
+        }
+      }
+    }
+  }
+  for (ParallelConfig pc: candidates) {
+    CostMetrics cost;
+    measure_operator_cost(sim, pc, cost);
+    opm.emplace_back(
+      OpMeasurement {
+        .name = get_name_structure(),
+        .pc_str = pc.get_pc_str(),
+        .fwtime = cost.forward_time,
+        .bwtime = cost.backward_time,
+        .mem_req = cost.memory_requirement
+      }
+    );
+    std::cout << "Measured " << get_name_structure() << " " << pc.get_pc_str() << " fw: " << cost.forward_time << " bw: " << cost.backward_time << std::endl;
+  } 
+}
+
 bool Linear::measure_operator_cost(Simulator* sim,
                                    const ParallelConfig& pc,
                                    CostMetrics& cost_metrics)
@@ -1099,33 +1140,68 @@ bool Linear::measure_operator_cost(Simulator* sim,
   return true;
 }
 
-ParallelConfig Linear::get_random_parallel_config(const FFModel& ff, int nparts) const
+ParallelConfig Linear::get_random_parallel_config(const FFModel& ff) const
 {
   if (!ff.config.enable_parameter_parallel)
-    return Op::get_random_parallel_config(ff, nparts);
-  std::vector<int> batch_candidates;
-  std::vector<int> channel_candidates;
-  int batch = outputs[0].adim[outputs[0].numDim-1];
-  int channel = outputs[0].adim[0];
-  int total_devices = ff.config.workersPerNode * ff.config.numNodes;
-  for (int i = 1; i <= ff.config.workersPerNode; i++)
-    if (channel % i == 0)
-      for (int j = 1; i * j <= total_devices; j++)
-        if (batch % j == 0) {
-          batch_candidates.push_back(j);
-          channel_candidates.push_back(i);
+    return Op::get_random_parallel_config(ff);
+  // std::vector<int> batch_candidates;
+  // std::vector<int> channel_candidates;
+  if (candidates.size() == 0) {
+    if (ff.config.mfile != "") {
+      // std::vector<int> & const known_cds = ff.opcandidates[string(generic_name)];
+      for (auto& i: ff.opcandidates.at(get_name_structure())) {
+        const_cast<std::vector<ParallelConfig>*>(&candidates)->push_back(i);
+        printf("Adding %s for op %s\n", i.get_pc_str().c_str(), name);
+      }
+    }
+    else {
+      int batch = outputs[0].adim[outputs[0].numDim-1];
+      int channel = inputs[0].adim[0];
+      int total_devices = ff.config.workersPerNode * ff.config.numNodes;
+      for (int i = 1; i <= ff.config.workersPerNode; i++) {
+        if (channel % i == 0) {
+          for (int j = 1; i * j <= total_devices; j++) {
+            if (batch % j == 0) {
+              // batch_candidates.push_back(j);
+              // channel_candidates.push_back(i);
+              ParallelConfig pc;
+              pc.device_type = ParallelConfig::GPU;
+              pc.nDims = outputs[0].numDim;
+              pc.dim[0] = i;
+              pc.dim[pc.nDims-1] = j;
+              for (int x = 1; x < pc.nDims - 1; x++)
+                pc.dim[x] = 1;
+              const_cast<std::vector<ParallelConfig>*>(&candidates)->push_back(pc);
+            }
+          }
         }
-  assert(batch_candidates.size() > 0);
-  int idx = std::rand() % batch_candidates.size();
-  int num_par_c = channel_candidates[idx];
-  int num_par_b = batch_candidates[idx];
-  ParallelConfig pc;
-  pc.device_type = ParallelConfig::GPU;
-  pc.nDims = outputs[0].numDim;
-  pc.dim[0] = num_par_c;
-  pc.dim[pc.nDims-1] = num_par_b;
-  for (int i = 1; i < pc.nDims - 1; i++)
-    pc.dim[i] = 1;
+      }
+    }
+  }
+  // int batch = outputs[0].adim[outputs[0].numDim-1];
+  // int channel = outputs[0].adim[0];
+  // for (int i = 1; i <= ff.config.workersPerNode; i++) {
+  //   if (channel % i == 0) {
+  //     for (int j = 1; i * j <= total_devices; j++) {
+  //       if (batch % j == 0) {
+  //         batch_candidates.push_back(j);
+  //         channel_candidates.push_back(i);
+  //         ParallelConfig pc;
+  //         pc.device_type = ParallelConfig::GPU;
+  //         pc.nDims = outputs[0].numDim;
+  //         pc.dim[0] = num_par_c;
+  //         pc.dim[pc.nDims-1] = num_par_b;
+  //         candidates.push_back(pc);
+  //       }
+  //     }
+  //   }
+  // }
+  // assert(batch_candidates.size() > 0);
+  int total_devices = ff.config.workersPerNode * ff.config.numNodes;
+  int idx = std::rand() % candidates.size();
+  ParallelConfig pc = candidates[idx];
+  int num_par_c = pc.dim[0];
+  int num_par_b = pc.dim[pc.nDims-1];
   int start_idx = std::rand() % (total_devices - num_par_c * num_par_b + 1);
   start_idx = start_idx - start_idx % num_par_c;
   for (int i = 0; i < num_par_c * num_par_b; i++)

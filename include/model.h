@@ -249,7 +249,7 @@ public:
   virtual std::string get_name_structure() const = 0;
   // Other virtual functions that can be optionally overwritten
   // virtual ParallelConfig get_random_parallel_config(const FFModel& ff) const;
-  virtual ParallelConfig get_random_parallel_config(const FFModel& ff, int nparts = -1) const;
+  virtual ParallelConfig get_random_parallel_config(const FFModel& ff) const;
   virtual ParallelConfig get_data_parallel_config(const FFModel& ff) const;
   virtual bool is_valid_parallel_config(const FFModel& ff, const ParallelConfig& pc) const;
   virtual bool is_adoptable_parallel_config(FFModel const &ff, ParallelConfig const &pc) const;
@@ -290,7 +290,7 @@ public:
   int numInputs, numWeights, numOutputs;
   bool profiling;
 
-  std::vector<int> candidates;
+  std::vector<ParallelConfig> candidates;
 
 #ifdef FF_USE_NCCL
   ncclUniqueId ncclId;
@@ -1037,6 +1037,7 @@ public:
   std::string get_name_structure() const;
   void create_weights(FFModel& model);
   void create_output_and_partition(FFModel& model);
+  void measure_all(Simulator * sim, FFModel& ff, std::vector<OpMeasurement>& opm);
 
   static OpMeta* init_task(const Task *task,
                            const std::vector<PhysicalRegion> &regions,
@@ -1070,7 +1071,7 @@ public:
   bool measure_operator_cost(Simulator* sim,
                              const ParallelConfig& pc,
                              CostMetrics& cost_metrics);
-  ParallelConfig get_random_parallel_config(const FFModel& ff, int) const;
+  ParallelConfig get_random_parallel_config(const FFModel& ff) const;
   bool is_valid_parallel_config(const FFModel& ff, const ParallelConfig& pc) const;
 private:
   template<int NDIM>

@@ -421,6 +421,11 @@ void LogicalTaskgraphBasedSimulator::add_task_dependencies_with_xfer(
 
 CostMetrics Simulator::measure_operator_cost(Op* op, const ParallelConfig& config)
 {
+  if (measurements != nullptr) {
+    std::string key = op->get_name_structure() + ":" + config.get_pc_str();
+    return measurements->at(key);
+  }
+
   size_t hash = 17 * 31 + (size_t)(op);
   hash = hash * 31 + std::hash<int>()(config.device_type);
   hash = hash * 31 + std::hash<int>()(config.nDims);
