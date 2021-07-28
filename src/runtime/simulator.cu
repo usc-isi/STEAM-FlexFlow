@@ -393,7 +393,9 @@ DLSSchedulerBasedSimulator::DLSSchedulerBasedSimulator(const FFModel* model,
   FFHandler handler, Memory memory, MachineModel *machine)
 : LogicalTaskgraphBasedSimulator(model, handler, memory, machine)
 {
-
+  this->net_machine = static_cast<NetworkedMachineModel*>(this->machine);
+  this->topofinder = 
+    new NSDI22Heuristic(this->machine, this->net_machine.node_degree/2, this->net_machine.node_degree/2);
 }
 
 #ifdef TEST_DLSSCHEDULER

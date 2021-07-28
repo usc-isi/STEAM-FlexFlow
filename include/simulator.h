@@ -890,8 +890,6 @@ public:
     std::unordered_map<CommDevice*, float>& links,
     std::unordered_map<SimTask*, float>& task_finish_time);
   
-  
-
 #ifdef TEST_DLSSCHEDULER
   void test();
   static void test_task(const Task *task,
