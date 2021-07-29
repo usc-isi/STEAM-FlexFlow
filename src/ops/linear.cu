@@ -1156,7 +1156,7 @@ ParallelConfig Linear::get_random_parallel_config(const FFModel& ff) const
     }
     else {
       int batch = outputs[0].adim[outputs[0].numDim-1];
-      int channel = inputs[0].adim[0];
+      int channel = outputs[0].adim[0];
       int total_devices = ff.config.workersPerNode * ff.config.numNodes;
       for (int i = 1; i <= ff.config.workersPerNode; i++) {
         if (channel % i == 0) {

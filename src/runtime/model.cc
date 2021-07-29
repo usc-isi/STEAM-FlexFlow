@@ -596,7 +596,7 @@ ParallelConfig Op::get_random_parallel_config(const FFModel& ff) const
       // std::vector<int> & const known_cds = ff.opcandidates[string(generic_name)];
       for (auto& i: ff.opcandidates.at(get_name_structure())) {
         const_cast<vector<ParallelConfig>*>(&candidates)->push_back(i);
-        printf("Adding %s for op %s\n", i.get_pc_str(), name);
+        printf("Adding %s for op %s\n", i.get_pc_str().c_str(), name);
       }
     }
     else {

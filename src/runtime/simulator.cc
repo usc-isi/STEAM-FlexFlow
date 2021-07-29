@@ -997,6 +997,7 @@ float LogicalTaskgraphBasedSimulator::route_transfer(SimTask * transfer_task,
 
   for (unsigned int i = 0; i < route.size(); i++) {
     CommDevice * latency_task_device = route[i];
+    if (device_times.find(latency_task_device) == device_times.end()) device_times[latency_task_device] = 0;
     float latency_task_run_time = machine->get_inter_node_gpu_latency();
     float latency_task_ready_time; 
     float latency_task_start_time; 
