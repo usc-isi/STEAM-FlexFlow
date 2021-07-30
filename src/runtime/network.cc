@@ -3,6 +3,7 @@
 #include <limits>
 #include <random>
 #include <utility>
+#include <cmath>
 #include <unordered_set>
 
 #include "simulator.h"
@@ -843,4 +844,116 @@ size_t NSDI22Heuristic::edge_id(int i, int j)
 size_t NSDI22Heuristic::unordered_edge_id(int i, int j) 
 {
   return i > j ? edge_id(i, j) : edge_id(j, i);
+}
+
+TwoDimTorusNetworkTopologyGenerator::TwoDimTorusNetworkTopologyGenerator(int num_nodes) 
+{
+  this->num_nodes = num_nodes;
+  int edge = (int)std::sqrt(num_nodes) + 1;
+  int extra = edge * edge - num_nodes;
+  if (extra < edge) {
+    nrows = edge - 1;
+    ncols = edge;
+    nextras = edge - extra;
+  }
+  else {
+    nrows = edge - 1;
+    ncols = edge - 1;
+    nextras = extra - edge;
+  }
+  assert(nrows * ncols + nextras == num_nodes);
+}
+
+ConnectionMatrix TwoDimTorusNetworkTopologyGenerator::generate_topology() const 
+{
+  ConnectionMatrix conn = ConnectionMatrix(num_nodes * num_nodes, 0);
+  for (int row = 0; row < nrows + 1; row++) {
+    for (int col = 0; col < ncols; col++) {
+      if (row == nrows && col == nextras)
+        break;
+      int me = row * ncols + col;
+      int my_right = row * ncols + ((col + 1) % ncols);
+      int my_down = ((row + 1) % (col < nextras ? (nrows + 1) : nrows)) * ncols + col;
+      // my right
+      conn[get_id(me, my_right)] = 1;
+      conn[get_id(my_right, me)] = 1;
+      // my down
+      conn[get_id(me, my_down)] = 1;
+      conn[get_id(my_down, me)] = 1;
+    }
+  }
+  return conn;
+}
+
+int TwoDimTorusNetworkTopologyGenerator::get_id(int i, int j) const 
+{
+  return i * num_nodes + j;
+}
+
+TwoDimTorusW2TURNRouting::TwoDimTorusW2TURNRouting(const ConnectionMatrix & c, 
+                           const std::map<size_t, CommDevice*>& devmap, 
+                           int nrows, int ncols, int nextras, int total_devs)
+: conn(c), devmap(devmap), nrows(nrows), ncols(ncols), nextras(nextras), total_devs(total_devs)
+{
+
+}
+
+void TwoDimTorusW2TURNRouting::clear()
+{
+  cached_routes.clear();
+}
+
+size_t TwoDimTorusW2TURNRouting::nodeid(int x, int y) 
+{
+  return x * nrows + y;
+} 
+
+int TwoDimTorusW2TURNRouting::getx(size_t nodeid)
+{
+  return nodeid % ncols;
+}
+
+int TwoDimTorusW2TURNRouting::gety(size_t nodeid)
+{
+  return nodeid / ncols;
+}
+
+bool TwoDimTorusW2TURNRouting::lastl(size_t nodeid) 
+{
+  return gety(nodeid) == nrows;
+}
+
+int TwoDimTorusW2TURNRouting::delta(int s, int d, int k) 
+{
+  return std::min(std::abs(s-d), k-std::abs(s-d));
+}
+
+int TwoDimTorusW2TURNRouting::mindir(int s, int d, int k) 
+{
+  return std::abs(s-d) > k-std::abs(s-d) ? ;
+}
+
+EcmpRoutes TwoDimTorusW2TURNRouting::get_routes(int src_node, int dst_node) 
+{
+  Route route;
+  int first_direction = ((float)std::rand() / RAND_MAX > 0.5) ? 0 : 1;
+  if (first_direction) { // XYX
+    std::uniform_int_distribution<> x_uni
+      {0, ((lastl(src_node) || lastl(dst_node)) ? nextras : ncols) - 1};
+    int xmid = x_uni(gen); 
+    int xsrc = getx(src_node);
+    int xdst = getx(dst_node);
+    int ysrc = gety(src_node);
+    int ydst = gety(dst_node);
+    int dir;
+    int k = ysrc != nrows ? ncols : nextras;
+    // seg 1
+    if (k % 2 != 0) {
+      // odd k 
+    if (delta(xsrc, xmid, k) != k/2 ||
+        )
+    }
+    route_x(getx(src_node), midx, gety(src_node), route); 
+    route_y(get)
+  }
 }
