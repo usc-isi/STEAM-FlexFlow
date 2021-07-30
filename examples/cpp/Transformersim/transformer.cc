@@ -95,10 +95,6 @@ void parse_input_args(char **argv, int argc, TransformerConfig& config)
       config.nsimgpu = std::atoi(argv[++i]);
       continue;
     }
-    if (!strcmp(argv[i], "--measure")) {
-      config.measure = std::atoi(argv[++i]);
-      continue;
-    }
   }
 }
 
@@ -142,7 +138,7 @@ void top_level_task(const Task* task,
   }
   t2 = ff.dense(t2, 1);
 
-  if (tfConfig.measure) {
+  if (ffConfig.measurement_only) {
     ff.run_measurement();
   }
   else {

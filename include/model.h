@@ -593,6 +593,7 @@ public:
   std::vector<Op*> layers;
   std::vector<Parameter> parameters;
   FFHandler handlers[MAX_NUM_WORKERS];
+  bool simonly;
   Future current_metrics;
   std::unordered_map<std::string, std::vector<ParallelConfig>> opcandidates;
   //DataLoader *dataLoader;

@@ -287,7 +287,7 @@ void* Simulator::allocate(uint64_t num_elements, DataType type)
   if (offset > capacity) {
     fprintf(stderr, "Simulator cannot measure some operators' performance."
         " Increate --simulator-workspace-size to at least %lu. element_size: %lu, num_elements: %lu, capacity: %lu\n", offset, element_size, num_elements, capacity);
-    exit(0);
+    return nullptr;
   }
   return ret_ptr;
 }

@@ -127,7 +127,10 @@ void top_level_task(const Task* task,
     // TODO: implement clamp
     assert(false);
   }
-  ff.simulate();
+  if (ffConfig.measurement_only)
+    ff.run_measurement();
+  else 
+    ff.simulate();
 #if 0
   // Use SGD Optimizer
   Optimizer* optimizer = new SGDOptimizer(&ff, 0.01f);

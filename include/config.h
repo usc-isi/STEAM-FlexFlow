@@ -116,6 +116,7 @@ struct FFHandler {
 struct FFInitInfo {
   size_t workSpaceSize;
   bool allowTensorOpMathConversion;
+  bool simonly;
   //int myRank, allRanks;
 };
 
@@ -169,6 +170,7 @@ public:
   bool enable_sample_parallel;
   bool enable_parameter_parallel;
   bool enable_attribute_parallel;
+  bool measurement_only;
   //Control Tensor Op Math Conversion
   bool allow_tensor_op_math_conversion;
   std::string dataset_path;
