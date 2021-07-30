@@ -463,19 +463,19 @@ bool Concat::measure_operator_cost(Simulator* sim,
   float *input_grad_ptrs[MAX_NUM_INPUTS];
   for (int i = 0; i < numInputs; i++) {
     input_ptrs[i] = (float *)sim->allocate(sub_inputs[i].get_volume(), DT_FLOAT);
-    // if (input_ptrs[i] == NULL) {
-    //   cost_metrics.forward_time = -1;
-    //   cost_metrics.backward_time = -1;
-    //   return true;
-    // }
+    if (input_ptrs[i] == NULL) {
+      cost_metrics.forward_time = -1;
+      cost_metrics.backward_time = -1;
+      return true;
+    }
     assert (input_ptrs[i] != NULL);
   }
   float *output_ptr = (float *)sim->allocate(sub_output.get_volume(), DT_FLOAT);
-  // if (output_ptr == NULL) {
-  //   cost_metrics.forward_time = -1;
-  //   cost_metrics.backward_time = -1;
-  //   return true;
-  // }
+  if (output_ptr == NULL) {
+    cost_metrics.forward_time = -1;
+    cost_metrics.backward_time = -1;
+    return true;
+  }
   assert (output_ptr != NULL);
 
   int axis = outputs[0].numDim - 1 - this->axis;
@@ -500,9 +500,19 @@ bool Concat::measure_operator_cost(Simulator* sim,
     sim->free_all();
     for (int i = 0; i < numInputs; i++) {
       input_grad_ptrs[i] = (float *)sim->allocate(sub_inputs[i].get_volume(), DT_FLOAT);
+      if (input_grad_ptrs[i] == NULL) {
+        cost_metrics.forward_time = -1;
+        cost_metrics.backward_time = -1;
+        return true;
+      }
       assert (input_grad_ptrs[i] != NULL);
     }
     float *output_grad_ptr = (float *)sim->allocate(sub_output.get_volume(), DT_FLOAT);
+    if (output_grad_ptr == NULL) {
+      cost_metrics.forward_time = -1;
+      cost_metrics.backward_time = -1;
+      return true;
+    }
     assert (output_grad_ptr != NULL);
     forward = [] {};
     backward = [&] {
