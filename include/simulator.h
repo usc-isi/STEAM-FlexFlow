@@ -323,14 +323,14 @@ public:
   inline bool lastl(size_t node_id) const;
   inline int delta(int s, int d, int k) const;
   inline int mindir(int s, int d, int k) const;
-  inline int even_choose_dir(int s, int d, int m, int k);
-  inline bool on_the_way(int s, int d, int m, int k);
-  inline bool route_in_mindir_end(int p1, int p2, int p3, int p4, int k) const;
+  inline int even_choose_dir(int s, int d, int m, int k) const;
+  inline bool on_the_way(int s, int d, int m, int k) const;
+  inline bool route_in_mindir_end(int p1, int p2, int p3, int k) const;
   inline bool route_in_mindir_mid(int p1, int p2, int p3, int p4, int p5, int k) const;
-  void route_x(int srcx, int dstx, int y, int dir, Route& route);
-  void route_y(int srcy, int dsty, int x, int dir, Route& route);
-  void route_x_wrd(int srcx, int dstx, int y, Route& route);
-  void route_y_wrd(int srcy, int dsty, int x, Route& route);
+  void route_x(int srcx, int dstx, int y, int dir, int k, Route& route);
+  void route_y(int srcy, int dsty, int x, int dir, int k, Route& route);
+  void route_x_wrd(int srcx, int dstx, int y, int k, Route& route);
+  void route_y_wrd(int srcy, int dsty, int x, int k, Route& route);
 private:
   const ConnectionMatrix & conn; 
   const std::map<size_t, CommDevice*>& devmap; 
