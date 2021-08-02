@@ -321,7 +321,7 @@ void LogicalTaskgraphBasedSimulator::simulation_task(const Task *task,
     0,
     topo_gen.generate_topology(),
     gpu_mem.capacity(),
-    20.0 * 1024 * 1024 / 8
+    model->config.iface_bandwidth
   );
   nmachine->set_pcie(false);
   nmachine->set_pipeline(true);
@@ -366,7 +366,7 @@ void LogicalTaskgraphBasedSimulator::simulation_task(const Task *task,
   } else {
     // Start from data parallel
     for (size_t l = 0; l < model->layers.size(); l++) {
-      strategies[model->layers[l]] = model->layers[l]->get_data_parallel_config(*model);
+      strategies[model->layers[l]] = model->layers[l]->get_random_parallel_config(*model);
     }
   }
   if (model->config.computationMode == COMP_MODE_TRAINING) {

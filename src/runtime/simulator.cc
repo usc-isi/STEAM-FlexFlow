@@ -380,11 +380,11 @@ void LogicalTaskgraphBasedSimulator::add_task_dependencies_with_xfer(
   std::vector<CommDevice *> path = machine->get_comm_path(src_task->mem, dst_task->mem);
 #ifdef DEBUG_PRINT
   // print the communication path
-  printf("Path from %s to %s is: ", src_task->mem->name.c_str(), dst_task->mem->name.c_str());
-  for (size_t i = 0; i < path.size(); i++) {
-    printf("%s ", path[i]->name.c_str());
-  }
-  printf("\n");
+  // printf("Path from %s to %s is: ", src_task->mem->name.c_str(), dst_task->mem->name.c_str());
+  // for (size_t i = 0; i < path.size(); i++) {
+  //   printf("%s ", path[i]->name.c_str());
+  // }
+  // printf("\n");
 #endif
 
   if (path.empty()) {
