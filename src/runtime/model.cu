@@ -94,7 +94,8 @@ FFHandler UtilityTasks::init_cuda_task(
   //Realm::Cuda::GPUFBMemory* memFBImpl = (Realm::Cuda::GPUFBMemory*) memImpl;
   //off_t offset = memFBImpl->alloc_bytes(workSpaceSize);
   //handle.workSpace = memFBImpl->get_direct_ptr(offset, 0);
-  {
+  // XXX: FRANK: DEFER THIS AFTER SIMULATOR WORKSPACE
+  if (!info->simonly) {
     // allocate memory for workspace
     Memory gpu_mem = Machine::MemoryQuery(Machine::get_machine())
         .only_kind(Memory::GPU_FB_MEM).best_affinity_to(task->target_proc).first();

@@ -205,8 +205,9 @@ if(FF_BUILD_INCEPTION OR FF_BUILD_ALL_EXAMPLES)
 endif()
 
 #TODO: Once functional add to BUILD_ALL_EXAMPLES
-if(FF_BUILD_CANDLE_UNO)
+if(FF_BUILD_CANDLE_UNO OR FF_BUILD_ALL_EXAMPLES)
   add_subdirectory(examples/cpp/candle_uno)
+  add_subdirectory(examples/cpp/candle_unosim)
 endif()
 
 if(FF_BUILD_DLRM OR FF_BUILD_ALL_EXAMPLES)

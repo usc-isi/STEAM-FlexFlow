@@ -463,9 +463,19 @@ bool Concat::measure_operator_cost(Simulator* sim,
   float *input_grad_ptrs[MAX_NUM_INPUTS];
   for (int i = 0; i < numInputs; i++) {
     input_ptrs[i] = (float *)sim->allocate(sub_inputs[i].get_volume(), DT_FLOAT);
+    if (input_ptrs[i] == NULL) {
+      cost_metrics.forward_time = -1;
+      cost_metrics.backward_time = -1;
+      return true;
+    }
     assert (input_ptrs[i] != NULL);
   }
   float *output_ptr = (float *)sim->allocate(sub_output.get_volume(), DT_FLOAT);
+  if (output_ptr == NULL) {
+    cost_metrics.forward_time = -1;
+    cost_metrics.backward_time = -1;
+    return true;
+  }
   assert (output_ptr != NULL);
 
   int axis = outputs[0].numDim - 1 - this->axis;
@@ -479,24 +489,40 @@ bool Concat::measure_operator_cost(Simulator* sim,
   cudaStream_t stream;
   checkCUDA(get_legion_stream(&stream));
 
-  std::function<void()> forward, backward;
+  std::function<void()> forward , backward = []{};
   forward = [&] {
     forward_kernel(output_ptr, input_ptrs, numInputs, axis, out_domain, in_domains, stream);
   };
+  inner_measure_operator_cost(sim, forward, backward, cost_metrics);
+  float fwtime = cost_metrics.forward_time;
+  size_t memreq = cost_metrics.memory_requirement;
   if (sim->computationMode == COMP_MODE_TRAINING) {
+    sim->free_all();
     for (int i = 0; i < numInputs; i++) {
       input_grad_ptrs[i] = (float *)sim->allocate(sub_inputs[i].get_volume(), DT_FLOAT);
+      if (input_grad_ptrs[i] == NULL) {
+        cost_metrics.forward_time = -1;
+        cost_metrics.backward_time = -1;
+        return true;
+      }
       assert (input_grad_ptrs[i] != NULL);
     }
     float *output_grad_ptr = (float *)sim->allocate(sub_output.get_volume(), DT_FLOAT);
+    if (output_grad_ptr == NULL) {
+      cost_metrics.forward_time = -1;
+      cost_metrics.backward_time = -1;
+      return true;
+    }
     assert (output_grad_ptr != NULL);
+    forward = [] {};
     backward = [&] {
       backward_kernel(output_grad_ptr, input_grad_ptrs,
         numInputs, axis, out_domain, in_domains, stream);
     };
+    inner_measure_operator_cost(sim, forward, backward, cost_metrics);
+    cost_metrics.forward_time = fwtime;
+    cost_metrics.memory_requirement += memreq;
   }
-
-  inner_measure_operator_cost(sim, forward, backward, cost_metrics);
 
   if (sim->computationMode == COMP_MODE_TRAINING) {
     printf("[Measure Concat] name(%s) forward_time(%.4lf) backward_time(%.4lf)\n",

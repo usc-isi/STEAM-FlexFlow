@@ -82,7 +82,10 @@ void top_level_task(const Task* task,
     print_vector("Dense Feature Layers", candle_config.dense_feature_layers);
   }
 
-  FFModel ff(ff_config);
+  // FFModel ff(ff_config);
+  ff_config.numNodes = candle_config.nsimnode;
+  FFModel ff(ff_config, true);
+  Tensor input;
   set<string> input_models;
   map<string, string> input_features = candle_config.input_features;
   map<string, int> feature_shapes = candle_config.feature_shapes;
@@ -125,8 +128,16 @@ void top_level_task(const Task* task,
     const int dims[] = {ff_config.batchSize, 1};
     label = ff.create_tensor<2>(dims, DT_FLOAT);
   }
+  if (ff_config.measurement_only) {
+    ff.run_measurement();
+  }
+  else {
+    ff.simulate();
+  }
   //ff.mse_loss("mse_loss", output, label, "average"/*reduction*/);
   // Use SGD Optimizer
+  
+#if 0
   Optimizer* optimizer = new SGDOptimizer(&ff, 0.01f);
   std::vector<MetricsType> metrics;
   //metrics.push_back(METRICS_ACCURACY);
@@ -169,7 +180,8 @@ void top_level_task(const Task* task,
   double ts_end = Realm::Clock::current_time_in_microseconds();
   double run_time = 1e-6 * (ts_end - ts_start);
   printf("ELAPSED TIME = %.4fs, THROUGHPUT = %.2f samples/s\n", run_time,
-         data_loader.num_samples * ff_config.epochs / run_time);
+         ff_config.iterations * ff_config.epochs * ff_config.batchSize / run_time);
+#endif
 }
 
 void parse_input_args(char **argv, int argc, CandleConfig& config)
@@ -195,6 +207,14 @@ void parse_input_args(char **argv, int argc, CandleConfig& config)
     }
     if (!strcmp(argv[i], "--dataset")) {
       config.dataset_path = std::string(argv[++i]);
+      continue;
+    }
+    if (!strcmp(argv[i], "--nsimnode")) {
+      config.nsimnode = std::atoi(argv[++i]);
+      continue;
+    }
+    if (!strcmp(argv[i], "--nsimgpu")) {
+      config.nsimgpu = std::atoi(argv[++i]);
       continue;
     }
   }

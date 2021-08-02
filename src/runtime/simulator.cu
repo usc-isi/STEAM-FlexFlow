@@ -41,6 +41,19 @@ Simulator::Simulator(const FFModel* model,
   base_ptr = (char*)simulatorInst.pointer_untyped(0, sizeof(char));
   capacity = model->config.simulator_work_space_size;
 
+  if (model->simonly) {
+    // allocate memory for workspace
+    Memory gpu_mem = _memory;
+    Realm::Rect<1, coord_t> bounds(Realm::Point<1, coord_t>(0),
+        Realm::Point<1, coord_t>(handler.workSpaceSize-1));
+    std::vector<size_t> field_sizes;
+    field_sizes.push_back(sizeof(char));
+    Realm::RegionInstance workspaceInst;
+    Realm::RegionInstance::create_instance(workspaceInst, gpu_mem, bounds,
+        field_sizes, 0, Realm::ProfilingRequestSet()).wait();
+    handler.workSpace = workspaceInst.pointer_untyped(0, sizeof(char));
+  }
+
   size_t max_num_tasks = 256 * 1024 * 1024;
 
   cudaEventCreate(&start_event);
@@ -308,7 +321,7 @@ void LogicalTaskgraphBasedSimulator::simulation_task(const Task *task,
     0,
     topo_gen.generate_topology(),
     gpu_mem.capacity(),
-    20.0 * 1024 * 1024 / 8
+    model->config.iface_bandwidth
   );
   nmachine->set_pcie(false);
   nmachine->set_pipeline(true);
@@ -353,7 +366,7 @@ void LogicalTaskgraphBasedSimulator::simulation_task(const Task *task,
   } else {
     // Start from data parallel
     for (size_t l = 0; l < model->layers.size(); l++) {
-      strategies[model->layers[l]] = model->layers[l]->get_data_parallel_config(*model);
+      strategies[model->layers[l]] = model->layers[l]->get_random_parallel_config(*model);
     }
   }
   if (model->config.computationMode == COMP_MODE_TRAINING) {

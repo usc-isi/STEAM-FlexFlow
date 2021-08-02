@@ -288,7 +288,7 @@ void* Simulator::allocate(uint64_t num_elements, DataType type)
   if (offset > capacity) {
     fprintf(stderr, "Simulator cannot measure some operators' performance."
         " Increate --simulator-workspace-size to at least %lu. element_size: %lu, num_elements: %lu, capacity: %lu\n", offset, element_size, num_elements, capacity);
-    exit(0);
+    return nullptr;
   }
   return ret_ptr;
 }
@@ -381,11 +381,11 @@ void LogicalTaskgraphBasedSimulator::add_task_dependencies_with_xfer(
   std::vector<CommDevice *> path = machine->get_comm_path(src_task->mem, dst_task->mem);
 #ifdef DEBUG_PRINT
   // print the communication path
-  printf("Path from %s to %s is: ", src_task->mem->name.c_str(), dst_task->mem->name.c_str());
-  for (size_t i = 0; i < path.size(); i++) {
-    printf("%s ", path[i]->name.c_str());
-  }
-  printf("\n");
+  // printf("Path from %s to %s is: ", src_task->mem->name.c_str(), dst_task->mem->name.c_str());
+  // for (size_t i = 0; i < path.size(); i++) {
+  //   printf("%s ", path[i]->name.c_str());
+  // }
+  // printf("\n");
 #endif
 
   if (path.empty()) {

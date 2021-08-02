@@ -906,7 +906,7 @@ OpMeta::OpMeta(FFHandler _handle)
 
 FFModel::FFModel(FFConfig& _config , bool simonly)
 : op_global_guid(100), config(_config),
-  optimizer(NULL), loss_op(NULL), metrics_op(NULL)
+  optimizer(NULL), loss_op(NULL), metrics_op(NULL), simonly(simonly)
 {
   Runtime *runtime = config.lg_hlr;
   Context ctx = config.lg_ctx;
@@ -965,6 +965,7 @@ FFModel::FFModel(FFConfig& _config , bool simonly)
     //info.allRanks = config.workersPerNode * config.numNodes;
     info.workSpaceSize = config.workSpaceSize;
     info.allowTensorOpMathConversion = config.allow_tensor_op_math_conversion;
+    info.simonly = simonly;
     argmap.set_point(*it, TaskArgument(&info, sizeof(FFInitInfo)));
   }
 
@@ -2268,12 +2269,15 @@ void Op::measure_all(Simulator * sim, FFModel& ff, std::vector<OpMeasurement>& o
   std::unordered_set<int> local_candidates;
     
   int batch_size = outputs[0].adim[outputs[0].numDim-1];
-  printf("batch_size: %d, local_batch_sz_upperlimit: %zu\n", batch_size, ff.config.local_batch_sz_upperlimit);
+  size_t local_bup = ff.config.local_batch_sz_upperlimit;
+  // if (op_type == OperatorType::OP_MULTIHEAD_ATTENTION)
+  //   local_bup = 432;
+  printf("batch_size: %d, local_batch_sz_upperlimit: %zu\n", batch_size, local_bup);
   for (int i = 1; i <= ff.config.workersPerNode; i++) {
     if (ff.config.workersPerNode % i == 0) {
       if (batch_size % i != 0)
         continue;
-      if (batch_size / i > ff.config.local_batch_sz_upperlimit) {
+      if (batch_size / i > local_bup) {
         continue;
       }
       local_candidates.insert(i);
@@ -2283,7 +2287,7 @@ void Op::measure_all(Simulator * sim, FFModel& ff, std::vector<OpMeasurement>& o
     if (ff.config.numNodes % i == 0) {
       if (batch_size % (i * ff.config.workersPerNode) != 0)
         continue;
-      if (batch_size / (i * ff.config.workersPerNode) > ff.config.local_batch_sz_upperlimit) {
+      if (batch_size / (i * ff.config.workersPerNode) > local_bup) {
         continue;
       }
       local_candidates.insert(i * ff.config.workersPerNode);
@@ -2846,6 +2850,10 @@ void FFConfig::parse_args(char **argv, int argc)
     }
     if (!strcmp(argv[i], "--mfile")) {
       mfile = std::string(argv[++i]);
+      continue;
+    }
+    if (!strcmp(argv[i], "--measure")) {
+      measurement_only = true;
       continue;
     }
   }
