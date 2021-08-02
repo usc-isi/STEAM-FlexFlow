@@ -188,6 +188,8 @@ DemandHeuristicNetworkOptimizer::DemandHeuristicNetworkOptimizer(MachineModel* m
 {
   alpha = 0.1;
   no_improvement_th = 100;
+  best_sim_time = std::numeric_limits<float>::max();
+  curr_sim_time = std::numeric_limits<float>::max();
 }
 
 void DemandHeuristicNetworkOptimizer::task_added(SimTask * task) 
@@ -248,16 +250,19 @@ typedef std::pair<uint64_t, uint64_t> DemandToIdMap;
 
 void DemandHeuristicNetworkOptimizer::optimize(int mcmc_iter, float sim_iter_time)
 {
-  if (sim_iter_time < best_sim_time) 
+  if (sim_iter_time < best_sim_time) {
     best_sim_time = sim_iter_time;
+  }
   float diff = sim_iter_time - curr_sim_time;
+  std::cerr << "sim_iter_time: " << sim_iter_time << ", curr_sim_time: " << curr_sim_time 
+            << ", best_iter_time: " << best_sim_time << std::endl;
   bool change = diff < 0 ? true :
     static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX) < std::exp(-alpha * diff);
   if (change) {
     curr_sim_time = sim_iter_time;
   }
   else {
-    num_iter_nochange++;
+    num_iter_nochange++; 
   }
 
   if (!change && num_iter_nochange < no_improvement_th)
@@ -701,9 +706,9 @@ void DemandHeuristicNetworkOptimizer::reset()
   physical_traffic_demand.clear();
   logical_traffic_demand.clear();
 
-  best_sim_time = std::numeric_limits<float>::max();
-  curr_sim_time = std::numeric_limits<float>::max();
-  num_iter_nochange = 0;
+  // best_sim_time = std::numeric_limits<float>::max();
+  // curr_sim_time = std::numeric_limits<float>::max();
+  // num_iter_nochange = 0;
   
 }
 
