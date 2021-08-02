@@ -928,6 +928,11 @@ int TwoDimTorusW2TURNRouting::delta(int s, int d, int k) const
   return std::min(std::abs(s-d), k-std::abs(s-d));
 }
 
+uint64_t TwoDimTorusW2TURNRouting::edgeid(int src, int dst) const 
+{
+  return src * total_devs + dst;
+}
+
 #define MOD(a, b) ((a) % (b)) < 0 ? ((a) % (b)) + (b) : ((a) % (b))
 
 int TwoDimTorusW2TURNRouting::mindir(int s, int d, int k) const
@@ -947,118 +952,120 @@ EcmpRoutes TwoDimTorusW2TURNRouting::get_routes(int src_node, int dst_node)
   int xdst = getx(dst_node);
   int ysrc = gety(src_node);
   int ydst = gety(dst_node);
-  int kx = ysrc != nrows ? ncols : nextras;
-  int ky = ysrc != nrows ? nrows - 1 : nrows;
+  int kxsrc = ysrc != nrows ? ncols : nextras;
+  int kysrc = ysrc != nrows ? nrows - 1 : nrows;
+  int kxdst = ydst != nrows ? ncols : nextras;
+  int kydst = ydst != nrows ? nrows - 1 : nrows;
   int first_direction = ((float)std::rand() / RAND_MAX > 0.5) ? 0 : 1;
   if (first_direction) { // XYX
     std::uniform_int_distribution<> x_uni
-      {0, ((lastl(src_node) || lastl(dst_node)) ? nextras : ncols) - 1};
+        {0, std::min(kxsrc, kxdst) - 1};
     int xmid = x_uni(gen); 
-    int dir;
-    // seg 1
-    if (kx % 2 != 0) {
-      // first X
-      if (route_in_mindir_end(xsrc, xmid, xdst, kx) || 
-          (float)std::rand() / RAND_MAX > (delta(xsrc, xdst, kx) / (float)kx)) {
-        route_x(xsrc, xmid, ysrc, mindir(xsrc, xmid, kx), kx, route); 
+    // first X
+    if (kxsrc % 2 != 0) {
+      if (route_in_mindir_end(xsrc, xmid, xdst, kxsrc) || 
+          (float)std::rand() / RAND_MAX > (delta(xsrc, xdst, kxsrc) / (float)kxsrc)) {
+        route_x(xsrc, xmid, ysrc, mindir(xsrc, xmid, kxsrc), kxsrc, route); 
       }
       else {
-        route_x(xsrc, xmid, ysrc, -mindir(xsrc, xmid, kx), kx, route); 
+        route_x(xsrc, xmid, ysrc, -mindir(xsrc, xmid, kxsrc), kxsrc, route); 
       }
     } else {
-      int mind = mindir(xsrc, xmid, kx);
+      int mind = mindir(xsrc, xmid, kxsrc);
       if (mind == 0) {
-        route_x(xsrc, xmid, ysrc, even_choose_dir(xsrc, xmid, xdst, kx), kx, route); 
+        route_x(xsrc, xmid, ysrc, even_choose_dir(xsrc, xmid, xdst, kxsrc), kxsrc, route); 
       }
       else {
-        route_x(xsrc, xmid, ysrc, mind, kx, route); 
+        route_x(xsrc, xmid, ysrc, mind, kxsrc, route); 
       }
     }
-    if (ky % 2 != 0) {
-      if (route_in_mindir_mid(xsrc, xdst, ysrc, ydst, xmid, ky)) {
-        route_y(ysrc, ydst, xmid, mindir(ysrc, ydst, ky), ky, route);
+    // Y
+    int kymid = xmid < nextras ? nrows : nrows - 1;
+    if (kymid % 2 != 0) {
+      if (route_in_mindir_mid(xsrc, xdst, ysrc, ydst, xmid, kymid)) {
+        route_y(ysrc, ydst, xmid, mindir(ysrc, ydst, kymid), kymid, route);
       }
       else {
-        route_y_wrd(ysrc, ydst, xmid, ky, route);
+        route_y_wrd(ysrc, ydst, xmid, kymid, route);
       }      
     } else {
-      route_y_wrd(ysrc, ydst, xmid, ky, route);
+      route_y_wrd(ysrc, ydst, xmid, kymid, route);
     }
-    if (kx % 2 != 0) {
-      // Y 
-
-      // last
-      if (route_in_mindir_end(xmid, xdst, xsrc, kx) || 
-          (float)std::rand() / RAND_MAX > (delta(xsrc, xdst, kx) / (float)kx)) {
-        route_x(xmid, xdst, ydst, mindir(xmid, xdst, kx), kx, route); 
+    // last X
+    if (kxdst % 2 != 0) {
+      if (route_in_mindir_end(xmid, xdst, xsrc, kxdst) || 
+          (float)std::rand() / RAND_MAX > (delta(xsrc, xdst, kxdst) / (float)kxdst)) {
+        route_x(xmid, xdst, ydst, mindir(xmid, xdst, kxdst), kxdst, route); 
       }
       else {
-        route_x(xmid, xdst, ydst, -mindir(xmid, xdst, kx), kx, route); 
+        route_x(xmid, xdst, ydst, -mindir(xmid, xdst, kxdst), kxdst, route); 
       }
     } else {
-      int mind = mindir(xmid, xdst, kx);
+      int mind = mindir(xmid, xdst, kxdst);
       if (mind == 0) {
-        route_x(xmid, xdst, ydst, even_choose_dir(xmid, xdst, xsrc, kx), kx, route); 
+        route_x(xmid, xdst, ydst, even_choose_dir(xmid, xdst, xsrc, kxdst), kxdst, route); 
       }
       else {
-        route_x(xmid, xdst, ydst, mind, kx, route); 
+        route_x(xmid, xdst, ydst, mind, kxdst, route); 
       }
     }
   }
   else {
     std::uniform_int_distribution<> y_uni
-      {0, (lastl(src_node) && lastl(dst_node)) ? nrows : nrows - 1};
+      {0, std::min(kysrc, kydst)};
     int ymid = y_uni(gen); 
     int dir;
-    // seg 1
-    if (ky % 2 != 0) {
-      // odd k 
-      // first Y
-      if (route_in_mindir_end(ysrc, ymid, ydst, ky) || 
-          (float)std::rand() / RAND_MAX > (delta(ysrc, ydst, ky) / (float)ky)) {
-        route_y(ysrc, ymid, xsrc, mindir(ysrc, ymid, ky), ky, route); 
+    // first Y
+    if (kysrc % 2 != 0) {
+      if (route_in_mindir_end(ysrc, ymid, ydst, kysrc) || 
+          (float)std::rand() / RAND_MAX > (delta(ysrc, ydst, kysrc) / (float)kysrc)) {
+        route_y(ysrc, ymid, xsrc, mindir(ysrc, ymid, kysrc), kysrc, route); 
       }
       else {
-        route_y(ysrc, ymid, xsrc, -mindir(ysrc, ymid, ky), ky, route); 
+        route_y(ysrc, ymid, xsrc, -mindir(ysrc, ymid, kysrc), kysrc, route); 
       }
     } else {
-      int mind = mindir(ysrc, ymid, ky);
+      int mind = mindir(ysrc, ymid, kysrc);
       if (mind == 0) {
-        route_y(ysrc, ymid, xsrc, even_choose_dir(ysrc, ymid, ydst, ky), ky, route); 
+        route_y(ysrc, ymid, xsrc, even_choose_dir(ysrc, ymid, ydst, kysrc), kysrc, route); 
       }
       else {
-        route_y(ysrc, ymid, xsrc, mind, ky, route); 
+        route_y(ysrc, ymid, xsrc, mind, kysrc, route); 
       }
     }
-    if (kx % 2 != 0) {
-      if (route_in_mindir_mid(ysrc, ydst, xsrc, xdst, ymid, kx)) {
-        route_x(xsrc, xdst, ymid, mindir(xsrc, xdst, kx), kx, route);
+    // X
+    int kxmid = ymid == nrows ? nextras : ncols;
+    if (kxmid % 2 != 0) {
+      if (route_in_mindir_mid(ysrc, ydst, xsrc, xdst, ymid, kxmid)) {
+        route_x(xsrc, xdst, ymid, mindir(xsrc, xdst, kxmid), kxmid, route);
       }
       else {
-        route_x_wrd(xsrc, xdst, ymid, kx, route);
+        route_x_wrd(xsrc, xdst, ymid, kxmid, route);
       }
     } else {
-      route_x_wrd(xsrc, xdst, ymid, kx, route);
+      route_x_wrd(xsrc, xdst, ymid, kxmid, route);
     }
-    if (ky %2 != 0) {
-      if (route_in_mindir_end(ymid, ydst, ysrc, ky) || 
-          (float)std::rand() / RAND_MAX > (delta(ysrc, ydst, ky) / (float)ky)) {
-        route_y(ymid, ydst, xdst, mindir(ymid, ydst, ky), ky, route); 
+    // LAST Y
+    if (kydst %2 != 0) {
+      if (route_in_mindir_end(ymid, ydst, ysrc, kydst) || 
+          (float)std::rand() / RAND_MAX > (delta(ysrc, ydst, kydst) / (float)kydst)) {
+        route_y(ymid, ydst, xdst, mindir(ymid, ydst, kydst), kydst, route); 
       }
       else {
-        route_y(ymid, ydst, xdst, -mindir(ymid, ydst, ky), ky, route); 
+        route_y(ymid, ydst, xdst, -mindir(ymid, ydst, kydst), kydst, route); 
       }
     } else {
-      int mind = mindir(ymid, ydst, ky);
+      int mind = mindir(ymid, ydst, kydst);
       if (mind == 0) {
-        route_y(ymid, ydst, xdst, even_choose_dir(ymid, ydst, ysrc, ky), ky, route); 
+        route_y(ymid, ydst, xdst, even_choose_dir(ymid, ydst, ysrc, kydst), kydst, route); 
       }
       else {
-        route_y(ymid, ydst, xdst, mind, ky, route); 
+        route_y(ymid, ydst, xdst, mind, kydst, route); 
       }
     }
   }
-  return {std::vector<float>({1}), std::vector<Route>({route})};
+  cached_routes[edgeid(src_node, dst_node)] = {std::vector<float>({1}), std::vector<Route>({route})};
+  return cached_routes[edgeid(src_node, dst_node)];
 }
 
 int TwoDimTorusW2TURNRouting::even_choose_dir(int s, int d, int m, int k) const
@@ -1119,8 +1126,9 @@ void TwoDimTorusW2TURNRouting::route_x(int srcx, int dstx, int y, int dir, int k
     return;
   int curr = srcx;
   do {
-    route.emplace_back(devmap.at(nodeid(curr, y)));
-    curr = (curr + 1) % k;
+    int next = MOD(curr+dir,k);
+    route.emplace_back(devmap.at(edgeid(nodeid(curr, y), nodeid(next, y))));
+    curr = next;
   } while (curr != dstx);
 }
 
@@ -1130,8 +1138,9 @@ void TwoDimTorusW2TURNRouting::route_y(int srcy, int dsty, int x, int dir, int k
     return;
   int curr = srcy;
   do {
-    route.emplace_back(devmap.at(nodeid(x, curr)));
-    curr = (curr + 1) % k;
+    int next = MOD(curr+dir, k);
+    route.emplace_back(devmap.at(edgeid(nodeid(x, curr), nodeid(x, next))));
+    curr = next;
   } while (curr != dsty);
 }
 
@@ -1148,10 +1157,12 @@ void TwoDimTorusW2TURNRouting::route_x_wrd(int srcx, int dstx, int y, int k, Rou
   }
   else {
     assert(k>2);
+    int mind = mindir(srcx, dstx, k);
+    if (mind == 0) mind = (float)std::rand() / RAND_MAX > 0.5 ? -1 : 1;
     if ((float)std::rand() / RAND_MAX > ((delta(srcx, dstx, k)-1) / (float)(k-2))) {
-      route_x(srcx, dstx, y, mindir(srcx, dstx, k), k, route);
+      route_x(srcx, dstx, y, mind, k, route);
     } else {
-      route_x(srcx, dstx, y, -mindir(srcx, dstx, k), k, route);
+      route_x(srcx, dstx, y, -mind, k, route);
     }
   }
 }
@@ -1169,10 +1180,12 @@ void TwoDimTorusW2TURNRouting::route_y_wrd(int srcy, int dsty, int x, int k, Rou
   }
   else {
     assert(k>2);
+    int mind = mindir(srcy, dsty, k);
+    if (mind == 0) mind = (float)std::rand() / RAND_MAX > 0.5 ? -1 : 1;
     if ((float)std::rand() / RAND_MAX > ((delta(srcy, dsty, k)-1) / (float)(k-2))) {
-      route_y(srcy, dsty, x, mindir(srcy, dsty, k), k, route);
+      route_y(srcy, dsty, x, mind, k, route);
     } else {
-      route_y(srcy, dsty, x, -mindir(srcy, dsty, k), k, route);
+      route_y(srcy, dsty, x, -mind, k, route);
     }
   }
 }

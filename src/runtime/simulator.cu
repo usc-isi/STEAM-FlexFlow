@@ -408,7 +408,7 @@ DLSSchedulerBasedSimulator::DLSSchedulerBasedSimulator(const FFModel* model,
 {
   this->net_machine = static_cast<NetworkedMachineModel*>(this->machine);
   this->topofinder = 
-    new NSDI22Heuristic(this->machine, this->net_machine.node_degree/2, this->net_machine.node_degree/2);
+    new NSDI22Heuristic(this->machine, model->config.node_degree/2, model->config.node_degree/2);
 }
 
 #ifdef TEST_DLSSCHEDULER

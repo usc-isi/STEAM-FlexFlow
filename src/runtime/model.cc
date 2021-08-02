@@ -2174,20 +2174,38 @@ void FFModel::rewrite(const std::map<Op*, ParallelConfig>& current,
                       std::map<Op*, ParallelConfig>& next,
                       bool use_propagation) const
 {
+  FFModel * ffmodel = const_cast<FFModel*>(this); 
   next = current;
-  size_t opId = std::rand() % layers.size();
-  next[layers[opId]] = layers[opId]->get_random_parallel_config(*this);
-  const ParallelConfig & ppc = next[layers[opId]];
-  //TODO: need to make sure opId is not an output layer of the model
-  if (opId == layers.size() - 1)
-    return;
-  if (opId != layers.size() - 1) {
-    for (int i = 0; i < layers.size() - 1; i++) {
-      if (i % 10 == opId % 10 && i != opId) {
-        next[layers[i]] = layers[i]->get_random_parallel_config(*this, ppc.dim[ppc.nDims-1]); // printf("Layer %s getting same PC as %s, ndims = %d\n", layers[i]->name, layers[opId]->name, ppc.dim[ppc.nDims-1]);
-      }
-    }
+  float propagate_chance;
+  if (use_propagation) {
+    propagate_chance = FFModel::PROPAGATION_CHANCE;
+  } else {
+    propagate_chance = 0.0f;
   }
+
+  if (randf() < propagate_chance) {
+    this->propagate(current, next);
+  } else {
+    size_t opId = std::rand() % layers.size();
+    //TODO: need to make sure opId is not an output layer of the model
+    if (opId == layers.size() - 1)
+      return;
+    next[layers[opId]] = layers[opId]->get_random_parallel_config(*ffmodel);
+  }
+  // next = current;
+  // size_t opId = std::rand() % layers.size();
+  // next[layers[opId]] = layers[opId]->get_random_parallel_config(*this);
+  // const ParallelConfig & ppc = next[layers[opId]];
+  // //TODO: need to make sure opId is not an output layer of the model
+  // if (opId == layers.size() - 1)
+  //   return;
+  // if (opId != layers.size() - 1) {
+  //   for (int i = 0; i < layers.size() - 1; i++) {
+  //     if (i % 10 == opId % 10 && i != opId) {
+  //       next[layers[i]] = layers[i]->get_random_parallel_config(*this, ppc.dim[ppc.nDims-1]); // printf("Layer %s getting same PC as %s, ndims = %d\n", layers[i]->name, layers[opId]->name, ppc.dim[ppc.nDims-1]);
+  //     }
+  //   }
+  // }
   // FFModel * ffmodel = const_cast<FFModel*>(this); 
   // next = current;
   // float propagate_chance;

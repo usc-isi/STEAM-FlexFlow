@@ -317,6 +317,7 @@ public:
                            int total_devs);
   virtual EcmpRoutes get_routes(int src_node, int dst_node);
   void clear();
+  inline uint64_t edgeid(int src, int dst) const;
   inline size_t nodeid(int x, int y) const;
   inline int getx(size_t nodeid) const;
   inline int gety(size_t nodeid) const;
