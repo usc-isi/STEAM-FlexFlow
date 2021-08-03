@@ -953,7 +953,7 @@ NetworkedMachineModel::get_comm_path(MemDevice *src_mem, MemDevice *tar_mem) con
       return ret;
     }
     else {
-      int device_id = src_mem->node_id * num_nodes + tar_mem->node_id;
+      int device_id = src_mem->node_id * total_devs + tar_mem->node_id;
       if (pipelined)
         ret.emplace_back(ids_to_nw_nominal_device.at(device_id));
       else {
@@ -969,7 +969,7 @@ NetworkedMachineModel::get_comm_path(MemDevice *src_mem, MemDevice *tar_mem) con
     }
     else {
       if (pcie_on) ret.emplace_back(id_to_gputodram_comm_device.at(src_mem->device_id));
-      int device_id = src_mem->node_id * num_nodes + tar_mem->node_id;
+      int device_id = src_mem->node_id * total_devs + tar_mem->node_id;
       if (pipelined)
         ret.emplace_back(ids_to_nw_nominal_device.at(device_id));
       else {
@@ -984,7 +984,7 @@ NetworkedMachineModel::get_comm_path(MemDevice *src_mem, MemDevice *tar_mem) con
       if (pcie_on) ret.emplace_back(id_to_dramtogpu_comm_device.at(tar_mem->device_id));
     }
     else {
-      int device_id = src_mem->node_id * num_nodes + tar_mem->node_id;
+      int device_id = src_mem->node_id * total_devs + tar_mem->node_id;
       if (pipelined)
         ret.emplace_back(ids_to_nw_nominal_device.at(device_id));
       else {
@@ -1000,7 +1000,7 @@ NetworkedMachineModel::get_comm_path(MemDevice *src_mem, MemDevice *tar_mem) con
     }
     else {
       if (pcie_on) ret.emplace_back(id_to_gputodram_comm_device.at(src_mem->device_id));
-      int device_id = src_mem->node_id * num_nodes + tar_mem->node_id;
+      int device_id = src_mem->node_id * total_devs + tar_mem->node_id;
       if (pipelined)
         ret.emplace_back(ids_to_nw_nominal_device.at(device_id));
       else {
