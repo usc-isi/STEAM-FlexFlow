@@ -902,7 +902,7 @@ public:
 typedef std::unordered_map<SimTask*, std::vector<std::pair<SimTask*, size_t>>> DLSTaskDag;
 typedef std::pair<SimTask*, Op*> SimTaskOp;
 
-#define TEST_DLSSCHEDULER
+// #define TEST_DLSSCHEDULER
 class DLSSchedulerBasedSimulator: public LogicalTaskgraphBasedSimulator {
 public:
   DLSSchedulerBasedSimulator(const FFModel* model,
@@ -954,6 +954,9 @@ public:
     SimTask* src, SimTask* dst, size_t xfersize, 
     std::unordered_map<CommDevice*, float>& links,
     std::unordered_map<SimTask*, float>& task_finish_time);
+  static void simulation_task(const Task *task,
+                                  const std::vector<PhysicalRegion> &regions,
+                                  Context ctx, Runtime *runtime);    
   
 #ifdef TEST_DLSSCHEDULER
   void test();

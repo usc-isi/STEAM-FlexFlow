@@ -1791,6 +1791,19 @@ void FFModel::simulate2(CompMode comp_mode)
   future.get_void_result();
 }
 
+void FFModel::simulate_dlss(CompMode comp_mode) 
+{
+  Context ctx = config.lg_ctx;
+  Runtime* runtime = config.lg_hlr;
+  config.computationMode = comp_mode;
+  // Launch the simulation task
+  FFModel* model = this;
+  TaskLauncher launcher(CUSTOM_SIMULATION_TASK_ID_3,
+      TaskArgument(&model, sizeof(FFModel*)));
+  Future future = runtime->execute_task(ctx, launcher);
+  future.get_void_result();
+}
+
 void FFModel::run_measurement() 
 {
   Context ctx = config.lg_ctx;
@@ -2186,11 +2199,28 @@ void FFModel::rewrite(const std::map<Op*, ParallelConfig>& current,
   if (randf() < propagate_chance) {
     this->propagate(current, next);
   } else {
+    int ntrys = 0;
+    while (ntrys++ < 10000) { // todo: this shouldn't burn out at reasonable scale... but.
+      size_t opId = std::rand() % layers.size();
+      //TODO: need to make sure opId is not an output layer of the model
+      if (opId == layers.size() - 1)
+        continue;
+      auto & exp_set =
+       const_cast<std::unordered_map<Op*, std::unordered_set<std::string>>*>(&explored_configs)->operator[](layers[opId]);
+      auto next_cfg = layers[opId]->get_random_parallel_config(*ffmodel);    
+      if (exp_set.find(next_cfg.get_pc_str()) == exp_set.end()) {
+        exp_set.insert(next_cfg.get_pc_str());
+        next[layers[opId]] = next_cfg;
+        break;
+      }
+    }
+  #if 0
     size_t opId = std::rand() % layers.size();
     //TODO: need to make sure opId is not an output layer of the model
     if (opId == layers.size() - 1)
       return;
     next[layers[opId]] = layers[opId]->get_random_parallel_config(*ffmodel);
+  #endif
   }
   // next = current;
   // size_t opId = std::rand() % layers.size();
@@ -3597,6 +3627,14 @@ void register_flexflow_internal_tasks()
     registrar.set_leaf();
     Runtime::preregister_task_variant<Simulator::simulation_task>(
         registrar, "Simulation Task 2");
+  }
+  {
+    TaskVariantRegistrar registrar(CUSTOM_SIMULATION_TASK_ID_3,
+                                   "Simulation DLS");
+    registrar.add_constraint(ProcessorConstraint(Processor::TOC_PROC));
+    registrar.set_leaf();
+    Runtime::preregister_task_variant<DLSSchedulerBasedSimulator::simulation_task>(
+        registrar, "Simulation Task DLS");
   }
   #ifdef TEST_DLSSCHEDULER
   {

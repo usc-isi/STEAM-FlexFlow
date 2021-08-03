@@ -814,6 +814,8 @@ void NSDI22Heuristic::construct_dp_mat()
     for (int i = 0; i < n_participants; i++) {
       dst_mem = net_machine->get_gpu_fb_mem(reinterpret_cast<uint64_t>(allreduce_task->next_tasks[(i+1)%n_participants]));
       std::vector<CommDevice *> path = net_machine->get_comm_path(src_mem, dst_mem);
+      if (path.size() == 0)
+        continue;
       assert(path.size() == 1 && reinterpret_cast<CommDevice*>(path[0])->comm_type == CommDevice::NW_NOMINAL);
       dp_tm_logical[path[0]->device_id] += indiv_xfersize;
       src_mem = dst_mem;

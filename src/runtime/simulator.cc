@@ -1436,6 +1436,17 @@ float DLSSchedulerBasedSimulator::simulate_runtime(const FFModel* model,
   for (size_t l = 0; l < model->layers.size(); l++) {
     Op* op = model->layers[l];
     ParallelConfig config = dev_placement.find(op)->second;
+    for (int j = 0; j < config.num_parts(); j++) {
+      SimTask* task2 = task_manager->get_backward_task(op, j);
+      SimTask* task1 = task_manager->get_forward_task(op, j);
+      task1->device = task2->device;
+      task1->mem = task2->mem;
+    }
+  }
+
+  for (size_t l = 0; l < model->layers.size(); l++) {
+    Op* op = model->layers[l];
+    ParallelConfig config = dev_placement.find(op)->second;
     // NER step: add allreduce task after backward propogation
     size_t element_size = data_type_size(DT_FLOAT); // assume all weights have float elements
     ParallelConfig pc = dev_placement.find(op)->second;
@@ -1822,17 +1833,18 @@ std::map<Op*, ParallelConfig> DLSSchedulerBasedSimulator::get_device_placements(
     std::unordered_set<SimTask*>& bp_tasks,
     const std::map<Op*, ParallelConfig>& global)
 {
-  std::map<Op*, ParallelConfig> result = global;
+  // std::map<Op*, ParallelConfig> result = global;
+  auto mod_global = const_cast<std::map<Op*, ParallelConfig>*>(&global);
 
-  for (auto& op_pc: result) {
+  for (auto& op_pc: *mod_global) {
     Op* op = op_pc.first;
-    ParallelConfig &config = result.find(op)->second;
+    ParallelConfig &config = mod_global->find(op)->second;
     for (int j = 0; j < config.num_parts(); j++) {
       SimTask* bw = task_manager->get_backward_task(op, j);
       config.device_ids[j] = bw->device->device_id;
     }
   } 
-  return result;
+  return *mod_global;
 }
 
 float DLSSchedulerBasedSimulator::sch_try_route_transfer(
