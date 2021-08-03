@@ -20,6 +20,7 @@
 
 static std::random_device rd; 
 static std::mt19937 gen = std::mt19937(rd()); 
+static std::uniform_real_distribution<double> unif(0, 1);
 
 ShortestPathNetworkRoutingStrategy::ShortestPathNetworkRoutingStrategy(
     const ConnectionMatrix & c, 
@@ -252,7 +253,7 @@ void DemandHeuristicNetworkOptimizer::optimize(int mcmc_iter, float sim_iter_tim
     best_sim_time = sim_iter_time;
   float diff = sim_iter_time - curr_sim_time;
   bool change = diff < 0 ? true :
-    static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX) < std::exp(-alpha * diff);
+    static_cast<float>(std::rand()) / static_cast<float>(static_cast<float>(RAND_MAX)) < std::exp(-alpha * diff);
   if (change) {
     curr_sim_time = sim_iter_time;
   }
@@ -851,7 +852,7 @@ TwoDimTorusNetworkTopologyGenerator::TwoDimTorusNetworkTopologyGenerator(int num
   this->num_nodes = num_nodes;
   int edge = (int)std::sqrt(num_nodes) + 1;
   int extra = edge * edge - num_nodes;
-  if (extra < edge) {
+  if (extra <= edge) {
     nrows = edge - 1;
     ncols = edge;
     nextras = edge - extra;
@@ -859,7 +860,7 @@ TwoDimTorusNetworkTopologyGenerator::TwoDimTorusNetworkTopologyGenerator(int num
   else {
     nrows = edge - 1;
     ncols = edge - 1;
-    nextras = extra - edge;
+    nextras = num_nodes - nrows * ncols;
   }
   assert(nrows * ncols + nextras == num_nodes);
 }
@@ -885,6 +886,49 @@ ConnectionMatrix TwoDimTorusNetworkTopologyGenerator::generate_topology() const
   return conn;
 }
 
+void TwoDimTorusNetworkTopologyGenerator::test() 
+{
+  TwoDimTorusNetworkTopologyGenerator gen{144};
+  assert(gen.nrows == 12);
+  assert(gen.ncols == 12);
+  assert(gen.nextras == 0);
+  fprintf(stderr, "\n144:\n");
+  ConnectionMatrix conn = gen.generate_topology();
+  for (int i = 0; i < 144; i++) {
+    for (int j = 0; j < 144; j++) {
+      if (conn[gen.get_id(i, j)] > 0) {
+        fprintf(stderr, "(%d, %d) - (%d, %d)\n", i%gen.ncols, i/gen.ncols, j%gen.ncols, j/gen.ncols);
+      }
+    }
+  }
+  gen = TwoDimTorusNetworkTopologyGenerator{138};
+  assert(gen.nrows == 11);
+  assert(gen.ncols == 12);
+  assert(gen.nextras == 6);
+  fprintf(stderr, "\n138:\n");
+  conn = gen.generate_topology();
+  for (int i = 0; i < 138; i++) {
+    for (int j = 0; j < 138; j++) {
+      if (conn[gen.get_id(i, j)] > 0) {
+        fprintf(stderr, "(%d, %d) - (%d, %d)\n", i%gen.ncols, i/gen.ncols, j%gen.ncols, j/gen.ncols);
+      }
+    }
+  }
+  gen = TwoDimTorusNetworkTopologyGenerator{128};
+  assert(gen.nrows == 11);
+  assert(gen.ncols == 11);
+  assert(gen.nextras == 7);
+  fprintf(stderr, "\n128:\n");
+  conn = gen.generate_topology();
+  for (int i = 0; i < 128; i++) {
+    for (int j = 0; j < 128; j++) {
+      if (conn[gen.get_id(i, j)] > 0) {
+        fprintf(stderr, "(%d, %d) - (%d, %d)\n", i%gen.ncols, i/gen.ncols, j%gen.ncols, j/gen.ncols);
+      }
+    }
+  }
+}
+
 int TwoDimTorusNetworkTopologyGenerator::get_id(int i, int j) const 
 {
   return i * num_nodes + j;
@@ -905,7 +949,7 @@ void TwoDimTorusW2TURNRouting::clear()
 
 size_t TwoDimTorusW2TURNRouting::nodeid(int x, int y) const
 {
-  return x * nrows + y;
+  return x + y * ncols;
 } 
 
 int TwoDimTorusW2TURNRouting::getx(size_t nodeid) const
@@ -947,16 +991,31 @@ int TwoDimTorusW2TURNRouting::mindir(int s, int d, int k) const
 
 EcmpRoutes TwoDimTorusW2TURNRouting::get_routes(int src_node, int dst_node) 
 {
+  if (src_node == dst_node) {
+    cached_routes[edgeid(src_node, dst_node)] = {std::vector<float>({1}), std::vector<Route>({})};
+    return cached_routes[edgeid(src_node, dst_node)];
+  }
   Route route;
   int xsrc = getx(src_node);
   int xdst = getx(dst_node);
   int ysrc = gety(src_node);
   int ydst = gety(dst_node);
-  int kxsrc = ysrc != nrows ? ncols : nextras;
-  int kysrc = ysrc != nrows ? nrows - 1 : nrows;
-  int kxdst = ydst != nrows ? ncols : nextras;
-  int kydst = ydst != nrows ? nrows - 1 : nrows;
-  int first_direction = ((float)std::rand() / RAND_MAX > 0.5) ? 0 : 1;
+
+  if (xsrc == xdst) {
+    route_y_wrd(ysrc, ydst, xsrc, xsrc < nextras ? nrows+1 : nrows, route);
+    cached_routes[edgeid(src_node, dst_node)] = {std::vector<float>({1}), std::vector<Route>({route})};
+    return cached_routes[edgeid(src_node, dst_node)];
+  }
+  if (ysrc == ydst) {
+    route_x_wrd(xsrc, xdst, ysrc, ysrc == nrows ? nextras : ncols, route);
+    cached_routes[edgeid(src_node, dst_node)] = {std::vector<float>({1}), std::vector<Route>({route})};
+    return cached_routes[edgeid(src_node, dst_node)];
+  }
+  int kxsrc = xsrc >= nextras ? ncols : nextras;
+  int kysrc = xsrc >= nextras ? nrows : nrows + 1;
+  int kxdst = xdst >= nextras ? ncols : nextras;
+  int kydst = xdst >= nextras ? nrows : nrows + 1;
+  int first_direction = (unif(gen) > 0.5) ? 0 : 1;
   if (first_direction) { // XYX
     std::uniform_int_distribution<> x_uni
         {0, std::min(kxsrc, kxdst) - 1};
@@ -964,7 +1023,7 @@ EcmpRoutes TwoDimTorusW2TURNRouting::get_routes(int src_node, int dst_node)
     // first X
     if (kxsrc % 2 != 0) {
       if (route_in_mindir_end(xsrc, xmid, xdst, kxsrc) || 
-          (float)std::rand() / RAND_MAX > (delta(xsrc, xdst, kxsrc) / (float)kxsrc)) {
+          unif(gen) > (delta(xsrc, xdst, kxsrc) / (float)kxsrc)) {
         route_x(xsrc, xmid, ysrc, mindir(xsrc, xmid, kxsrc), kxsrc, route); 
       }
       else {
@@ -980,7 +1039,7 @@ EcmpRoutes TwoDimTorusW2TURNRouting::get_routes(int src_node, int dst_node)
       }
     }
     // Y
-    int kymid = xmid < nextras ? nrows : nrows - 1;
+    int kymid = xmid < nextras ? nrows + 1 : nrows;
     if (kymid % 2 != 0) {
       if (route_in_mindir_mid(xsrc, xdst, ysrc, ydst, xmid, kymid)) {
         route_y(ysrc, ydst, xmid, mindir(ysrc, ydst, kymid), kymid, route);
@@ -994,7 +1053,7 @@ EcmpRoutes TwoDimTorusW2TURNRouting::get_routes(int src_node, int dst_node)
     // last X
     if (kxdst % 2 != 0) {
       if (route_in_mindir_end(xmid, xdst, xsrc, kxdst) || 
-          (float)std::rand() / RAND_MAX > (delta(xsrc, xdst, kxdst) / (float)kxdst)) {
+          unif(gen) > (delta(xsrc, xdst, kxdst) / (float)kxdst)) {
         route_x(xmid, xdst, ydst, mindir(xmid, xdst, kxdst), kxdst, route); 
       }
       else {
@@ -1012,13 +1071,13 @@ EcmpRoutes TwoDimTorusW2TURNRouting::get_routes(int src_node, int dst_node)
   }
   else {
     std::uniform_int_distribution<> y_uni
-      {0, std::min(kysrc, kydst)};
+      {0, std::min(kysrc, kydst) - 1};
     int ymid = y_uni(gen); 
     int dir;
     // first Y
     if (kysrc % 2 != 0) {
       if (route_in_mindir_end(ysrc, ymid, ydst, kysrc) || 
-          (float)std::rand() / RAND_MAX > (delta(ysrc, ydst, kysrc) / (float)kysrc)) {
+          unif(gen) > (delta(ysrc, ydst, kysrc) / (float)kysrc)) {
         route_y(ysrc, ymid, xsrc, mindir(ysrc, ymid, kysrc), kysrc, route); 
       }
       else {
@@ -1048,7 +1107,7 @@ EcmpRoutes TwoDimTorusW2TURNRouting::get_routes(int src_node, int dst_node)
     // LAST Y
     if (kydst %2 != 0) {
       if (route_in_mindir_end(ymid, ydst, ysrc, kydst) || 
-          (float)std::rand() / RAND_MAX > (delta(ysrc, ydst, kydst) / (float)kydst)) {
+          unif(gen) > (delta(ysrc, ydst, kydst) / (float)kydst)) {
         route_y(ymid, ydst, xdst, mindir(ymid, ydst, kydst), kydst, route); 
       }
       else {
@@ -1074,7 +1133,7 @@ int TwoDimTorusW2TURNRouting::even_choose_dir(int s, int d, int m, int k) const
   if (mind != 0)
     return mind;
   if (m == d) {
-    return (float)std::rand() / RAND_MAX > 0.5 ? 1 : -1;
+    return unif(gen) > 0.5 ? 1 : -1;
   }
   if (MOD(d-s, k) > MOD(m-s, k)) {
     return -1;
@@ -1124,6 +1183,7 @@ void TwoDimTorusW2TURNRouting::route_x(int srcx, int dstx, int y, int dir, int k
 {
   if (srcx == dstx)
     return;
+  assert(dir != 0);
   int curr = srcx;
   do {
     int next = MOD(curr+dir,k);
@@ -1136,6 +1196,7 @@ void TwoDimTorusW2TURNRouting::route_y(int srcy, int dsty, int x, int dir, int k
 {
   if (srcy == dsty)
     return;
+  assert(dir != 0);
   int curr = srcy;
   do {
     int next = MOD(curr+dir, k);
@@ -1149,20 +1210,23 @@ void TwoDimTorusW2TURNRouting::route_x_wrd(int srcx, int dstx, int y, int k, Rou
   if (srcx == dstx)
     return;
   if (k % 2 != 0) {
-    if ((float)std::rand() / RAND_MAX > (delta(srcx, dstx, k) / (float)k)) {
+    if (unif(gen) > (delta(srcx, dstx, k) / (float)k)) {
       route_x(srcx, dstx, y, mindir(srcx, dstx, k), k, route);
     } else {
       route_x(srcx, dstx, y, -mindir(srcx, dstx, k), k, route);
     }
   }
   else {
-    assert(k>2);
-    int mind = mindir(srcx, dstx, k);
-    if (mind == 0) mind = (float)std::rand() / RAND_MAX > 0.5 ? -1 : 1;
-    if ((float)std::rand() / RAND_MAX > ((delta(srcx, dstx, k)-1) / (float)(k-2))) {
-      route_x(srcx, dstx, y, mind, k, route);
+    if (k == 2) {
+      route_x(srcx, dstx, y, 1, k, route);
     } else {
-      route_x(srcx, dstx, y, -mind, k, route);
+      int mind = mindir(srcx, dstx, k);
+      if (mind == 0) mind = unif(gen) > 0.5 ? -1 : 1;
+      if (unif(gen) > ((delta(srcx, dstx, k)-1) / (float)(k-2))) {
+        route_x(srcx, dstx, y, mind, k, route);
+      } else {
+        route_x(srcx, dstx, y, -mind, k, route);
+      }
     }
   }
 }
@@ -1172,20 +1236,60 @@ void TwoDimTorusW2TURNRouting::route_y_wrd(int srcy, int dsty, int x, int k, Rou
   if (srcy == dsty)
     return;
   if (k % 2 != 0) {
-    if ((float)std::rand() / RAND_MAX > (delta(srcy, dsty, k) / (float)k)) {
+    if (unif(gen) > (delta(srcy, dsty, k) / (float)k)) {
       route_y(srcy, dsty, x, mindir(srcy, dsty, k), k, route);
     } else {
       route_y(srcy, dsty, x, -mindir(srcy, dsty, k), k, route);
     }
   }
   else {
-    assert(k>2);
-    int mind = mindir(srcy, dsty, k);
-    if (mind == 0) mind = (float)std::rand() / RAND_MAX > 0.5 ? -1 : 1;
-    if ((float)std::rand() / RAND_MAX > ((delta(srcy, dsty, k)-1) / (float)(k-2))) {
-      route_y(srcy, dsty, x, mind, k, route);
+    if (k == 2) {
+      route_y(srcy, dsty, x, 1, k, route);
     } else {
-      route_y(srcy, dsty, x, -mind, k, route);
+      int mind = mindir(srcy, dsty, k);
+      if (mind == 0) mind = unif(gen) > 0.5 ? -1 : 1;
+      if (unif(gen) > ((delta(srcy, dsty, k)-1) / (float)(k-2))) {
+        route_y(srcy, dsty, x, mind, k, route);
+      } else {
+        route_y(srcy, dsty, x, -mind, k, route);
+      }
     }
   }
+}
+
+void TwoDimTorusW2TURNRouting::test() 
+{
+  int total_devs = 432;
+  TwoDimTorusNetworkTopologyGenerator gen{total_devs};
+  ConnectionMatrix conn = gen.generate_topology();
+  std::map<size_t, CommDevice*> devmap; 
+  for (int i = 0; i < total_devs; i++) {
+    for (int j = 0; j < total_devs; j++) {
+      // if (conn_matrix[i * total_devs + j] > 0) {
+        int device_id = i * total_devs + j;
+        std::string link_name = "LINK " + std::to_string(i) + "-" + std::to_string(j);
+        devmap[device_id] = new CommDevice(link_name, CommDevice::NW_COMM, 
+          -1, -1, device_id, 0, conn[i * total_devs + j]);
+      }
+    // }
+  }
+  size_t total_hops = 0;
+  int nlinks = 0;
+  TwoDimTorusW2TURNRouting w2t{conn, devmap, gen.nrows, gen.ncols, gen.nextras, total_devs};
+  std::map<size_t, EcmpRoutes> routes; 
+  for (int i = 0; i < total_devs; i++) {
+    for (int j = 0; j < total_devs; j++) {
+      routes[i * total_devs + j] = w2t.get_routes(i, j);
+      fprintf(stderr, "%d-%d::", i, j);
+      if (routes[i * total_devs + j].second.size() > 0) {
+        nlinks++;
+        total_hops += routes[i * total_devs + j].second[0].size();
+        for (CommDevice * d: routes[i * total_devs + j].second[0]) {
+          fprintf(stderr, "%d-%d;", d->device_id/total_devs, d->device_id%total_devs);
+        } 
+      }
+      fprintf(stderr, "\n");
+    }
+  }
+  fprintf(stderr, "avg hop count: %f\n", (double)total_hops/nlinks);
 }

@@ -61,6 +61,7 @@ void top_level_task(const Task* task,
   FFModel ff(ffConfig, true);
   ff.test_dlssch();
 
+#if 0
   Tensor input;
   {
     const int dims[] = {ffConfig.batchSize, 3, 229, 229};
@@ -98,7 +99,6 @@ void top_level_task(const Task* task,
   else {
     ff.simulate();
   }
-#if 0
   // Data Loader
   DataLoader data_loader(ff, &alexnetConfig, input, ff.label_tensor);
   ff.init_layers();

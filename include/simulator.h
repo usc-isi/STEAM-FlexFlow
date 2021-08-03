@@ -332,6 +332,8 @@ public:
   void route_y(int srcy, int dsty, int x, int dir, int k, Route& route);
   void route_x_wrd(int srcx, int dstx, int y, int k, Route& route);
   void route_y_wrd(int srcy, int dsty, int x, int k, Route& route);
+
+  static void test();
 private:
   const ConnectionMatrix & conn; 
   const std::map<size_t, CommDevice*>& devmap; 
@@ -481,6 +483,7 @@ class TwoDimTorusNetworkTopologyGenerator {
 public: 
   TwoDimTorusNetworkTopologyGenerator(int num_nodes);
   virtual ConnectionMatrix generate_topology() const;
+  static void test();
 
   int nrows;
   int ncols;

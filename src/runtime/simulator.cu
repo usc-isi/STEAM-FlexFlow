@@ -417,6 +417,9 @@ void DLSSchedulerBasedSimulator::test_task(const Task *task,
                                      const std::vector<PhysicalRegion> &regions,
                                      Context ctx, Runtime *runtime)
 {
+  // TwoDimTorusNetworkTopologyGenerator::test();
+  TwoDimTorusW2TURNRouting::test();
+#if 0
   const FFModel* model = *((FFModel**) task->args);
   Memory gpu_mem = Machine::MemoryQuery(Machine::get_machine())
          .only_kind(Memory::GPU_FB_MEM).best_affinity_to(task->target_proc).first();
@@ -440,5 +443,6 @@ void DLSSchedulerBasedSimulator::test_task(const Task *task,
   // Assume this task is running on GPU0
   DLSSchedulerBasedSimulator* simulator = new DLSSchedulerBasedSimulator(model, model->handlers[0], gpu_mem, machine);
   simulator->test();
+#endif
 }
 #endif
