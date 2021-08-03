@@ -366,7 +366,16 @@ void LogicalTaskgraphBasedSimulator::simulation_task(const Task *task,
   } else {
     // Start from data parallel
     for (size_t l = 0; l < model->layers.size(); l++) {
-      strategies[model->layers[l]] = model->layers[l]->get_random_parallel_config(*model);
+      uint64_t opsz = std::numeric_limits<uint64_t>::max();
+      for (int i = 0; i < model->layers[l]->numWeights; i++) {
+        if (model->layers[l]->weights[i].get_volume() < opsz)  {
+          opsz = model->layers[l]->weights[i].get_volume() * sizeof(float);
+        }
+      }
+      if (opsz * model->config.numNodes * model->config.workersPerNode < gpu_mem.capacity())
+        strategies[model->layers[l]] = model->layers[l]->get_data_parallel_config(*model);
+      else
+        strategies[model->layers[l]] = model->layers[l]->get_random_parallel_config(*model);
     }
   }
   if (model->config.computationMode == COMP_MODE_TRAINING) {
