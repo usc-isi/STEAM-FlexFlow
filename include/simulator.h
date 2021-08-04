@@ -376,6 +376,10 @@ public:
       const std::vector<int>& topology, 
       size_t capacity, 
       float link_bandwidth);
+  NetworkedMachineModel(int num_nodes, 
+      int num_gpus_per_node, 
+      size_t capacity, 
+      float link_bandwidth);
   explicit NetworkedMachineModel() = default;
   ~NetworkedMachineModel();
   int get_version() const;

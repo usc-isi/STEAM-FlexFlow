@@ -417,7 +417,7 @@ DLSSchedulerBasedSimulator::DLSSchedulerBasedSimulator(const FFModel* model,
 {
   this->net_machine = static_cast<NetworkedMachineModel*>(this->machine);
   this->topofinder = 
-    new NSDI22Heuristic(this->machine, model->config.node_degree/2, model->config.node_degree/2);
+    new NSDI22Heuristic(this->machine, model->config.node_degree, 4);
 }
 
 void DLSSchedulerBasedSimulator::simulation_task(const Task *task,
@@ -431,12 +431,10 @@ void DLSSchedulerBasedSimulator::simulation_task(const Task *task,
   // Realm::Cuda::GPUFBMemory* memFBImpl = (Realm::Cuda::GPUFBMemory*) memImpl;
   // off_t offset = memFBImpl->alloc_bytes_local(model->config.simulator_work_space_size);
   // void* base_ptr = memFBImpl->get_direct_ptr(offset, 0);
-  FlatDegConstraintNetworkTopologyGenerator topo_gen = FlatDegConstraintNetworkTopologyGenerator(model->config.numNodes, 4);
+  // FlatDegConstraintNetworkTopologyGenerator topo_gen = FlatDegConstraintNetworkTopologyGenerator(model->config.numNodes, 4);
   
   NetworkedMachineModel *nmachine = new NetworkedMachineModel(model->config.numNodes, 
     model->config.workersPerNode,  
-    0,
-    topo_gen.generate_topology(),
     gpu_mem.capacity(),
     model->config.iface_bandwidth
   );
@@ -483,6 +481,9 @@ void DLSSchedulerBasedSimulator::simulation_task(const Task *task,
   } else {
     // Start from data parallel
     for (size_t l = 0; l < model->layers.size(); l++) {
+      strategies[model->layers[l]] = model->layers[l]->get_data_parallel_config(*model);
+      model->explored_configs.emplace(std::make_pair(model->layers[l], std::unordered_set<std::string>{strategies[model->layers[l]].get_pc_str()}));
+      /*
       uint64_t opsz = std::numeric_limits<uint64_t>::max();
       for (int i = 0; i < model->layers[l]->numWeights; i++) {
         if (model->layers[l]->weights[i].get_volume() < opsz)  {
@@ -494,6 +495,7 @@ void DLSSchedulerBasedSimulator::simulation_task(const Task *task,
       else
         strategies[model->layers[l]] = model->layers[l]->get_random_parallel_config(*model);
       model->explored_configs.emplace(std::make_pair(model->layers[l], std::unordered_set<std::string>{strategies[model->layers[l]].get_pc_str()}));
+      */
     }
   }
   if (model->config.computationMode == COMP_MODE_TRAINING) {

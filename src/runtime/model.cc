@@ -2199,6 +2199,7 @@ void FFModel::rewrite(const std::map<Op*, ParallelConfig>& current,
   if (randf() < propagate_chance) {
     this->propagate(current, next);
   } else {
+  #if 0
     int ntrys = 0;
     while (ntrys++ < 10000) { // todo: this shouldn't burn out at reasonable scale... but.
       size_t opId = std::rand() % layers.size();
@@ -2214,13 +2215,12 @@ void FFModel::rewrite(const std::map<Op*, ParallelConfig>& current,
         break;
       }
     }
-  #if 0
+  #endif
     size_t opId = std::rand() % layers.size();
     //TODO: need to make sure opId is not an output layer of the model
     if (opId == layers.size() - 1)
       return;
     next[layers[opId]] = layers[opId]->get_random_parallel_config(*ffmodel);
-  #endif
   }
   // next = current;
   // size_t opId = std::rand() % layers.size();
@@ -2390,7 +2390,7 @@ void FFModel::optimize(Simulator* simulator,
     }
     rewrite(current, next, use_propagation);
     float next_runtime = simulator->simulate_runtime(this, next, comp_mode);
-    if (iter % 10 == 0) {
+    if (iter % 1 == 0) {
       printf("iteration(%zu) current_strategy(%.4lf) next_strategy(%.4lf) best_strategy(%.4lf)\n", iter,
              current_runtime, next_runtime, best_runtime);
     }
@@ -2404,7 +2404,8 @@ void FFModel::optimize(Simulator* simulator,
     if (next_runtime < current_runtime) {
       current = next;
       current_runtime = next_runtime;
-    } else if (rn < std::exp(-alpha * diff)) {
+    } else if (rn) {
+    // } else if (rn < std::exp(-alpha * diff)) {
       current = next;
       current_runtime = next_runtime;
     }

@@ -771,6 +771,14 @@ void NSDI22Heuristic::generate_dp_topology()
   std::unordered_map<size_t, uint64_t> max_of_bidir;
   std::unordered_map<size_t, size_t> node_if_allocated;
   // ConnectionMatrix conn = std::vector<int>(ndevs*ndevs, 0);
+  for (int i = 0; i < net_machine->num_nodes; i++) {
+    for (int j = 0; j < i; j++) {
+      if (net_machine->conn_matrix[edge_id(i, j)] > 0) {
+        INSERT_OR_ADD(node_if_allocated, i, net_machine->conn_matrix[edge_id(i, j)]);
+        INSERT_OR_ADD(node_if_allocated, j, net_machine->conn_matrix[edge_id(i, j)]);
+      }
+    }
+  }
 
   dheuristic.optimize_demand(net_machine->conn_matrix, max_of_bidir, node_if_allocated);
   // for (int i = 0; i < net_machine->get_num_nodes(); i++) {
@@ -778,6 +786,9 @@ void NSDI22Heuristic::generate_dp_topology()
   //     net_machine->conn_matrix[edge_id(i, j)] += conn[edge_id(i, j)];
   //   }
   // }
+  net_machine->set_topology(net_machine->conn_matrix);
+  net_machine->update_route();
+  NetworkTopologyGenerator::print_conn_matrix(net_machine->conn_matrix, net_machine->num_nodes, 0);
 
 }
 
@@ -786,13 +797,17 @@ void NSDI22Heuristic::simplify_mp_topology()
   for (int i = 0; i < net_machine->get_num_nodes(); i++) {
     for (int j = 0; j < i; j++) {
       if (net_machine->conn_matrix[edge_id(i, j)] > 0 && 
-          mp_tm_logical[edge_id(i, j)] == 0 && 
-          mp_tm_logical[edge_id(j, i)] == 0) {
+          mp_tm_physical_dir[edge_id(i, j)] == 0 && 
+          mp_tm_physical_indir[edge_id(i, j)] == 0 && 
+          mp_tm_physical_dir[edge_id(j, i)] == 0 && 
+          mp_tm_physical_indir[edge_id(j, i)] == 0)
+      {
         net_machine->conn_matrix[edge_id(i, j)] = 0;
         net_machine->conn_matrix[edge_id(j, i)] = 0;
       }
     }
   }
+  net_machine->set_topology(net_machine->conn_matrix);
 }
 
 void NSDI22Heuristic::optimize_indirection() 
@@ -890,6 +905,8 @@ ConnectionMatrix TwoDimTorusNetworkTopologyGenerator::generate_topology() const
       conn[get_id(my_down, me)] = 1;
     }
   }
+  // NetworkTopologyGenerator::print_conn_matrix(conn, num_nodes, 0);
+  // assert(false);
   return conn;
 }
 
@@ -1130,7 +1147,7 @@ EcmpRoutes TwoDimTorusW2TURNRouting::get_routes(int src_node, int dst_node)
       }
     }
   }
-  cached_routes[edgeid(src_node, dst_node)] = {std::vector<float>({1}), std::vector<Route>({route})};
+  cached_routes[edgeid(src_node, dst_node)] = {std::vector<float>{1}, std::vector<Route>{route}};
   return cached_routes[edgeid(src_node, dst_node)];
 }
 

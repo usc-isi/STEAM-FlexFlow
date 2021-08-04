@@ -868,6 +868,73 @@ NetworkedMachineModel::NetworkedMachineModel(int num_nodes,
   update_route();
 }
 
+// 2d torus version. needs a cleaner solution...
+NetworkedMachineModel::NetworkedMachineModel(int num_nodes, 
+        int num_gpus_per_node, size_t capacity, float link_bandwidth)
+  : num_nodes(num_nodes), num_gpus_per_node(num_gpus_per_node), 
+    num_switches(0), link_bandwidth(link_bandwidth)
+{
+  version = 0;
+
+  num_gpus = num_nodes * num_gpus_per_node;
+  inter_gpu_bandwidth = 20 * 1024 * 1024.0f; /* B/ms*/
+  gpu_dram_bandwidth = 32 * 1024 * 1024.0f;
+  TwoDimTorusNetworkTopologyGenerator topo_gen{num_nodes};
+  conn_matrix = topo_gen.generate_topology();
+
+  // Create GPU compute device
+  for (int i = 0; i < num_nodes; i++) {
+    for (int j = 0; j < num_gpus_per_node; j++) {
+      int device_id = i * num_gpus_per_node + j;
+      std::string gpu_name = "GPU " + std::to_string(device_id);
+      id_to_gpu[device_id] = new CompDevice(gpu_name, CompDevice::TOC_PROC, i, i, device_id);
+      std::string gpu_mem_name = "GPU_FB_MEM " + std::to_string(device_id);
+      id_to_gpu_fb_mem[device_id] = new MemDevice(gpu_mem_name, MemDevice::GPU_FB_MEM, i, i, device_id, capacity);
+    }
+  }
+
+  // Create inter GPU comm devices (NVLinks)
+  for (int i = 0; i < num_gpus; i++) {
+    for (int j = 0; j < num_gpus; j++) {
+      Device* src = id_to_gpu[i];
+      Device* dst = id_to_gpu[j];
+      if (src->node_id == dst->node_id && src != dst) {
+        int device_id = i * num_gpus + j;
+        std::string nvlink_name = "NVLINK " + std::to_string(device_id);
+        ids_to_inter_gpu_comm_device[device_id] = new CommDevice(nvlink_name, CommDevice::NVLINK_COMM, src->node_id, src->node_id, device_id, 0, inter_gpu_bandwidth);
+      }
+    }
+  }
+
+  // Create gpu<->dram comm devices
+  // if (pcie_on) {
+  for (int i = 0; i < num_gpus; i++) {
+    int node_id = num_gpus / num_gpus_per_node;
+    std::string pci_to_host_name = "PCI_TO_HOST " + std::to_string(i);
+    id_to_gputodram_comm_device[i] = new CommDevice(pci_to_host_name, CommDevice::PCI_TO_HOST_COMM, node_id, node_id, i, 0, gpu_dram_bandwidth);
+    std::string pci_to_dev_name = "PCI_TO_DEV " + std::to_string(i);
+    id_to_dramtogpu_comm_device[i] = new CommDevice(pci_to_dev_name, CommDevice::PCI_TO_DEV_COMM, node_id, node_id, i, 0, gpu_dram_bandwidth);
+  }
+  // }
+
+  // network links
+  total_devs = num_nodes + num_switches;
+  for (int i = 0; i < total_devs; i++) {
+    for (int j = 0; j < total_devs; j++) {
+      // if (conn_matrix[i * total_devs + j] > 0) {
+        int device_id = i * total_devs + j;
+        std::string link_name = "LINK " + std::to_string(i) + "-" + std::to_string(j);
+        ids_to_nw_comm_device[device_id] = new CommDevice(link_name, CommDevice::NW_COMM, 
+          -1, -1, device_id, 0, conn_matrix[i * total_devs + j] * link_bandwidth);
+      }
+    // }
+  }
+  routing_strategy = new ShortestPathNetworkRoutingStrategy(conn_matrix, ids_to_nw_comm_device, total_devs);
+  // routing_strategy = new TwoDimTorusW2TURNRouting{conn_matrix, ids_to_nw_comm_device,
+  //    topo_gen.nrows, topo_gen.ncols, topo_gen.nextras, total_devs};
+  update_route();
+}
+
 NetworkedMachineModel::~NetworkedMachineModel()
 {
   delete routing_strategy;

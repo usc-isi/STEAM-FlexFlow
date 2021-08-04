@@ -1377,6 +1377,11 @@ float DLSSchedulerBasedSimulator::simulate_runtime(const FFModel* model,
   task_manager->reset();
   topofinder->reset();
 
+  TwoDimTorusNetworkTopologyGenerator topo_gen{machine->get_num_nodes()};
+  ConnectionMatrix conn_matrix = topo_gen.generate_topology();
+  net_machine->set_topology(conn_matrix);
+  net_machine->update_route();
+
   // Step 1: register forward and backward tasks. Add BP to a separate taskdag
   std::unordered_set<SimTask*> bp_tasks;
   DLSTaskDag bp_taskdag;
