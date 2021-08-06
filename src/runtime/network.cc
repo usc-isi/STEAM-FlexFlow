@@ -70,7 +70,9 @@ EcmpRoutes ShortestPathNetworkRoutingStrategy::get_routes(int src_node, int dst_
     curr = prev[curr];
   }
 
-  return std::make_pair(std::vector<float>({1}), std::vector<Route>({result}));
+  assert(result.size() || src_node == dst_node);
+
+  return std::make_pair(std::vector<float>{1}, std::vector<Route>{result});
 
 }
 
@@ -179,6 +181,7 @@ ConnectionMatrix BigSwitchNetworkTopologyGenerator::generate_topology() const
     conn[i * (num_nodes+1) + num_nodes] = 1;
     conn[num_nodes * (num_nodes+1) + i] = 1;
   }
+  NetworkTopologyGenerator::print_conn_matrix(conn, num_nodes, 1);
   return conn;
 }
 
@@ -202,9 +205,9 @@ void DemandHeuristicNetworkOptimizer::task_added(SimTask * task)
   case SimTask::TASK_COMM:
     commDev = reinterpret_cast<CommDevice*>(task->device);
     if (physical_traffic_demand.find(commDev->device_id) != physical_traffic_demand.end()) 
-      physical_traffic_demand[commDev->device_id] = task->xfer_size;
-    else
       physical_traffic_demand[commDev->device_id] += task->xfer_size;
+    else
+      physical_traffic_demand[commDev->device_id] = task->xfer_size;
   case SimTask::TASK_BACKWARD: 
   case SimTask::TASK_FORWARD:
     key = reinterpret_cast<uint64_t>(task->device);
@@ -216,10 +219,11 @@ void DemandHeuristicNetworkOptimizer::task_added(SimTask * task)
 
   case SimTask::TASK_NOMINAL_COMM:
     ncommDev = reinterpret_cast<NominalCommDevice*>(task->device);
+    // std::cerr << "adding " << task->xfer_size << " to " << ncommDev->name << std::endl;
     if (logical_traffic_demand.find(ncommDev->device_id) != logical_traffic_demand.end()) 
-      logical_traffic_demand[ncommDev->device_id] = task->xfer_size;
-    else
       logical_traffic_demand[ncommDev->device_id] += task->xfer_size;
+    else
+      logical_traffic_demand[ncommDev->device_id] = task->xfer_size;
   break;
 
   case SimTask::TASK_ALLREDUCE:
@@ -276,6 +280,7 @@ void DemandHeuristicNetworkOptimizer::optimize(int mcmc_iter, float sim_iter_tim
   // the connection matrix, but the demand need to be summed.
   size_t nnode = machine->get_num_nodes();
   size_t ndevs = machine->get_total_devs();
+  uint64_t min_traffic = std::numeric_limits<uint64_t>::max();
     
   std::unordered_map<size_t, uint64_t> max_of_bidir;
   for (int i = 0; i < nnode; i++) {
@@ -284,6 +289,8 @@ void DemandHeuristicNetworkOptimizer::optimize(int mcmc_iter, float sim_iter_tim
       if (logical_traffic_demand.find(eid) != logical_traffic_demand.end()) {
         size_t ueid = unordered_edge_id(i, j);
         uint64_t traffic_amount = logical_traffic_demand[eid];
+        // if (traffic_amount < min_traffic)
+        //   min_traffic = traffic_amount;
         if (max_of_bidir.find(ueid) == max_of_bidir.end() 
             || traffic_amount > max_of_bidir[ueid]) {
           max_of_bidir[ueid] = traffic_amount;
@@ -295,9 +302,19 @@ void DemandHeuristicNetworkOptimizer::optimize(int mcmc_iter, float sim_iter_tim
   for (auto &item: max_of_bidir) {
     pq.insert(DemandToIdMap(item.second, item.first));
   }
+  // for (auto &item: pq) {
+  //   std::cerr << (item.second / ndevs) << ", " << (item.second) % ndevs << ": " << item.first << std::endl;
+  // }
 
-  // TODO: copy machine-switch link?
   ConnectionMatrix conn = std::vector<int>(ndevs*ndevs, 0);
+
+  // copy machine-switch link
+  for (int i = nnode; i < ndevs; i++) {
+    for (int j = nnode; j < ndevs; j++) {
+      conn[edge_id(i, j)] = nm->conn_matrix[edge_id(i, j)];
+      conn[edge_id(j, i)] = nm->conn_matrix[edge_id(j, i)];
+    }
+  }
 
   std::unordered_map<size_t, size_t> node_if_allocated;
 
@@ -328,18 +345,21 @@ void DemandHeuristicNetworkOptimizer::optimize(int mcmc_iter, float sim_iter_tim
     }
 
     // std::cout << "first is " << target.first << std::endl;
-    target.first /= 2; //*= (double)conn[target.second]/(conn[target.second] + 1);
+    // if (target.first == min_traffic)
+    //   min_traffic = target.first / 2;
+    // target.first = min_traffic;
+    target.first /= 2;// (conn[edge_id(node0, node1)] + 1); //*= (double)conn[target.second]/(conn[target.second] + 1);
     if (target.first > 0) {
       pq.insert(target);
     }
 
-    if (node_if_allocated[node0] == if_cnt || node_if_allocated[node1] == if_cnt) {
+    if (node_if_allocated[node0] == if_cnt/2 || node_if_allocated[node1] == if_cnt/2) {
       for (auto it = pq.begin(); it != pq.end(); ) {
-        if (node_if_allocated[node0] == if_cnt && DemandHeuristicNetworkOptimizer::has_endpoint(it->second, node0, ndevs)) {
+        if (node_if_allocated[node0] == if_cnt/2 && DemandHeuristicNetworkOptimizer::has_endpoint(it->second, node0, ndevs)) {
           // std::cout << "node0 full, removing " << it->second /ndevs << ", " << it->second % ndevs << " with demand left " << it->first << std::endl; 
           it = pq.erase(it);
         }
-        else if (node_if_allocated[node1] == if_cnt && DemandHeuristicNetworkOptimizer::has_endpoint(it->second, node1, ndevs)) {
+        else if (node_if_allocated[node1] == if_cnt/2 && DemandHeuristicNetworkOptimizer::has_endpoint(it->second, node1, ndevs)) {
           // std::cout << "node1 full, removing " << it->second /ndevs << ", " << it->second % ndevs << " with demand left " << it->first << std::endl; 
           it = pq.erase(it);
         }
@@ -349,10 +369,11 @@ void DemandHeuristicNetworkOptimizer::optimize(int mcmc_iter, float sim_iter_tim
       } 
     }
   }
-
-#ifdef DEBUG_PRINT
+  std::cerr << "After first iter: " << std::endl;
+// #ifdef DEBUG_PRINT
   NetworkTopologyGenerator::print_conn_matrix(conn, nnode, 0);
-#endif
+  std::cerr << "==================================" << std::endl;
+// #endif
 
   // set<size_t> used_nodes_set;
   std::set<size_t> linked_nodes;
@@ -362,7 +383,7 @@ void DemandHeuristicNetworkOptimizer::optimize(int mcmc_iter, float sim_iter_tim
   std::vector<size_t> unlinked_nodes;
 
   for (size_t i = 0; i < nnode; i++) {
-    if (linked_nodes.find(i) == linked_nodes.end())
+    // if (linked_nodes.find(i) == linked_nodes.end())
       unlinked_nodes.push_back(i);
   }
 
@@ -459,7 +480,7 @@ void DemandHeuristicNetworkOptimizer::optimize(int mcmc_iter, float sim_iter_tim
       else {
         node_if_allocated[node1]++;
       }
-      allocated += 1;
+      // allocated += 1;
 
       bool changed = false;
       if (--node_with_avail_if[a].second == 0) {
@@ -493,7 +514,7 @@ void DemandHeuristicNetworkOptimizer::optimize(int mcmc_iter, float sim_iter_tim
   connect_cc(logical_id_to_demand, conn); 
   nm->set_topology(conn); 
   nm->update_route();
-  // simulator->print_conn_matrix();
+  NetworkTopologyGenerator::print_conn_matrix(conn, nm->get_num_nodes(), 0);
 
 }
 

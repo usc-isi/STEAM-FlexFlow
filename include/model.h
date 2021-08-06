@@ -261,6 +261,8 @@ public:
   virtual bool can_inplace_output();
   virtual bool has_inplace_output();
   virtual void do_inplace_output();
+  virtual void construct_candidates(const FFModel& ff) const;
+  virtual bool validate_in_candidate(const ParallelConfig& npc, const FFModel& ff) const;
 
 
   int get_dimension() const;
@@ -567,6 +569,7 @@ public:
   std::string get_operator_type_name(OperatorType type) const;
 
   std::unordered_map<Op *, std::vector<std::pair<Op *, int>>> get_bwd_edge_map() const;
+  // void iterate_all_configs(Simulator* simulator);
 
   // Internal funcitons
   Tensor get_tensor_from_guid(int guid);

@@ -1096,13 +1096,33 @@ bool Linear::measure_operator_cost(Simulator* sim,
   // allocate tensors in simulator
   sim->free_all();
   float* input_ptr = (float*)sim->allocate(sub_input.get_volume(), DT_FLOAT);
-  assert(input_ptr != NULL);
+  if (input_ptr == NULL) {
+    cost_metrics.forward_time = -1;
+    cost_metrics.backward_time = -1;
+    return true;
+  }
+  // assert(input_ptr != NULL);
   float *output_ptr = (float*)sim->allocate(sub_output.get_volume(), DT_FLOAT);
-  assert(output_ptr != NULL);
+  if (output_ptr == NULL) {
+    cost_metrics.forward_time = -1;
+    cost_metrics.backward_time = -1;
+    return true;
+  }
+  // assert(output_ptr != NULL);
   float* kernel_ptr = (float*)sim->allocate((size_t)output_c * input_c, DT_FLOAT);
-  assert(kernel_ptr != NULL);
+  if (kernel_ptr == NULL) {
+    cost_metrics.forward_time = -1;
+    cost_metrics.backward_time = -1;
+    return true;
+  }
+  // assert(kernel_ptr != NULL);
   float* bias_ptr = (float*)sim->allocate(output_c, DT_FLOAT);
-  assert(bias_ptr != NULL);
+  if (bias_ptr == NULL) {
+    cost_metrics.forward_time = -1;
+    cost_metrics.backward_time = -1;
+    return true;
+  }
+  // assert(bias_ptr != NULL);
 
   cudaStream_t stream;
   checkCUDA(get_legion_stream(&stream));
@@ -1115,11 +1135,31 @@ bool Linear::measure_operator_cost(Simulator* sim,
     float* input_grad_ptr = NULL;
     if (trainableInputs[0]) {
       input_grad_ptr = (float*)sim->allocate(sub_input.get_volume(), DT_FLOAT);
+      if (input_grad_ptr == NULL) {
+        cost_metrics.forward_time = -1;
+        cost_metrics.backward_time = -1;
+        return true;
+      }
     }
     float *output_grad_ptr = (float*)sim->allocate(sub_output.get_volume(), DT_FLOAT);
+    if (output_grad_ptr == NULL) {
+      cost_metrics.forward_time = -1;
+      cost_metrics.backward_time = -1;
+      return true;
+    }
     float* kernel_grad_ptr = (float*)sim->allocate((size_t)output_c * input_c, DT_FLOAT);
+    if (kernel_grad_ptr == NULL) {
+      cost_metrics.forward_time = -1;
+      cost_metrics.backward_time = -1;
+      return true;
+    }
     float* bias_grad_ptr = (float*)sim->allocate(output_c, DT_FLOAT);
-    assert(bias_grad_ptr != NULL);
+    if (bias_grad_ptr == NULL) {
+      cost_metrics.forward_time = -1;
+      cost_metrics.backward_time = -1;
+      return true;
+    }
+    // assert(bias_grad_ptr != NULL);
     backward = [&] {
       backward_kernel(m, input_ptr, input_grad_ptr, output_ptr, output_grad_ptr,
           kernel_ptr, kernel_grad_ptr, bias_grad_ptr, input_c, output_c, input_n, stream);
@@ -1223,5 +1263,5 @@ bool Linear::is_valid_parallel_config(const FFModel& ff, const ParallelConfig& p
 }
 
 std::string Linear::get_name_structure() const {
-  return "Dense_"+std::to_string(out_channels);
+  return "Dense_"+std::to_string(in_channels)+"_"+std::to_string(out_channels);
 }

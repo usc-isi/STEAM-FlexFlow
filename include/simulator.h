@@ -413,11 +413,11 @@ public:
   static void print_conn_matrix(const ConnectionMatrix &conn, int nnode, int nswitch) {
     int nnwdevs = nnode + nswitch;
     for (int i = 0; i < nnwdevs; i++) {
-      for (int j = 0; j < nnwdevs; j++) {
-        std::cout << conn[i * nnwdevs + j] << "\t";
-        if (j == nnode) std::cout << "\t";
-      }
       if (i == nnode) std::cout << std::endl;
+      for (int j = 0; j < nnwdevs; j++) {
+        if (j == nnode) std::cout << "\t";
+        std::cout << conn[i * nnwdevs + j] << "\t";
+      }
       std::cout << std::endl;
     }
   }

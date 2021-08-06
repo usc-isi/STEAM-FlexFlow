@@ -592,66 +592,7 @@ ParallelConfig Op::get_random_parallel_config(const FFModel& ff) const
   // if (nparts < 0) {
 
   if (candidates.size() == 0) {
-    if (ff.config.mfile != "") {
-      // std::vector<int> & const known_cds = ff.opcandidates[string(generic_name)];
-      for (auto& i: ff.opcandidates.at(get_name_structure())) {
-        const_cast<vector<ParallelConfig>*>(&candidates)->push_back(i);
-        printf("Adding %s for op %s\n", i.get_pc_str().c_str(), name);
-      }
-    }
-    else {
-      uint64_t opsz = std::numeric_limits<uint64_t>::max();
-      for (int i = 0; i < numWeights; i++) {
-        if (weights[i].get_volume() < opsz)  {
-          opsz = weights[i].get_volume() * sizeof(float);
-        }
-      }
-      if (opsz > 5120000000ULL) {
-        ParallelConfig pc;
-        pc.device_type = ParallelConfig::GPU;
-        pc.nDims = outputs[0].numDim;
-        for (int i = 0; i < pc.nDims; i++)
-          pc.dim[i] = 1;
-        const_cast<vector<ParallelConfig>*>(&candidates)->push_back(pc);
-        goto ugly;
-      }
-      int batch_size = outputs[0].adim[outputs[0].numDim-1];
-      for (int i = 1; i <= ff.config.workersPerNode; i++) {
-        if (ff.config.workersPerNode % i == 0) {
-          if (batch_size % i != 0)
-            continue;
-          // bite me...
-          ParallelConfig pc;
-          pc.device_type = ParallelConfig::GPU;
-          pc.nDims = outputs[0].numDim;
-          for (int x = 0; x < pc.nDims; x++)
-            pc.dim[x] = x == pc.nDims - 1 ? i : 1;
-          const_cast<vector<ParallelConfig>*>(&candidates)->push_back(pc);
-          // printf("pushing %d\n", i);
-          if (i > opsz || i > (GPU_MEM / opsz))
-            break;
-          if (batch_size / i > ff.config.local_batch_sz_upperlimit) 
-            continue;
-        }
-      }
-      for (int i = 1; i <= ff.config.numNodes; i++) {
-        if (ff.config.numNodes % i == 0) {
-          if (batch_size % (i * ff.config.workersPerNode) != 0)
-            continue;
-          if (i * ff.config.workersPerNode > opsz || i * ff.config.workersPerNode > (GPU_MEM / opsz))
-            break;
-          if (batch_size / (i * ff.config.workersPerNode) > ff.config.local_batch_sz_upperlimit) 
-            continue;
-          ParallelConfig pc;
-          pc.device_type = ParallelConfig::GPU;
-          pc.nDims = outputs[0].numDim;
-          for (int x = 0; x < pc.nDims; x++)
-            pc.dim[x] = x == pc.nDims - 1 ? i * ff.config.workersPerNode : 1;
-          const_cast<vector<ParallelConfig>*>(&candidates)->push_back(pc);
-        }
-      }
-      assert(candidates.size() > 0);
-    }
+    construct_candidates(ff);
   }
 ugly:
   ParallelConfig pc;
@@ -733,6 +674,83 @@ ugly:
 
 int Op::get_dimension() const {
   return this->outputs[0].numDim;
+}
+
+void Op::construct_candidates(const FFModel& ff) const 
+{
+  if (ff.config.mfile != "") {
+    // std::vector<int> & const known_cds = ff.opcandidates[string(generic_name)];
+    for (auto& i: ff.opcandidates.at(get_name_structure())) {
+      const_cast<vector<ParallelConfig>*>(&candidates)->push_back(i);
+      // printf("Adding %s for op %s\n", i.get_pc_str().c_str(), name);
+    }
+  }
+  else {
+    uint64_t opsz = std::numeric_limits<uint64_t>::max();
+    for (int i = 0; i < numWeights; i++) {
+      if (weights[i].get_volume() < opsz)  {
+        opsz = weights[i].get_volume() * sizeof(float);
+      }
+    }
+    // if (opsz > 5120000000ULL) {
+    //   ParallelConfig pc;
+    //   pc.device_type = ParallelConfig::GPU;
+    //   pc.nDims = outputs[0].numDim;
+    //   for (int i = 0; i < pc.nDims; i++)
+    //     pc.dim[i] = 1;
+    //   const_cast<vector<ParallelConfig>*>(&candidates)->push_back(pc);
+    //   return;
+    // }
+    int batch_size = outputs[0].adim[outputs[0].numDim-1];
+    for (int i = 1; i <= ff.config.workersPerNode; i++) {
+      if (ff.config.workersPerNode % i == 0) {
+        if (batch_size % i != 0)
+          continue;
+        // bite me...
+        ParallelConfig pc;
+        pc.device_type = ParallelConfig::GPU;
+        pc.nDims = outputs[0].numDim;
+        for (int x = 0; x < pc.nDims; x++)
+          pc.dim[x] = x == pc.nDims - 1 ? i : 1;
+        const_cast<vector<ParallelConfig>*>(&candidates)->push_back(pc);
+        // printf("pushing %d\n", i);
+        if (i > opsz || i > (GPU_MEM / opsz))
+          break;
+        if (batch_size / i > ff.config.local_batch_sz_upperlimit) 
+          continue;
+      }
+    }
+    for (int i = 1; i <= ff.config.numNodes; i++) {
+      if (ff.config.numNodes % i == 0) {
+        if (batch_size % (i * ff.config.workersPerNode) != 0)
+          continue;
+        if (i * ff.config.workersPerNode > opsz || i * ff.config.workersPerNode > (GPU_MEM / opsz))
+          break;
+        if (batch_size / (i * ff.config.workersPerNode) > ff.config.local_batch_sz_upperlimit) 
+          continue;
+        ParallelConfig pc;
+        pc.device_type = ParallelConfig::GPU;
+        pc.nDims = outputs[0].numDim;
+        for (int x = 0; x < pc.nDims; x++)
+          pc.dim[x] = x == pc.nDims - 1 ? i * ff.config.workersPerNode : 1;
+        const_cast<vector<ParallelConfig>*>(&candidates)->push_back(pc);
+      }
+    }
+    assert(candidates.size() > 0);
+  }
+}
+
+bool Op::validate_in_candidate(const ParallelConfig& npc, const FFModel& ff) const
+{
+  if (candidates.size() == 0) {
+    construct_candidates(ff);
+  }
+  std::string str_rep = npc.get_pc_str();
+  for (auto& c: candidates) {
+    if (c.get_pc_str() == str_rep)
+      return true;
+  }
+  return false;
 }
 
 ParallelConfig ParallelConfig::change_data_parallel_dimensionality(int new_dimensionality) const {
@@ -2147,6 +2165,9 @@ void FFModel::propagate(std::map<Op*, ParallelConfig> const &current,
 
     auto const &dstOp = chosenEdgeInfo.dstOp;
     if (next.at(selected_op).is_data_parallel()) {
+      ParallelConfig npc = next.at(selected_op).change_data_parallel_dimensionality(dstOp->get_dimension());
+      if (!dstOp->validate_in_candidate(npc, *this))
+        continue;
       next[dstOp] = next.at(selected_op).change_data_parallel_dimensionality(dstOp->get_dimension());
       assert (dstOp->is_valid_parallel_config(*this, next.at(dstOp)));
     }
@@ -2312,6 +2333,24 @@ void FFModel::optimize(Simulator* simulator,
     }
     rewrite(current, next, use_propagation);
     float next_runtime = simulator->simulate_runtime(this, next, comp_mode);
+    // printf("=========== next Discovered Strategy ==========: %f\n", next_runtime);
+    // std::map<Op*, ParallelConfig>::const_iterator it;
+    // for (it = next.begin(); it != next.end(); it++) {
+    //   printf("[%s] num_dims(%d) dims[", it->first->name, it->second.nDims);
+    //   for (int i = 0; i < it->second.nDims; i++)
+    //     if (i < it->second.nDims - 1)
+    //       printf("%d,", it->second.dim[i]);
+    //     else
+    //       printf("%d", it->second.dim[i]);
+    //   printf("] device_ids[");
+    //   for (int i = 0; i < it->second.num_parts(); i++)
+    //     if (i < it->second.num_parts() - 1)
+    //       printf("%d,", it->second.device_ids[i]);
+    //     else
+    //       printf("%d", it->second.device_ids[i]);
+    //   printf("]\n");
+    // }
+    // printf("============= MCMC Search ============\n\n");
     if (iter % 10 == 0) {
       printf("iteration(%zu) current_strategy(%.4lf) next_strategy(%.4lf) best_strategy(%.4lf)\n", iter,
              current_runtime, next_runtime, best_runtime);

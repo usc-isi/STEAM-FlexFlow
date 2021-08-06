@@ -422,6 +422,7 @@ CostMetrics Simulator::measure_operator_cost(Op* op, const ParallelConfig& confi
 {
   if (measurements != nullptr) {
     std::string key = op->get_name_structure() + ":" + config.get_pc_str();
+    // std::cerr << "key: " << key << std::endl;
     return measurements->at(key);
   }
 
@@ -1050,11 +1051,13 @@ float LogicalTaskgraphBasedSimulator::route_transfer(SimTask * transfer_task,
   return final_finish_time;
 }
 
+#define MOD(a, b) ((a) % (b)) < 0 ? ((a) % (b)) + (b) : ((a) % (b))
 void LogicalTaskgraphBasedSimulator::expand_allreduce(SimTask * allreduce_task,
                                  float start_time,
                                  std::priority_queue<SimTask*, std::vector<SimTask*>, SimTaskCompare>& ready_queue) {
 
   int n_participants = allreduce_task->next_tasks.size();
+  if (n_participants == 1) return;
   
   SimTask * final_task = new_update_task_unrecorded();
 
@@ -1063,21 +1066,29 @@ void LogicalTaskgraphBasedSimulator::expand_allreduce(SimTask * allreduce_task,
   final_task->device = machine->get_gpu(reinterpret_cast<uint64_t>(allreduce_task->next_tasks[0]));
   MemDevice * src_mem = machine->get_gpu_fb_mem(reinterpret_cast<uint64_t>(allreduce_task->next_tasks[0]));
   MemDevice * dst_mem;
+  // std::cerr << "expand_ar size: " << allreduce_task->xfer_size << ", " << "grp size: " << n_participants << std::endl;
 
+  int dir = std_uniform(gen) < 0.5;
   for (int i = 0; i < n_participants; i++) {
-    dst_mem = machine->get_gpu_fb_mem(reinterpret_cast<uint64_t>(allreduce_task->next_tasks[(i+1)%n_participants]));
+    dst_mem = machine->get_gpu_fb_mem(reinterpret_cast<uint64_t>(allreduce_task->next_tasks[MOD(i+dir,n_participants)]));
+    // dst_mem = machine->get_gpu_fb_mem(reinterpret_cast<uint64_t>(allreduce_task->next_tasks[(i+1)%n_participants]));
     std::vector<CommDevice *> path = machine->get_comm_path(src_mem, dst_mem);
+    // if (dir)
+    // std::vector<CommDevice *> path = machine->get_comm_path(src_mem, dst_mem);
+    // std::cerr << "\tDevices: ";
     for (CommDevice * d: path) {
       SimTask* task = new_comm_task_unrecorded();
       task->device = d;
+      // std::cerr << d->name << ", ";
       task->run_time = 0;
       task->ready_time = allreduce_task->ready_time;
-      task->xfer_size = (2.0 * (n_participants-1))/n_participants * allreduce_task->xfer_size;
+      task->xfer_size = (2.0 * (n_participants-1)) * allreduce_task->xfer_size / n_participants;
       task->add_next_task(final_task);
       ready_queue.push(task);
       if (l1optimizer)
         l1optimizer->task_added(task);
     }
+    // std::cerr << std::endl;
     src_mem = dst_mem;
   }
   if (final_task->counter == 0) {
