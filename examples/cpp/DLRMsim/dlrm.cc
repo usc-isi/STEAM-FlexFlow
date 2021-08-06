@@ -129,8 +129,10 @@ void top_level_task(const Task* task,
   }
   if (ffConfig.measurement_only)
     ff.run_measurement();
-  else 
-    ff.simulate();
+  else    
+    ff.simulate_dlss();
+
+    // ff.simulate();
 #if 0
   // Use SGD Optimizer
   Optimizer* optimizer = new SGDOptimizer(&ff, 0.01f);

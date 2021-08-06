@@ -951,11 +951,10 @@ void NetworkedMachineModel::update_route() {
   for (int i = 0; i < num_nodes; i++) {
     for (int j = 0; j < num_nodes; j++) {
       int device_id = i * total_devs + j;
-      std::string link_name = "NOMINAL " + std::to_string(i) + "-" + std::to_string(j);
-      if (ids_to_nw_nominal_device.find(device_id) != ids_to_nw_nominal_device.end()) {
-        delete ids_to_nw_nominal_device[device_id];
+      if (ids_to_nw_nominal_device.find(device_id) == ids_to_nw_nominal_device.end()) {
+        std::string link_name = "NOMINAL " + std::to_string(i) + "-" + std::to_string(j);
+        ids_to_nw_nominal_device[device_id] = new NominalCommDevice(link_name, device_id);
       }
-      ids_to_nw_nominal_device[device_id] = new NominalCommDevice(link_name, device_id);
       ids_to_nw_nominal_device[device_id]->set_physical_paths(routing_strategy->get_routes(i, j));
     }
   }

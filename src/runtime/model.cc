@@ -2388,7 +2388,25 @@ void FFModel::optimize(Simulator* simulator,
       current_runtime = best_runtime;
       last_reset_iter = iter;
     }
-    rewrite(current, next, use_propagation);
+    // rewrite(current, next, use_propagation);
+    for (size_t l = 0; l < layers.size(); l++) {
+        next[layers[l]] = layers[l]->get_random_parallel_config(*this);
+      // strategies[model->layers[l]] = model->layers[l]->get_data_parallel_config(*model);
+      /*
+      uint64_t opsz = std::numeric_limits<uint64_t>::max();
+      for (int i = 0; i < model->layers[l]->numWeights; i++) {
+        if (model->layers[l]->weights[i].get_volume() < opsz)  {
+          opsz = model->layers[l]->weights[i].get_volume() * sizeof(float);
+        }
+      }
+      if (opsz * model->config.numNodes * model->config.workersPerNode < gpu_mem.capacity())
+        strategies[model->layers[l]] = model->layers[l]->get_data_parallel_config(*model);
+      else
+        strategies[model->layers[l]] = model->layers[l]->get_random_parallel_config(*model);
+      model->explored_configs.emplace(std::make_pair(model->layers[l], std::unordered_set<std::string>{strategies[model->layers[l]].get_pc_str()}));
+      */
+    }
+  
     float next_runtime = simulator->simulate_runtime(this, next, comp_mode);
     if (iter % 1 == 0) {
       printf("iteration(%zu) current_strategy(%.4lf) next_strategy(%.4lf) best_strategy(%.4lf)\n", iter,
@@ -2404,8 +2422,8 @@ void FFModel::optimize(Simulator* simulator,
     if (next_runtime < current_runtime) {
       current = next;
       current_runtime = next_runtime;
-    } else if (rn) {
-    // } else if (rn < std::exp(-alpha * diff)) {
+    // } else if (rn) {
+    } else if (rn < std::exp(-alpha * diff)) {
       current = next;
       current_runtime = next_runtime;
     }

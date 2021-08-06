@@ -79,6 +79,7 @@ EcmpRoutes ShortestPathNetworkRoutingStrategy::get_routes(int src_node, int dst_
     result.insert(result.begin(), devmap.at(prev[curr] * total_devs + curr));
     curr = prev[curr];
   }
+  assert(result.size() || src_node == dst_node);
 
   return std::make_pair(std::vector<float>({1}), std::vector<Route>({result}));
 
@@ -788,7 +789,7 @@ void NSDI22Heuristic::generate_dp_topology()
   // }
   net_machine->set_topology(net_machine->conn_matrix);
   net_machine->update_route();
-  NetworkTopologyGenerator::print_conn_matrix(net_machine->conn_matrix, net_machine->num_nodes, 0);
+  // NetworkTopologyGenerator::print_conn_matrix(net_machine->conn_matrix, net_machine->num_nodes, 0);
 
 }
 
@@ -895,7 +896,7 @@ ConnectionMatrix TwoDimTorusNetworkTopologyGenerator::generate_topology() const
       if (row == nrows && col == nextras)
         break;
       int me = row * ncols + col;
-      int my_right = row * ncols + ((col + 1) % ncols);
+      int my_right = row * ncols + ((col + 1) % (row == nrows ? nextras : ncols));
       int my_down = ((row + 1) % (col < nextras ? (nrows + 1) : nrows)) * ncols + col;
       // my right
       conn[get_id(me, my_right)] = 1;

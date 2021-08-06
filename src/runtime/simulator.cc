@@ -23,6 +23,7 @@
 #include "taskgraph_generated.h"
 
 // #define DEBUG_PRINT
+// #define TEST_DLSSCHEDULER
 
 int ParallelConfig::num_parts() const
 {
@@ -1518,7 +1519,7 @@ float DLSSchedulerBasedSimulator::simulate_runtime(const FFModel* model,
     }
   }
 
-  topofinder->simplify_mp_topology();
+  // topofinder->simplify_mp_topology();
   topofinder->generate_dp_topology();
   topofinder->optimize_indirection();
 
@@ -1591,7 +1592,7 @@ void DLSSchedulerBasedSimulator::add_task_dependencies_with_xfer_sch(
 {
   if (bp_taskdag.find(src_task) == bp_taskdag.end()) {
     bp_taskdag.emplace(std::make_pair(src_task, 
-      std::vector<std::pair<SimTask*, size_t>>({std::make_pair(dst_task, message_size)})));
+      std::vector<std::pair<SimTask*, size_t>>{std::make_pair(dst_task, message_size)}));
   }
   else {
     bp_taskdag[src_task].emplace_back(std::make_pair(dst_task, message_size));
@@ -1728,8 +1729,7 @@ double DLSSchedulerBasedSimulator::dls_schedule(std::unordered_set<SimTask*>& bp
       for (SimTask* ready_task: ready_pool) {
         if (slevels[ready_task] - processor_time.second < max_dl)
           continue;
-        float da = compute_da(processor_time.first, ready_task, 
-          predecessor_map, processors, links, task_finish_time);
+        float da = compute_da(processor_time.first, ready_task, predecessor_map, processors, links, task_finish_time);
         float dl = slevels[ready_task] - std::max(da, processor_time.second);
 #ifdef TEST_DLSSCHEDULER
         fprintf(stderr, "Checking %p on GPU %d, da = %f, dl = %f (max: %f)\n", ready_task, processor_time.first->device_id, da, dl, max_dl);
@@ -1820,7 +1820,7 @@ inline void DLSSchedulerBasedSimulator::schedule(CompDevice* proc, SimTask* task
 #endif
   task->device = proc;
   task->mem = net_machine->get_gpu_fb_mem(proc->device_id);
-  float final_ready_time = 0;
+  float final_ready_time = processors[proc];
   if (pred.find(task) != pred.end()) {
     for (auto & ps: pred.at(task)) {
       float da = sch_route_transfer(ps.first, task, ps.second, links, task_finish_time);
@@ -2000,7 +2000,8 @@ float DLSSchedulerBasedSimulator::sch_route_transfer(
   return final_finish_time;
 }
 
-#ifdef TEST_DLSSCHEDULER
+#if 0
+// #ifdef TEST_DLSSCHEDULER
 void DLSSchedulerBasedSimulator::test() 
 {
   DLSTaskDag tg;

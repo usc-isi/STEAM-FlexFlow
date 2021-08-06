@@ -481,7 +481,8 @@ void DLSSchedulerBasedSimulator::simulation_task(const Task *task,
   } else {
     // Start from data parallel
     for (size_t l = 0; l < model->layers.size(); l++) {
-      strategies[model->layers[l]] = model->layers[l]->get_data_parallel_config(*model);
+        strategies[model->layers[l]] = model->layers[l]->get_random_parallel_config(*model);
+      // strategies[model->layers[l]] = model->layers[l]->get_data_parallel_config(*model);
       model->explored_configs.emplace(std::make_pair(model->layers[l], std::unordered_set<std::string>{strategies[model->layers[l]].get_pc_str()}));
       /*
       uint64_t opsz = std::numeric_limits<uint64_t>::max();
