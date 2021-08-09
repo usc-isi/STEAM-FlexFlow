@@ -66,16 +66,26 @@ static std::random_device rd;
 static std::mt19937 gen = std::mt19937(rd()); 
 static std::uniform_real_distribution<> std_uniform = std::uniform_real_distribution<>(0.0, 1.0); 
 
-NominalCommDevice::NominalCommDevice(std::string const &name, int device_id, const EcmpRoutes& routes) 
-: CommDevice(name, CommDevice::NW_NOMINAL, -1, -1, device_id, 0, 0), routes(routes)
+// NominalCommDevice::NominalCommDevice(std::string const &name, int device_id, const EcmpRoutes& routes) 
+// : CommDevice(name, CommDevice::NW_NOMINAL, -1, -1, device_id, 0, 0), routes(routes)
+// {}
+
+NominalCommDevice::NominalCommDevice(std::string const &name, int device_id, int nnodes, NetworkRoutingStrategy & routing) 
+: CommDevice(name, CommDevice::NW_NOMINAL, -1, -1, device_id, 0, 0), routing_strategy(routing), dirty(true), nnode(nnodes)
 {}
 
-NominalCommDevice::NominalCommDevice(std::string const &name, int device_id) 
-: CommDevice(name, CommDevice::NW_NOMINAL, -1, -1, device_id, 0, 0)
-{}
+void NominalCommDevice::reset() 
+{
+  dirty = true;
+  routes = {};
+}
     
 Route NominalCommDevice::expand_to_physical() const 
 {
+  if (dirty) {
+    *const_cast<EcmpRoutes*>(&routes) = routing_strategy.get_routes(device_id / nnode, device_id % nnode);
+  }
+
   int pick = 0;
   double choice = std_uniform(gen);
   for (int i = 0; i < routes.first.size(); i++) {
