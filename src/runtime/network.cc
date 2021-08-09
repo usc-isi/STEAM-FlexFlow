@@ -353,13 +353,13 @@ void DemandHeuristicNetworkOptimizer::optimize(int mcmc_iter, float sim_iter_tim
       pq.insert(target);
     }
 
-    if (node_if_allocated[node0] == if_cnt/2 || node_if_allocated[node1] == if_cnt/2) {
+    if (node_if_allocated[node0] == if_cnt || node_if_allocated[node1] == if_cnt) {
       for (auto it = pq.begin(); it != pq.end(); ) {
-        if (node_if_allocated[node0] == if_cnt/2 && DemandHeuristicNetworkOptimizer::has_endpoint(it->second, node0, ndevs)) {
+        if (node_if_allocated[node0] == if_cnt && DemandHeuristicNetworkOptimizer::has_endpoint(it->second, node0, ndevs)) {
           // std::cout << "node0 full, removing " << it->second /ndevs << ", " << it->second % ndevs << " with demand left " << it->first << std::endl; 
           it = pq.erase(it);
         }
-        else if (node_if_allocated[node1] == if_cnt/2 && DemandHeuristicNetworkOptimizer::has_endpoint(it->second, node1, ndevs)) {
+        else if (node_if_allocated[node1] == if_cnt && DemandHeuristicNetworkOptimizer::has_endpoint(it->second, node1, ndevs)) {
           // std::cout << "node1 full, removing " << it->second /ndevs << ", " << it->second % ndevs << " with demand left " << it->first << std::endl; 
           it = pq.erase(it);
         }
@@ -383,7 +383,7 @@ void DemandHeuristicNetworkOptimizer::optimize(int mcmc_iter, float sim_iter_tim
   std::vector<size_t> unlinked_nodes;
 
   for (size_t i = 0; i < nnode; i++) {
-    // if (linked_nodes.find(i) == linked_nodes.end())
+    if (linked_nodes.find(i) == linked_nodes.end())
       unlinked_nodes.push_back(i);
   }
 

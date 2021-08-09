@@ -2195,7 +2195,32 @@ void FFModel::rewrite(const std::map<Op*, ParallelConfig>& current,
     //TODO: need to make sure opId is not an output layer of the model
     if (opId == layers.size() - 1)
       return;
-    next[layers[opId]] = layers[opId]->get_random_parallel_config(*ffmodel);
+    // next[layers[opId]] = layers[opId]->get_random_parallel_config(*ffmodel);
+  //   if (opId < 80) {
+  //    // while (ppc.dim[ppc.nDims-1] < 54) {
+  //    //   next[layers[opId]] = layers[opId]->get_random_parallel_config(*this);
+  //    //   ParallelConfig & ppc = next[layers[opId]];
+  //    // }
+  //    for (int i = 0; i < 80; i++) {
+  //      if (i / 8 == opId / 8 && i != opId) {
+  //        next[layers[i]] = next[layers[opId]]; // layers[i]->get_random_parallel_config(*this, ppc.dim[ppc.nDims-1]);
+  //        // next[layers[i]] = layers[i]->get_random_parallel_config(*this, ppc.dim[ppc.nDims-1]);
+  //        // printf("Layer %s getting same PC as %s, ndims = %d\n", layers[i]->name, layers[opId]->name, ppc.dim[ppc.nDims-1]);
+  //      }
+  //    }
+  //  }
+  //  else if (opId > 80) {
+  //    // while (ppc.dim[ppc.nDims-1] < 54) {
+  //    //   next[layers[opId]] = layers[opId]->get_random_parallel_config(*this);
+  //    //   ParallelConfig & ppc = next[layers[opId]];
+  //    // }
+  //    for (int i = 81; i < layers.size() - 2; i++) {
+  //      if (i != opId) {
+  //        next[layers[i]] = next[layers[opId]]; // layers[i]->get_random_parallel_config(*this, ppc.dim[ppc.nDims-1]);
+  //        // printf("Layer %s getting same PC as %s, ndims = %d\n", layers[i]->name, layers[opId]->name, ppc.dim[ppc.nDims-1]);
+  //      }
+  //    }
+  //  }
   }
 }
 
