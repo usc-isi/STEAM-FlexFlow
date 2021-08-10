@@ -284,12 +284,12 @@ void DemandHeuristicNetworkOptimizer::task_added(SimTask * task)
   }
 }
 
-size_t DemandHeuristicNetworkOptimizer::edge_id(int i, int j) 
+size_t DemandHeuristicNetworkOptimizer::edge_id(int i, int j) const
 {
   return i * machine->get_total_devs() + j;
 }
 
-size_t DemandHeuristicNetworkOptimizer::unordered_edge_id(int i, int j) 
+size_t DemandHeuristicNetworkOptimizer::unordered_edge_id(int i, int j) const
 {
   return i > j ? edge_id(i, j) : edge_id(j, i);
 }
@@ -752,6 +752,48 @@ void* DemandHeuristicNetworkOptimizer::export_information()
   return nullptr;
 }
 
+void DemandHeuristicNetworkOptimizer::store_tm() const 
+{
+
+  std::ofstream output; 
+  output.open("traffic_matrix.txt");
+  output << "PHYSICAL_TM:" << std::endl;
+  for (int i = 0; i < machine->get_total_devs(); i++) {
+    for (int j = 0; j < machine->get_total_devs(); j++) {
+      if (physical_traffic_demand.find(edge_id(i,j)) == physical_traffic_demand.end())
+        output << "0" << "\t";
+      else
+        output << physical_traffic_demand.at(edge_id(i, j)) << "\t";
+    }
+    output << std::endl;
+  }
+  output << std::endl;
+  output << "LOGICAL_TM:" << std::endl;
+  for (int i = 0; i < machine->get_total_devs(); i++) {
+    for (int j = 0; j < machine->get_total_devs(); j++) {
+      if (logical_traffic_demand.find(edge_id(i,j)) == logical_traffic_demand.end())
+        output << "0" << "\t";
+      else
+        output << logical_traffic_demand.at(edge_id(i, j)) << "\t";
+    }
+    output << std::endl;
+  }
+  output << std::endl;
+  output << "INDIR_LIST:" << std::endl;
+  NetworkedMachineModel * nm = static_cast<NetworkedMachineModel*>(this->machine);
+  const ConnectionMatrix & conn = nm->conn_matrix;
+  ShortestPathNetworkRoutingStrategy s{conn, nm->ids_to_nw_comm_device, nm->total_devs};
+  std::unordered_map<size_t, std::pair<uint64_t, double>> result;
+  for (auto& entry: logical_traffic_demand) {
+    if (conn[entry.first] == 0 && entry.second > 0) {
+      int hop_cnt, narrowest;
+      s.hop_count(entry.first / nm->total_devs, entry.first % nm->total_devs, hop_cnt, narrowest);
+      output << "(" << entry.first / nm->total_devs << ", " << entry.first % nm->total_devs 
+             << "): " << entry.second << ", " << hop_cnt << ", " << narrowest << std::endl;
+    }
+  }
+  output << std::endl;
+}
 
 DemandHeuristicNetworkOptimizerPlus::DemandHeuristicNetworkOptimizerPlus(MachineModel* machine)
 : DemandHeuristicNetworkOptimizer(machine)
@@ -796,7 +838,7 @@ void DemandHeuristicNetworkOptimizerPlus::connectivity_assign(
     size_t node1 = target.second % ndevs;
     
     // first stage: never assign parallel links across nodes
-    if (conn[edge_id(node0, node1)] == 1) {
+    if (conn[edge_id(node0, node1)] == 2) {
       for (auto it = pq.begin(); it != pq.end(); ) {
         if (DemandHeuristicNetworkOptimizer::has_endpoint(it->second, node0, ndevs)) {
           // std::cout << "node0 full, removing " << it->second /ndevs << ", " << it->second % ndevs << " with demand left " << it->first << std::endl; 
@@ -840,6 +882,13 @@ void DemandHeuristicNetworkOptimizerPlus::connectivity_assign(
       } 
     }
   }
+
+  // for (int i = 0; i < nnode; i++) {
+  //   conn[edge_id(i, (i + nnode / 5) % nnode)]++;
+  //   conn[edge_id(i, 2 * (i + nnode / 5) % nnode)]++;
+  //   conn[edge_id(i, 3 * (i + nnode / 5) % nnode)]++;
+  //   conn[edge_id(i, 4 * (i + nnode / 5) % nnode)]++;
+  // }
 }
 
 void DemandHeuristicNetworkOptimizerPlus::connect_topology(
@@ -1058,9 +1107,13 @@ void DemandHeuristicNetworkOptimizerPlus::utility_max_assign(
       size_t n_node1 = n_target.second % ndevs;
       nconn[edge_id(n_node0, n_node1)]++;
       nconn[edge_id(n_node1, n_node0)]++;
-      auto proposed_indir = construct_bidir_negative_util(nconn);
-      double n_util = compute_utility(sum_of_bidir, proposed_indir, nconn);
-
+      // auto proposed_indir = construct_bidir_negative_util(nconn);
+      double n_util = compute_utility(sum_of_bidir, indirect_traffic, nconn);
+      std::unordered_map<size_t, uint64_t> proposed_indir;
+      if (n_util < 0) {
+        // proposed_indir = construct_bidir_negative_util(nconn);
+        // n_util = compute_utility(sum_of_bidir, proposed_indir, nconn);
+      }
       DemandToIdMap p_target = *positive_pq.begin();
       ConnectionMatrix pconn = conn;
       size_t p_node0 = p_target.second / ndevs;
@@ -1069,32 +1122,53 @@ void DemandHeuristicNetworkOptimizerPlus::utility_max_assign(
       pconn[edge_id(p_node1, p_node0)]++;
       double p_util = compute_utility(sum_of_bidir, indirect_traffic, pconn);
 
-      if (n_util > p_util) {
+      if (n_util > p_util || n_util < 0) {
         // use the negative link
         conn[edge_id(n_node0, n_node1)]++;
         conn[edge_id(n_node1, n_node0)]++;
         INSERT_OR_ADD(node_if_allocated, n_node0, 1);
         INSERT_OR_ADD(node_if_allocated, n_node1, 1);
         // std::cout << "first is " << target.first << std::endl;
-        indirect_traffic = construct_bidir_negative_util(conn);
-        negative_pq.clear();
-        for (auto &item: indirect_traffic) {
-          if (node_if_allocated[item.first/nnode] < if_cnt && node_if_allocated[item.first%nnode] < if_cnt)
-            negative_pq.insert(DemandToIdMap(item.second, item.first));
+        if (proposed_indir.empty()) {
+          indirect_traffic.erase(negative_pq.begin()->second);
+          negative_pq.erase(negative_pq.begin());
         }
-        for (auto & entry: node_if_allocated) {
-          if (entry.second == if_cnt) {
-            for (auto it = positive_pq.begin(); it != positive_pq.end(); ) {
-              if (node_if_allocated[entry.first] == if_cnt && DemandHeuristicNetworkOptimizer::has_endpoint(it->second, entry.first, ndevs)) {
-                it = positive_pq.erase(it);
-              }
-              else {
-                ++it;
-              }
-            }
+        else {
+          indirect_traffic = proposed_indir;
+          negative_pq.clear();
+          for (auto &item: indirect_traffic) {
+            if (node_if_allocated[item.first/nnode] < if_cnt && node_if_allocated[item.first%nnode] < if_cnt)
+              negative_pq.insert(DemandToIdMap(item.second, item.first));
           }
         }
-        indirect_traffic = proposed_indir;
+        if (node_if_allocated[n_node0] == if_cnt || node_if_allocated[n_node1] == if_cnt) {
+          for (auto it = positive_pq.begin(); it != positive_pq.end(); ) {
+            if (node_if_allocated[n_node0] == if_cnt && DemandHeuristicNetworkOptimizer::has_endpoint(it->second, n_node0, ndevs)) {
+              // std::cout << "node0 full, removing " << it->second /ndevs << ", " << it->second % ndevs << " with demand left " << it->first << std::endl; 
+              it = positive_pq.erase(it);
+            }
+            else if (node_if_allocated[n_node1] == if_cnt && DemandHeuristicNetworkOptimizer::has_endpoint(it->second, n_node1, ndevs)) {
+              // std::cout << "node1 full, removing " << it->second /ndevs << ", " << it->second % ndevs << " with demand left " << it->first << std::endl; 
+              it = positive_pq.erase(it);
+            }
+            else {
+              ++it;
+            }
+          }
+          for (auto it = negative_pq.begin(); it != negative_pq.end(); ) {
+            if (node_if_allocated[n_node0] == if_cnt && DemandHeuristicNetworkOptimizer::has_endpoint(it->second, n_node0, ndevs)) {
+              // std::cout << "node0 full, removing " << it->second /ndevs << ", " << it->second % ndevs << " with demand left " << it->first << std::endl; 
+              it = negative_pq.erase(it);
+            }
+            else if (node_if_allocated[n_node1] == if_cnt && DemandHeuristicNetworkOptimizer::has_endpoint(it->second, n_node1, ndevs)) {
+              // std::cout << "node1 full, removing " << it->second /ndevs << ", " << it->second % ndevs << " with demand left " << it->first << std::endl; 
+              it = negative_pq.erase(it);
+            }
+            else {
+              ++it;
+            }
+          } 
+        } 
       }
       else {
         positive_pq.erase(positive_pq.begin());
@@ -1261,7 +1335,7 @@ void DemandHeuristicNetworkOptimizerPlus::optimize(int mcmc_iter, float sim_iter
 
   connectivity_assign(conn, max_of_bidir, node_if_allocated);
 // #ifdef DEBUG_PRINT
-  std::cerr << "After print_conn " << std::endl;
+  std::cerr << "After connectivity_assign " << std::endl;
   NetworkTopologyGenerator::print_conn_matrix(conn, nnode, 0);
 // #endif
   connect_topology(conn, node_if_allocated);

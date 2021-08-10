@@ -526,6 +526,7 @@ public:
     virtual void task_added(SimTask * task) { return; };
     virtual void reset() = 0;
     virtual void* export_information() = 0;
+    virtual void store_tm() const = 0;
 
 protected:
     MachineModel *machine; // Would really like to do a T extends MachineModel...
@@ -545,8 +546,8 @@ public:
   virtual void task_added(SimTask * task);
   virtual void reset();
   virtual void* export_information();
-  size_t edge_id(int i, int j);
-  size_t unordered_edge_id(int i, int j);
+  size_t edge_id(int i, int j) const;
+  size_t unordered_edge_id(int i, int j) const;
   void optimize_demand(
       ConnectionMatrix &conn,
       std::unordered_map<size_t, uint64_t> &max_of_bidir,
@@ -558,6 +559,8 @@ public:
   size_t get_if_in_use(size_t node, const ConnectionMatrix & conn);
   bool add_link(size_t i, size_t j, ConnectionMatrix & conn);
   void remove_link(size_t i, size_t j, ConnectionMatrix & conn);
+
+  virtual void store_tm() const;
 
   inline static bool has_endpoint(uint64_t e, size_t v, size_t n) {
     return e / n == v || e % n == v;
