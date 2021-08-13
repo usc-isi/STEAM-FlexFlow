@@ -825,4 +825,50 @@ public:
 
   // flatbuffers::FlatBufferBuilder builder;
 };
+
+struct DPGroup {
+  int starting_node;
+  int group_size;
+  size_t xfer_size;
+  // std::set<int> jump_dists;
+};
+
+// Space-multiplexed matching?...
+class SpMulMat : public L1Optimizer {
+public: 
+  SpMulMat(MachineModel * machine, int degree, bool bidir);
+  ~SpMulMat() = default;
+
+  virtual void optimize(int mcmc_iter, float sim_iter_time);
+  virtual void task_added(SimTask * task) { return; };
+  virtual void reset();
+  virtual void* export_information();
+  virtual void store_tm() const; 
+
+  inline void get_dp_mp_degree(int & dp_degree, int & mp_degree);
+  void generate_dp_topology(ConnectionMatrix & conn, int dp_degree);
+  void generate_mp_matching(ConnectionMatrix & conn, int dp_degree);
+  ConnectionMatrix add_ring(const ConnectionMatrix & conn, int start, int dist);
+  ConnectionMatrix construct_hop_matrix(const ConnectionMatrix & conn);
+  double compute_mp_satified(const ConnectionMatrix & hop_matrix);
+  void construct_candidate_jumps();
+
+  // uint64_t get_mp_bandwidth_tax(const ConnectionMatrix & conn);
+
+  inline uint64_t dpgrp_unique_key(const DPGroup & dpg) const;
+  inline size_t edge_id(int i, int j) const;
+  inline size_t unordered_edge_id(int i, int j) const;
+  inline int get_start_node(uint64_t id) const;
+  inline int get_group_size(uint64_t id) const;
+
+  std::unordered_map<uint64_t, std::vector<int>> candidate_jumps;
+  std::unordered_map<uint64_t, std::vector<std::vector<int>>> selected_jumps;
+  std::unordered_map<uint64_t, uint64_t> dpgrp_xfersize;
+  std::vector<DPGroup> dpgrps;
+  std::unordered_map<uint64_t, uint64_t> mp_tm_logical;
+
+  int degree;
+  bool bidir;
+};
+
 #endif
