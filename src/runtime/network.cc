@@ -65,7 +65,7 @@ EcmpRoutes ShortestPathNetworkRoutingStrategy::get_routes(int src_node, int dst_
         continue;
       }
       double new_dist = dist[min_node] + 1; // numeric_limits<uint64_t>::max() / get_bandwidth_bps(min_node, i);
-      if (new_dist < dist[i]) {
+      if (new_dist < dist[i] || (new_dist == dist[i] && unif(gen) < 0.5)) {
         dist[i] = new_dist;
         prev[i] = min_node;
         pq.push(std::make_pair(new_dist, i));
@@ -883,12 +883,12 @@ void DemandHeuristicNetworkOptimizerPlus::connectivity_assign(
     }
   }
 
-  // for (int i = 0; i < nnode; i++) {
-  //   conn[edge_id(i, (i + nnode / 5) % nnode)]++;
-  //   conn[edge_id(i, 2 * (i + nnode / 5) % nnode)]++;
-  //   conn[edge_id(i, 3 * (i + nnode / 5) % nnode)]++;
-  //   conn[edge_id(i, 4 * (i + nnode / 5) % nnode)]++;
-  // }
+  for (int i = 0; i < nnode; i++) {
+    conn[edge_id(i, (i + nnode / 5) % nnode)]++;
+    conn[edge_id(i, 2 * (i + nnode / 5) % nnode)]++;
+    conn[edge_id(i, 3 * (i + nnode / 5) % nnode)]++;
+    conn[edge_id(i, 4 * (i + nnode / 5) % nnode)]++;
+  }
 }
 
 void DemandHeuristicNetworkOptimizerPlus::connect_topology(
@@ -1338,12 +1338,12 @@ void DemandHeuristicNetworkOptimizerPlus::optimize(int mcmc_iter, float sim_iter
   std::cerr << "After connectivity_assign " << std::endl;
   NetworkTopologyGenerator::print_conn_matrix(conn, nnode, 0);
 // #endif
-  connect_topology(conn, node_if_allocated);
-  std::cerr << "After conn_topo " << std::endl;
-  NetworkTopologyGenerator::print_conn_matrix(conn, nnode, 0);
-  utility_max_assign(conn, node_if_allocated);
-  std::cerr << "After util_max " << std::endl;
-  NetworkTopologyGenerator::print_conn_matrix(conn, nnode, 0);
+  // connect_topology(conn, node_if_allocated);
+  // std::cerr << "After conn_topo " << std::endl;
+  // NetworkTopologyGenerator::print_conn_matrix(conn, nnode, 0);
+  // utility_max_assign(conn, node_if_allocated);
+  // std::cerr << "After util_max " << std::endl;
+  // NetworkTopologyGenerator::print_conn_matrix(conn, nnode, 0);
 
   // connect_unused_node(conn, node_if_allocated);
 
