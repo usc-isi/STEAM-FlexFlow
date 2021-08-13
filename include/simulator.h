@@ -108,7 +108,7 @@ typedef std::vector<CommDevice *> Route;
 /* first is an array of cumulative distribution */
 typedef std::pair<std::vector<float>, std::vector<Route> > EcmpRoutes;
 typedef std::vector<int> ConnectionMatrix;
-
+class NetworkRoutingStrategy;
 /**
  * Nomincal communication device. 
  * This is an communication device that allows "path expansion"
@@ -117,16 +117,20 @@ typedef std::vector<int> ConnectionMatrix;
  */
 class NominalCommDevice : public CommDevice {
 public:
-  NominalCommDevice(std::string const &name, int device_id, const EcmpRoutes& routes);
-  NominalCommDevice(std::string const &name, int device_id);
+  // NominalCommDevice(std::string const &name, int device_id, const EcmpRoutes& routes);
+  NominalCommDevice(std::string const &name, int device_id, int nnode, NetworkRoutingStrategy & routing);
   /* pick one of the weighted ECMP path */
   Route expand_to_physical() const;
   const EcmpRoutes & get_all_routes();
   void set_physical_paths(const EcmpRoutes& rs);
+  void reset();
   // static inline int get_from_dev(int devid, int total) {return devid / total;}
   // static inline int get_to_dev(int devid, int total) {return devid % total;}
 private:
+  NetworkRoutingStrategy & routing_strategy;
   EcmpRoutes routes;
+  int nnode;
+  bool dirty = true;
 };
 
 class MachineModel {
@@ -301,6 +305,7 @@ public:
     ShortestPathNetworkRoutingStrategy(const ConnectionMatrix & c, 
         const std::map<size_t, CommDevice*>& devmap, int total_devs);
     virtual EcmpRoutes get_routes(int src_node, int dst_node);
+    void hop_count(int src_node, int dst_node, int & hop, int & narrowest);
     void clear();
 private:
     const ConnectionMatrix& conn;
@@ -325,6 +330,7 @@ private:
  */
 class NetworkedMachineModel : public MachineModel  {
   friend class DemandHeuristicNetworkOptimizer;
+  friend class DemandHeuristicNetworkOptimizerPlus;
 public:
   /**
    * Constructor. A network topology specified as above needs to be provided
@@ -520,6 +526,7 @@ public:
     virtual void task_added(SimTask * task) { return; };
     virtual void reset() = 0;
     virtual void* export_information() = 0;
+    virtual void store_tm() const = 0;
 
 protected:
     MachineModel *machine; // Would really like to do a T extends MachineModel...
@@ -539,15 +546,21 @@ public:
   virtual void task_added(SimTask * task);
   virtual void reset();
   virtual void* export_information();
-  size_t edge_id(int i, int j);
-  size_t unordered_edge_id(int i, int j);
+  size_t edge_id(int i, int j) const;
+  size_t unordered_edge_id(int i, int j) const;
+  void optimize_demand(
+      ConnectionMatrix &conn,
+      std::unordered_map<size_t, uint64_t> &max_of_bidir,
+      std::unordered_map<size_t, size_t> &node_if_allocated); 
+  void connect_unused_node(ConnectionMatrix &conn, std::unordered_map<size_t, size_t> &node_if_allocated);
+  void connect_cc(std::unordered_map<uint64_t, uint64_t> &logical_id_to_demand, 
+                  ConnectionMatrix &conn);
 
   size_t get_if_in_use(size_t node, const ConnectionMatrix & conn);
   bool add_link(size_t i, size_t j, ConnectionMatrix & conn);
   void remove_link(size_t i, size_t j, ConnectionMatrix & conn);
 
-  void connect_cc(std::unordered_map<uint64_t, uint64_t> &logical_id_to_demand, 
-                  ConnectionMatrix &conn);
+  virtual void store_tm() const;
 
   inline static bool has_endpoint(uint64_t e, size_t v, size_t n) {
     return e / n == v || e % n == v;
@@ -595,6 +608,36 @@ public:
 
 };
 // #endif
+
+class DemandHeuristicNetworkOptimizerPlus : public DemandHeuristicNetworkOptimizer 
+{
+public:
+  DemandHeuristicNetworkOptimizerPlus(MachineModel* machine);
+
+  void connectivity_assign(ConnectionMatrix &conn,
+    std::unordered_map<size_t, uint64_t> &max_of_bidir,
+    std::unordered_map<size_t, size_t> &node_if_allocated);
+  void connect_topology(
+    // const std::unordered_map<uint64_t, uint64_t> & logical_id_to_demand, 
+    ConnectionMatrix &conn, 
+    std::unordered_map<size_t, size_t> & node_if_allocated);
+  void utility_max_assign(
+    ConnectionMatrix &conn,
+    // const std::unordered_map<size_t, uint64_t> &max_of_bidir,
+    std::unordered_map<size_t, size_t> &node_if_allocated);
+  double compute_utility(
+    const std::unordered_map<size_t, std::pair<uint64_t, double>> &indirect_traffic,
+    const ConnectionMatrix & conn);
+  double compute_utility(
+    const std::unordered_map<size_t,uint64_t> &sum_of_bidir,
+    const std::unordered_map<size_t,uint64_t> &indirect_traffic,
+    const ConnectionMatrix & conn);
+  std::unordered_map<size_t, std::pair<uint64_t, double>>
+    construct_indir_traffic_list(const ConnectionMatrix &conn); 
+  std::unordered_map<size_t, uint64_t> 
+    construct_bidir_negative_util(const ConnectionMatrix &conn);
+  virtual void optimize(int mcmc_iter, float sim_iter_time);
+};
 
 template <typename T>
 class DotFile {

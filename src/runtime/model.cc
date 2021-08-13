@@ -2261,8 +2261,8 @@ void Op::measure_all(Simulator * sim, FFModel& ff, std::vector<OpMeasurement>& o
     
   int batch_size = outputs[0].adim[outputs[0].numDim-1];
   size_t local_bup = ff.config.local_batch_sz_upperlimit;
-  // if (op_type == OperatorType::OP_MULTIHEAD_ATTENTION)
-  //   local_bup = 432;
+  if (op_type == OperatorType::OP_MULTIHEAD_ATTENTION)
+    local_bup = 432;
   printf("batch_size: %d, local_batch_sz_upperlimit: %zu\n", batch_size, local_bup);
   for (int i = 1; i <= ff.config.workersPerNode; i++) {
     if (ff.config.workersPerNode % i == 0) {
@@ -2319,6 +2319,10 @@ void FFModel::optimize(Simulator* simulator,
   float best_runtime = simulator->simulate_runtime(this, best, comp_mode);
   current = best;
   float current_runtime = best_runtime;
+  if (simulator->l1optimizer) {
+    simulator->l1optimizer->optimize(0, best_runtime);
+    simulator->l1optimizer->store_tm();
+  }
   size_t reset_span = budget / 100, last_reset_iter = 0;
   if (reset_span == 0)
     reset_span = 1;
@@ -2361,6 +2365,8 @@ void FFModel::optimize(Simulator* simulator,
     if (next_runtime < best_runtime) {
       best_runtime = next_runtime;
       best = next;
+      if (simulator->l1optimizer)
+        simulator->l1optimizer->store_tm();
     }
     if (next_runtime < current_runtime) {
       current = next;
