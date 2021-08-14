@@ -1081,7 +1081,6 @@ float LogicalTaskgraphBasedSimulator::route_transfer(SimTask * transfer_task,
   return final_finish_time;
 }
 
-#define MOD(a, b) ((a) % (b)) < 0 ? ((a) % (b)) + (b) : ((a) % (b))
 void LogicalTaskgraphBasedSimulator::expand_allreduce(SimTask * allreduce_task,
                                  float start_time,
                                  std::priority_queue<SimTask*, std::vector<SimTask*>, SimTaskCompare>& ready_queue) {

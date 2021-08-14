@@ -5,6 +5,7 @@
 #include <utility>
 #include <cmath>
 #include <unordered_set>
+#include <functional>
 
 #include "simulator.h"
 // #define EDGE(a, b, n) ((a) > (b) ? ((a) * (n) + (b)) : ((b) * (n) + (a)))
@@ -22,17 +23,17 @@ static std::random_device rd;
 static std::mt19937 gen = std::mt19937(rd()); 
 static std::uniform_real_distribution<double> unif(0, 1);
 
-// all prime numbers below 10000. I know how to write a sieve but this is good enouggh.
-const static uint16_t PRIMES[] = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271, 277, 281, 283, 293, 307, 311, 313, 317, 331, 337, 347, 349, 353, 359, 367, 373, 379, 383, 389, 397, 401, 409, 419, 421, 431, 433, 439, 443, 449, 457, 461, 463, 467, 479, 487, 491, 499, 503, 509, 521, 523, 541, 547, 557, 563, 569, 571, 577, 587, 593, 599, 601, 607, 613, 617, 619, 631, 641, 643, 647, 653, 659, 661, 673, 677, 683, 691, 701, 709, 719, 727, 733, 739, 743, 751, 757, 761, 769, 773, 787, 797, 809, 811, 821, 823, 827, 829, 839, 853, 857, 859, 863, 877, 881, 883, 887, 907, 911, 919, 929, 937, 941, 947, 953, 967, 971, 977, 983, 991, 997, 1009, 1013, 1019, 1021, 1031, 1033, 1039, 1049, 1051, 1061, 1063, 1069, 1087, 1091, 1093, 1097, 1103, 1109, 1117, 1123, 1129, 1151, 1153, 1163, 1171, 1181, 1187, 1193, 1201, 1213, 1217, 1223, 1229, 1231, 1237, 1249, 1259, 1277, 1279, 1283, 1289, 1291, 1297, 1301, 1303, 1307, 1319, 1321, 1327, 1361, 1367, 1373, 1381, 1399, 1409, 1423, 1427, 1429, 1433, 1439, 1447, 1451, 1453, 1459, 1471, 1481, 1483, 1487, 1489, 1493, 1499, 1511, 1523, 1531, 1543, 1549, 1553, 1559, 1567, 1571, 1579, 1583, 1597, 1601, 1607, 1609, 1613, 1619, 1621, 1627, 1637, 1657, 1663, 1667, 1669, 1693, 1697, 1699, 1709, 1721, 1723, 1733, 1741, 1747, 1753, 1759, 1777, 1783, 1787, 1789, 1801, 1811, 1823, 1831, 1847, 1861, 1867, 1871, 1873, 1877, 1879, 1889, 1901, 1907, 1913, 1931, 1933, 1949, 1951, 1973, 1979, 1987, 1993, 1997, 1999, 2003, 2011, 2017, 2027, 2029, 2039, 2053, 2063, 2069, 2081, 2083, 2087, 2089, 2099, 2111, 2113, 2129, 2131, 2137, 2141, 2143, 2153, 2161, 2179, 2203, 2207, 2213, 2221, 2237, 2239, 2243, 2251, 2267, 2269, 2273, 2281, 2287, 2293, 2297, 2309, 2311, 2333, 2339, 2341, 2347, 2351, 2357, 2371, 2377, 2381, 2383, 2389, 2393, 2399, 2411, 2417, 2423, 2437, 2441, 2447, 2459, 2467, 2473, 2477, 2503, 2521, 2531, 2539, 2543, 2549, 2551, 2557, 2579, 2591, 2593, 2609, 2617, 2621, 2633, 2647, 2657, 2659, 2663, 2671, 2677, 2683, 2687, 2689, 2693, 2699, 2707, 2711, 2713, 2719, 2729, 2731, 2741, 2749, 2753, 2767, 2777, 2789, 2791, 2797, 2801, 2803, 2819, 2833, 2837, 2843, 2851, 2857, 2861, 2879, 2887, 2897, 2903, 2909, 2917, 2927, 2939, 2953, 2957, 2963, 2969, 2971, 2999, 3001, 3011, 3019, 3023, 3037, 3041, 3049, 3061, 3067, 3079, 3083, 3089, 3109, 3119, 3121, 3137, 3163, 3167, 3169, 3181, 3187, 3191, 3203, 3209, 3217, 3221, 3229, 3251, 3253, 3257, 3259, 3271, 3299, 3301, 3307, 3313, 3319, 3323, 3329, 3331, 3343, 3347, 3359, 3361, 3371, 3373, 3389, 3391, 3407, 3413, 3433, 3449, 3457, 3461, 3463, 3467, 3469, 3491, 3499, 3511, 3517, 3527, 3529, 3533, 3539, 3541, 3547, 3557, 3559, 3571, 3581, 3583, 3593, 3607, 3613, 3617, 3623, 3631, 3637, 3643, 3659, 3671, 3673, 3677, 3691, 3697, 3701, 3709, 3719, 3727, 3733, 3739, 3761, 3767, 3769, 3779, 3793, 3797, 3803, 3821, 3823, 3833, 3847, 3851, 3853, 3863, 3877, 3881, 3889, 3907, 3911, 3917, 3919, 3923, 3929, 3931, 3943, 3947, 3967, 3989, 4001, 4003, 4007, 4013, 4019, 4021, 4027, 4049, 4051, 4057, 4073, 4079, 4091, 4093, 4099, 4111, 4127, 4129, 4133, 4139, 4153, 4157, 4159, 4177, 4201, 4211, 4217, 4219, 4229, 4231, 4241, 4243, 4253, 4259, 4261, 4271, 4273, 4283, 4289, 4297, 4327, 4337, 4339, 4349, 4357, 4363, 4373, 4391, 4397, 4409, 4421, 4423, 4441, 4447, 4451, 4457, 4463, 4481, 4483, 4493, 4507, 4513, 4517, 4519, 4523, 4547, 4549, 4561, 4567, 4583, 4591, 4597, 4603, 4621, 4637, 4639, 4643, 4649, 4651, 4657, 4663, 4673, 4679, 4691, 4703, 4721, 4723, 4729, 4733, 4751, 4759, 4783, 4787, 4789, 4793, 4799, 4801, 4813, 4817, 4831, 4861, 4871, 4877, 4889, 4903, 4909, 4919, 4931, 4933, 4937, 4943, 4951, 4957, 4967, 4969, 4973, 4987, 4993, 4999, 5003, 5009, 5011, 5021, 5023, 5039, 5051, 5059, 5077, 5081, 5087, 5099, 5101, 5107, 5113, 5119, 5147, 5153, 5167, 5171, 5179, 5189, 5197, 5209, 5227, 5231, 5233, 5237, 5261, 5273, 5279, 5281, 5297, 5303, 5309, 5323, 5333, 5347, 5351, 5381, 5387, 5393, 5399, 5407, 5413, 5417, 5419, 5431, 5437, 5441, 5443, 5449, 5471, 5477, 5479, 5483, 5501, 5503, 5507, 5519, 5521, 5527, 5531, 5557, 5563, 5569, 5573, 5581, 5591, 5623, 5639, 5641, 5647, 5651, 5653, 5657, 5659, 5669, 5683, 5689, 5693, 5701, 5711, 5717, 5737, 5741, 5743, 5749, 5779, 5783, 5791, 5801, 5807, 5813, 5821, 5827, 5839, 5843, 5849, 5851, 5857, 5861, 5867, 5869, 5879, 5881, 5897, 5903, 5923, 5927, 5939, 5953, 5981, 5987, 6007, 6011, 6029, 6037, 6043, 6047, 6053, 6067, 6073, 6079, 6089, 6091, 6101, 6113, 6121, 6131, 6133, 6143, 6151, 6163, 6173, 6197, 6199, 6203, 6211, 6217, 6221, 6229, 6247, 6257, 6263, 6269, 6271, 6277, 6287, 6299, 6301, 6311, 6317, 6323, 6329, 6337, 6343, 6353, 6359, 6361, 6367, 6373, 6379, 6389, 6397, 6421, 6427, 6449, 6451, 6469, 6473, 6481, 6491, 6521, 6529, 6547, 6551, 6553, 6563, 6569, 6571, 6577, 6581, 6599, 6607, 6619, 6637, 6653, 6659, 6661, 6673, 6679, 6689, 6691, 6701, 6703, 6709, 6719, 6733, 6737, 6761, 6763, 6779, 6781, 6791, 6793, 6803, 6823, 6827, 6829, 6833, 6841, 6857, 6863, 6869, 6871, 6883, 6899, 6907, 6911, 6917, 6947, 6949, 6959, 6961, 6967, 6971, 6977, 6983, 6991, 6997, 7001, 7013, 7019, 7027, 7039, 7043, 7057, 7069, 7079, 7103, 7109, 7121, 7127, 7129, 7151, 7159, 7177, 7187, 7193, 7207, 7211, 7213, 7219, 7229, 7237, 7243, 7247, 7253, 7283, 7297, 7307, 7309, 7321, 7331, 7333, 7349, 7351, 7369, 7393, 7411, 7417, 7433, 7451, 7457, 7459, 7477, 7481, 7487, 7489, 7499, 7507, 7517, 7523, 7529, 7537, 7541, 7547, 7549, 7559, 7561, 7573, 7577, 7583, 7589, 7591, 7603, 7607, 7621, 7639, 7643, 7649, 7669, 7673, 7681, 7687, 7691, 7699, 7703, 7717, 7723, 7727, 7741, 7753, 7757, 7759, 7789, 7793, 7817, 7823, 7829, 7841, 7853, 7867, 7873, 7877, 7879, 7883, 7901, 7907, 7919, 7927, 7933, 7937, 7949, 7951, 7963, 7993, 8009, 8011, 8017, 8039, 8053, 8059, 8069, 8081, 8087, 8089, 8093, 8101, 8111, 8117, 8123, 8147, 8161, 8167, 8171, 8179, 8191, 8209, 8219, 8221, 8231, 8233, 8237, 8243, 8263, 8269, 8273, 8287, 8291, 8293, 8297, 8311, 8317, 8329, 8353, 8363, 8369, 8377, 8387, 8389, 8419, 8423, 8429, 8431, 8443, 8447, 8461, 8467, 8501, 8513, 8521, 8527, 8537, 8539, 8543, 8563, 8573, 8581, 8597, 8599, 8609, 8623, 8627, 8629, 8641, 8647, 8663, 8669, 8677, 8681, 8689, 8693, 8699, 8707, 8713, 8719, 8731, 8737, 8741, 8747, 8753, 8761, 8779, 8783, 8803, 8807, 8819, 8821, 8831, 8837, 8839, 8849, 8861, 8863, 8867, 8887, 8893, 8923, 8929, 8933, 8941, 8951, 8963, 8969, 8971, 8999, 9001, 9007, 9011, 9013, 9029, 9041, 9043, 9049, 9059, 9067, 9091, 9103, 9109, 9127, 9133, 9137, 9151, 9157, 9161, 9173, 9181, 9187, 9199, 9203, 9209, 9221, 9227, 9239, 9241, 9257, 9277, 9281, 9283, 9293, 9311, 9319, 9323, 9337, 9341, 9343, 9349, 9371, 9377, 9391, 9397, 9403, 9413, 9419, 9421, 9431, 9433, 9437, 9439, 9461, 9463, 9467, 9473, 9479, 9491, 9497, 9511, 9521, 9533, 9539, 9547, 9551, 9587, 9601, 9613, 9619, 9623, 9629, 9631, 9643, 9649, 9661, 9677, 9679, 9689, 9697, 9719, 9721, 9733, 9739, 9743, 9749, 9767, 9769, 9781, 9787, 9791, 9803, 9811, 9817, 9829, 9833, 9839, 9851, 9857, 9859, 9871, 9883, 9887, 9901, 9907, 9923, 9929, 9931, 9941, 9949, 9967, 9973};
+// all prime numbers below 2048. I know how to write a sieve but this is good enouggh.
+const static std::vector<uint16_t> PRIMES{2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271, 277, 281, 283, 293, 307, 311, 313, 317, 331, 337, 347, 349, 353, 359, 367, 373, 379, 383, 389, 397, 401, 409, 419, 421, 431, 433, 439, 443, 449, 457, 461, 463, 467, 479, 487, 491, 499, 503, 509, 521, 523, 541, 547, 557, 563, 569, 571, 577, 587, 593, 599, 601, 607, 613, 617, 619, 631, 641, 643, 647, 653, 659, 661, 673, 677, 683, 691, 701, 709, 719, 727, 733, 739, 743, 751, 757, 761, 769, 773, 787, 797, 809, 811, 821, 823, 827, 829, 839, 853, 857, 859, 863, 877, 881, 883, 887, 907, 911, 919, 929, 937, 941, 947, 953, 967, 971, 977, 983, 991, 997, 1009, 1013, 1019, 1021, 1031, 1033, 1039, 1049, 1051, 1061, 1063, 1069, 1087, 1091, 1093, 1097, 1103, 1109, 1117, 1123, 1129, 1151, 1153, 1163, 1171, 1181, 1187, 1193, 1201, 1213, 1217, 1223, 1229, 1231, 1237, 1249, 1259, 1277, 1279, 1283, 1289, 1291, 1297, 1301, 1303, 1307, 1319, 1321, 1327, 1361, 1367, 1373, 1381, 1399, 1409, 1423, 1427, 1429, 1433, 1439, 1447, 1451, 1453, 1459, 1471, 1481, 1483, 1487, 1489, 1493, 1499, 1511, 1523, 1531, 1543, 1549, 1553, 1559, 1567, 1571, 1579, 1583, 1597, 1601, 1607, 1609, 1613, 1619, 1621, 1627, 1637, 1657, 1663, 1667, 1669, 1693, 1697, 1699, 1709, 1721, 1723, 1733, 1741, 1747, 1753, 1759, 1777, 1783, 1787, 1789, 1801, 1811, 1823, 1831, 1847, 1861, 1867, 1871, 1873, 1877, 1879, 1889, 1901, 1907, 1913, 1931, 1933, 1949, 1951, 1973, 1979, 1987, 1993, 1997, 1999, 2003, 2011, 2017, 2027, 2029, 2039};
 
-ShortestPathNetworkRoutingStrategy::ShortestPathNetworkRoutingStrategy(
+WeightedShortestPathRoutingStragtegy::WeightedShortestPathRoutingStragtegy(
     const ConnectionMatrix & c, 
     const std::map<size_t, CommDevice*>& devmap,
     int total_devs) 
 : conn(c), devmap(devmap), total_devs(total_devs)
 {} 
 
-EcmpRoutes ShortestPathNetworkRoutingStrategy::get_routes(int src_node, int dst_node) 
+EcmpRoutes WeightedShortestPathRoutingStragtegy::get_routes(int src_node, int dst_node) 
 {
   int key = src_node * total_devs + dst_node;
 
@@ -86,7 +87,7 @@ EcmpRoutes ShortestPathNetworkRoutingStrategy::get_routes(int src_node, int dst_
   return std::make_pair(std::vector<float>{1}, std::vector<Route>{result});
 }
 
-void ShortestPathNetworkRoutingStrategy::hop_count(int src_node, int dst_node, int & hop, int & narrowest)
+void WeightedShortestPathRoutingStragtegy::hop_count(int src_node, int dst_node, int & hop, int & narrowest)
 {
   int key = src_node * total_devs + dst_node;
 
@@ -132,6 +133,251 @@ void ShortestPathNetworkRoutingStrategy::hop_count(int src_node, int dst_node, i
     curr = prev[curr];
   }
   assert(hop > 0 || src_node == dst_node);
+}
+
+
+std::vector<std::pair<int, int>> WeightedShortestPathRoutingStragtegy::hop_count(int src_node) 
+{
+  std::vector<uint64_t> dist(total_devs, std::numeric_limits<uint64_t>::max());
+  std::vector<int> prev(total_devs, -1);
+  std::vector<bool> visited(total_devs, false);
+
+  std::priority_queue<std::pair<uint64_t, uint64_t>, 
+                      std::vector<std::pair<uint64_t, uint64_t> >,
+                      std::greater<std::pair<uint64_t, uint64_t> > > pq;
+  pq.push(std::make_pair(dist[src_node], src_node));
+  dist[src_node] = 0;
+  while (!pq.empty()) {
+    int min_node = pq.top().second;
+    pq.pop();
+    visited[min_node] = true;
+
+    for (int i = 0; i < total_devs; i++) {
+      if (visited[i] || conn[min_node * total_devs + i] == 0) {
+        continue;
+      }
+      double new_dist = dist[min_node] + 1; // numeric_limits<uint64_t>::max() / get_bandwidth_bps(min_node, i);
+      if (new_dist < dist[i]) {
+        dist[i] = new_dist;
+        prev[i] = min_node;
+        pq.push(std::make_pair(new_dist, i));
+      }
+    }
+  }
+
+  std::vector<std::pair<int, int>> result;
+  for (int curr = 0; curr < total_devs; curr++) {
+    int hop = -1;
+    int narrowest = 0;
+    while (prev[curr] != -1) {
+      if (!narrowest || (narrowest > conn[prev[curr] * total_devs + curr])) 
+        narrowest = conn[prev[curr] * total_devs + curr];
+      hop++;
+      curr = prev[curr];
+    }
+    result.emplace_back(std::make_pair(hop, narrowest));
+  }
+  return result; 
+}
+
+ShortestPathNetworkRoutingStrategy::ShortestPathNetworkRoutingStrategy(
+    const ConnectionMatrix & c, 
+    const std::map<size_t, CommDevice*>& devmap,
+    int total_devs) 
+: conn(c), devmap(devmap), total_devs(total_devs)
+{} 
+
+EcmpRoutes ShortestPathNetworkRoutingStrategy::get_routes(int src_node, int dst_node) 
+{
+  int key = src_node * total_devs + dst_node;
+
+  if (conn[key] > 0) {
+    return std::make_pair(std::vector<float>({1}), std::vector<Route>({Route({devmap.at(key)})}));
+  }
+
+  // one-shortest path routing
+  std::vector<uint64_t> dist(total_devs, std::numeric_limits<uint64_t>::max());
+  std::vector<int> prev(total_devs, -1);
+  std::vector<bool> visited(total_devs, false);
+
+  std::queue<uint64_t> q;
+  q.push(src_node);
+  dist[src_node] = 0;
+
+  // BFS
+  while (!q.empty()) {
+    int min_node = q.front();
+    q.pop();
+    visited[min_node] = true;
+
+    if (min_node == dst_node)
+      break;
+
+    for (int i = 0; i < total_devs; i++) {
+      if (visited[i] || conn[min_node * total_devs + i] == 0) {
+        continue;
+      }
+      double new_dist = dist[min_node] + 1; 
+      if (new_dist < dist[i] || (new_dist == dist[i] && unif(gen) < 0.5)) {
+        dist[i] = new_dist;
+        prev[i] = min_node;
+        q.push(i);
+      }
+    }
+  }
+
+  Route result = Route();
+  int curr = dst_node;
+  while (prev[curr] != -1) {
+    result.insert(result.begin(), devmap.at(prev[curr] * total_devs + curr));
+    curr = prev[curr];
+  }
+  assert(result.size() || src_node == dst_node);
+  return std::make_pair(std::vector<float>{1}, std::vector<Route>{result});
+}
+
+void ShortestPathNetworkRoutingStrategy::hop_count(int src_node, int dst_node, int & hop, int & narrowest)
+{
+  int key = src_node * total_devs + dst_node;
+
+  if (conn[key] > 0) {
+    hop = 0;
+    narrowest = conn[key];
+    return;
+  }
+  // one-shortest path routing
+  std::vector<uint64_t> dist(total_devs, std::numeric_limits<uint64_t>::max());
+  std::vector<int> prev(total_devs, -1);
+  std::vector<bool> visited(total_devs, false);
+
+  std::queue<uint64_t> q;
+  q.push(src_node);
+  dist[src_node] = 0;
+
+  // BFS
+  while (!q.empty()) {
+    int min_node = q.front();
+    q.pop();
+    visited[min_node] = true;
+
+    if (min_node == dst_node)
+      break;
+
+    for (int i = 0; i < total_devs; i++) {
+      if (visited[i] || conn[min_node * total_devs + i] == 0) {
+        continue;
+      }
+      double new_dist = dist[min_node] + 1; 
+      if (new_dist < dist[i] || (new_dist == dist[i] && unif(gen) < 0.5)) {
+        dist[i] = new_dist;
+        prev[i] = min_node;
+        q.push(i);
+      }
+    }
+  }
+  hop = 0;
+  narrowest = std::numeric_limits<int>::max();
+  int curr = dst_node;
+  while (prev[curr] != -1) {
+    if (narrowest > conn[prev[curr] * total_devs + curr]) narrowest = conn[prev[curr] * total_devs + curr];
+    hop++;
+    curr = prev[curr];
+  }
+  assert(hop > 0 || src_node == dst_node);
+}
+
+void ShortestPathNetworkRoutingStrategy::hop_count(int src_node, int dst_node, int & hop, int & narrowest)
+{
+  int key = src_node * total_devs + dst_node;
+
+  if (conn[key] > 0) {
+    hop = 0;
+    narrowest = conn[key];
+    return;
+  }
+  // one-shortest path routing
+  std::vector<uint64_t> dist(total_devs, std::numeric_limits<uint64_t>::max());
+  std::vector<int> prev(total_devs, -1);
+  std::vector<bool> visited(total_devs, false);
+
+  std::queue<uint64_t> q;
+  q.push(src_node);
+  dist[src_node] = 0;
+
+  // BFS
+  while (!q.empty()) {
+    int min_node = q.front();
+    q.pop();
+    visited[min_node] = true;
+
+    if (min_node == dst_node)
+      break;
+
+    for (int i = 0; i < total_devs; i++) {
+      if (visited[i] || conn[min_node * total_devs + i] == 0) {
+        continue;
+      }
+      double new_dist = dist[min_node] + 1; 
+      if (new_dist < dist[i] || (new_dist == dist[i] && unif(gen) < 0.5)) {
+        dist[i] = new_dist;
+        prev[i] = min_node;
+        q.push(i);
+      }
+    }
+  }
+  hop = 0;
+  narrowest = std::numeric_limits<int>::max();
+  int curr = dst_node;
+  while (prev[curr] != -1) {
+    if (narrowest > conn[prev[curr] * total_devs + curr]) narrowest = conn[prev[curr] * total_devs + curr];
+    hop++;
+    curr = prev[curr];
+  }
+  assert(hop > 0 || src_node == dst_node);
+}
+
+std::vector<std::pair<int, int>> ShortestPathNetworkRoutingStrategy::hop_count(int src_node) 
+{
+  std::vector<uint64_t> dist(total_devs, std::numeric_limits<uint64_t>::max());
+  std::vector<int> prev(total_devs, -1);
+  std::vector<bool> visited(total_devs, false);
+
+  std::queue<uint64_t> q;
+  q.push(src_node);
+  dist[src_node] = 0;
+
+  // BFS
+  while (!q.empty()) {
+    int min_node = q.front();
+    q.pop();
+    visited[min_node] = true;
+
+    for (int i = 0; i < total_devs; i++) {
+      if (visited[i] || conn[min_node * total_devs + i] == 0) {
+        continue;
+      }
+      double new_dist = dist[min_node] + 1; 
+      if (new_dist < dist[i] || (new_dist == dist[i] && unif(gen) < 0.5)) {
+        dist[i] = new_dist;
+        prev[i] = min_node;
+        q.push(i);
+      }
+    }
+  }
+
+  std::vector<std::pair<int, int>> result;
+  for (int curr = 0; curr < total_devs; curr++) {
+    int hop = -1;
+    int narrowest = 0;
+    while (prev[curr] != -1) {
+      if (!narrowest || (narrowest > conn[prev[curr] * total_devs + curr])) 
+        narrowest = conn[prev[curr] * total_devs + curr];
+      hop++;
+      curr = prev[curr];
+    }
+    result.emplace_back(std::make_pair(hop, narrowest));
+  }
+  return result; 
 }
 
 FlatDegConstraintNetworkTopologyGenerator::FlatDegConstraintNetworkTopologyGenerator(int num_nodes, int degree) 
@@ -1427,7 +1673,37 @@ int SpMulMat::get_start_node(uint64_t id) const
 int SpMulMat::get_group_size(uint64_t id) const 
 {
   return (int)((id & 0xFFFFFFFF00000000ULL) >> 32);
+}
 
+std::vector<int> SpMulMat::negative(const std::vector<int>& v)
+{
+  std::vector<int> result{v};
+  std::transform(result.cbegin(),result.cend(),result.begin(),std::negate<int>{});
+  return result;
+}
+
+bool SpMulMat::segment_overlap(const std::vector<int>& a, const std::vector<int>& b) 
+{
+  assert(a.size() == b.size()); 
+  for (int i = 0; i < a.size(); i++) {
+    if (a.at(i) == b.at(i)) {
+      return true;
+    }
+  } 
+  return true;
+}
+
+std::vector<int> SpMulMat::choose_n(const std::vector<int>& cjs, int jmp, int n)
+{
+  if (n == 1) {
+    return {jmp};
+  }
+  std::set<int> result{jmp};
+  for (int i = 1; i < n; i++) {
+    jmp = MOD(jmp + machine->get_num_nodes()/n, machine->get_num_nodes());
+    result.insert(*std::upper_bound(cjs.cbegin(), cjs.cend(), jmp));
+  }
+  return std::vector<int>{result.cbegin(), result.cend()};
 }
 
 void SpMulMat::construct_candidate_jumps() {
@@ -1437,12 +1713,13 @@ void SpMulMat::construct_candidate_jumps() {
       int group_size = i;
       int base_jump = total_nodes / i;
       int nconfs = total_nodes % i;
-      candidate_jumps.emplace(std::make_pair(group_size, std::vector<int>{}));
+      candidate_jumps.emplace(std::make_pair(group_size, std::vector<int>{1}));
       for (int k = 0; ; k++) {
         if (base_jump * PRIMES[k] >= group_size) {
           break;
         }
-        candidate_jumps[group_size].emplace_back(base_jump * PRIMES[k]);
+        if (group_size % PRIMES[k] != 0)
+          candidate_jumps[group_size].emplace_back(base_jump * PRIMES[k]);
       }
     }
   }
@@ -1515,51 +1792,229 @@ void SpMulMat::generate_dp_topology(ConnectionMatrix & conn, int dp_degree)
     assert(n_rings_assigned <= dp_degree);
   } 
 
+  // this is for later solving the coin change problem. 
+  // contains all the hops one can do on the ring
+  std::set<int> coins;
+
   // O(d. N/ln N . N^2)
   for (int i = 0; i < n_parallel_rings.size(); i++) {
     auto & curr_dpg = n_parallel_rings[i];
     double mp_satisfied = std::numeric_limits<double>::lowest();
     ConnectionMatrix best = conn;
-    int best_jump = -1;
+    std::vector<int> best_jmps;
     selected_jumps.emplace(
       std::make_pair(curr_dpg.first, std::vector<std::vector<int>>{}));
-    for (int j = 0; j < curr_dpg.second; j += bidir ? 2 : 1) {
-      for (int k = 0; k < candidate_jumps.at(curr_dpg.first).size(); k++) {
-        ConnectionMatrix proposed = 
-          add_ring(conn, get_start_node(curr_dpg.first), candidate_jumps.at(curr_dpg.first)[k]);
-        ConnectionMatrix hopm = construct_hop_matrix(conn);
-        double mp_this = compute_mp_satified(hopm);
-        if (mp_this > mp_satisfied || (mp_this == mp_satisfied && unif(gen) > 0.5)) {
-          mp_satisfied = mp_this;
-          best = proposed;
-          best_jump = candidate_jumps.at(curr_dpg.first)[k];
+    // for (int j = 0; j < curr_dpg.second; j += bidir ? 2 : 1) {
+    for (auto & cj: candidate_jumps.at(curr_dpg.first)) {
+      std::vector<int> jmps = choose_n(candidate_jumps.at(curr_dpg.first), cj, curr_dpg.second);
+      ConnectionMatrix proposed = 
+        add_ring(conn, get_start_node(curr_dpg.first), cj);
+      for (int j = 1; j < jmps.size(); j++) {
+        proposed = add_ring(proposed, get_start_node(curr_dpg.first), jmps[j]);
+      }
+      // ConnectionMatrix hopm = construct_hop_matrix(conn);
+      double mp_this = compute_mp_satified(proposed);
+      if (mp_this > mp_satisfied || (mp_this == mp_satisfied && unif(gen) > 0.5)) {
+        mp_satisfied = mp_this;
+        best = proposed;
+        best_jmps = jmps;
+      }
+    }
+    // }
+    assert(best_jmps.size() >= 1);
+    conn = best;
+    selected_jumps[curr_dpg.first].emplace_back(best_jmps);
+    for (auto jmp: best_jmps) {
+      coins.insert(jmp);
+      if (bidir) coins.insert(-jmp);
+    }
+  }
+
+  // construct multihop rings
+  // find where are the non-satisfied rings
+  std::set<uint64_t> unsatisfied_rings;
+  for (auto & entry: sorted_dpgrp_id) {
+    unsatisfied_rings.insert(entry.second);
+  }
+  for (auto & entry: n_parallel_rings) {
+    unsatisfied_rings.erase(unsatisfied_rings.find(entry.first));
+  }
+
+  std::function<bool(const std::vector<int>&, const std::vector<int>&)> vec_len_comp ( 
+    [] (const std::vector<int> &lhs, const std::vector<int> &rhs) -> bool {
+      return lhs.size() < rhs.size();
+    });
+
+  for (uint64_t entry: unsatisfied_rings) {
+    std::set<std::vector<int>, std::function<bool(const std::vector<int>&, const std::vector<int>&)>>
+      solutions(vec_len_comp);
+    for (auto & cj: candidate_jumps.at(entry)) {
+      solutions.insert(coin_change(coins, cj));
+    }
+    std::vector<std::vector<int>> final_choice{};
+    // what's the best solution here... 
+    // backoff and add a +1 ring always?
+    if (solutions.size() == 0) {
+      // TODO
+      continue;
+    }
+    else {
+      int shortest_path_len = solutions.begin()->size();
+      for (auto &sol: solutions) {
+        if (sol.size() == shortest_path_len) {
+          for (auto & existing_sol: final_choice) {
+            if (segment_overlap(existing_sol, sol)) {
+              continue;
+            }
+          }
+          final_choice.emplace_back(sol);
+          if (bidir) {
+            final_choice.emplace_back(negative(sol));
+          }
         }
       }
     }
-    assert(best_jump != -1);
-    conn = best;
-    selected_jumps[curr_dpg.first].emplace_back(std::vector<int>{best_jump});
+    selected_jumps.emplace(entry, final_choice);
   }
-
 }
 
-void SpMulMat::generate_mp_matching(ConnectionMatrix & conn, int dp_degree) 
+void SpMulMat::generate_mp_matching(ConnectionMatrix & conn, int mp_degree) 
 {
+  assert(!bidir || mp_degree % 2 == 0);
+  auto mp_tm = mp_tm_logical;
+  for (int i = 0; i < mp_degree; i += bidir ? 2 : 1) {
+    generate_one_match(conn, mp_tm);
+  }
+}
 
+void SpMulMat::generate_one_match(ConnectionMatrix & conn, std::unordered_map<uint64_t, uint64_t> & mp_tm)
+{
+  auto converted = convert_to_blsm_match_graph(mp_tm);
+  blossom_match::Matching match(converted.first);
+  auto solution = match.SolveMinimumCostPerfectMatching(converted.second);
+  for(auto it = solution.first.begin(); it != solution.first.end(); it++){
+		std::pair<int, int> e = converted.first.GetEdge( *it );
+    conn[edge_id(e.first, e.second)] += 1;
+    if (mp_tm.find(edge_id(e.first, e.second)) != mp_tm.end()) {
+      mp_tm[edge_id(e.first, e.second)] *= (double)conn[edge_id(e.first, e.second)]/(conn[edge_id(e.first, e.second)] + 1);
+    }
+    if (bidir) {
+      conn[edge_id(e.second, e.first)] += 1;
+      if (mp_tm.find(edge_id(e.second, e.first)) != mp_tm.end()) {
+        mp_tm[edge_id(e.second, e.first)] *= (double)conn[edge_id(e.second, e.first)]/(conn[edge_id(e.second, e.first)] + 1);
+      }
+    }
+	}
+}
+
+std::pair<blossom_match::Graph, std::vector<double>>
+SpMulMat::convert_to_blsm_match_graph(std::unordered_map<uint64_t, uint64_t> & mp_tm)
+{
+  uint64_t max_entry = 0;
+  for (auto & entry: mp_tm) {
+    if (entry.second > max_entry) max_entry = entry.second;
+  }
+  size_t num_nodes = machine->get_num_nodes();
+  std::vector<double> costs(num_nodes * (num_nodes - 1), 0);
+  blossom_match::Graph graph(machine->get_num_nodes());
+  for (int i = 0; i < machine->get_num_nodes(); i++) {
+    for (int j = 0; j < machine->get_num_nodes(); j++) {
+      if (i == j) continue;
+      graph.AddEdge(i, j);
+      costs[graph.GetEdgeIndex(i, j)] = 
+        mp_tm.find(edge_id(i, j)) == mp_tm.end() ? max_entry : max_entry - mp_tm.at(edge_id(i, j));
+    }
+  }
+  return std::make_pair(graph, costs);
 }
 
 ConnectionMatrix SpMulMat::add_ring(const ConnectionMatrix & conn, int start, int dist)
 {
-
-}
-
-ConnectionMatrix SpMulMat::construct_hop_matrix(const ConnectionMatrix & conn)
-{
-
+  ConnectionMatrix result{conn};
+  int total_devs = machine->get_total_devs();
+  int curr = start;
+  int next = (start + dist) % total_devs;
+  while (curr != start) {
+    result[edge_id(curr, next)]++;
+    if (bidir) result[edge_id(next, curr)]++;
+    curr = next;
+    next = (next + dist) % total_devs;
+  }
+  return result;
 }
 
 double SpMulMat::compute_mp_satified(const ConnectionMatrix & conn) 
 {
-
+  NetworkedMachineModel * nm = static_cast<NetworkedMachineModel*>(this->machine);
+  ShortestPathNetworkRoutingStrategy s{conn, nm->ids_to_nw_comm_device, nm->total_devs};
+  double result = 0;
+  
+  size_t nnode = machine->get_num_nodes();
+  size_t ndevs = machine->get_total_devs();
+  for (int i = 0; i < nnode; i++) {
+    auto hopcnts = s.hop_count(i);
+    // std::cerr << "from " << i << " to " << j << " discounted: " << discounted_hop 
+    //   << "(hop cnt: " << hop_cnt << ", narrowest: " << narrowest << std::endl;
+    for (int j = 0; j < nnode; j++) {
+      if (j == i) { 
+        continue; 
+      }
+      if (mp_tm_logical.find(edge_id(i, j)) != mp_tm_logical.end()) {
+        if (conn[edge_id(i, j)] > 0) {
+          result += mp_tm_logical.at(edge_id(i, j));
+        } else {
+          if (hopcnts[j].first == -1) continue;
+          result += mp_tm_logical.at(edge_id(i, j)) / hopcnts[j].first;
+        }
+      }
+    }
+  }
+  return result;
 }
 
+std::vector<int> SpMulMat::coin_change(const std::set<int> & coins, int goal) 
+{
+  std::vector<int> coins_vec{coins.cbegin(), coins.cend()};
+  int min_coin = coins_vec[0];
+  if (min_coin < 0) {
+    std::transform(coins_vec.cbegin(), coins_vec.cend(), coins_vec.begin(),
+      [&] (int i) -> int {return i + 1 - min_coin;}
+    );
+    goal = goal - min_coin + 1;
+  }
+
+  std::vector<int> dist(goal, 0);
+  std::vector<int> back_idx(goal, -1);
+  for (int c: coins_vec) {
+    dist[c - 1] = 1;
+    back_idx[c - 1] = c - 1;
+  }
+
+  for (int i = 0; i < goal; i++) {
+    if (dist[i] == 1) continue;
+    int index_candididate = -1;
+    int min_dist = 0;
+    for (int c: coins_vec) {
+      if (i - (c - 1) >= 0) {
+        if (!min_dist || (dist[i-(c-1)] + 1 < min_dist)) {
+          min_dist = dist[i-(c-1)] + 1;
+          index_candididate = c-1;
+        }
+      }
+    }
+  }
+
+  if (back_idx.back() == -1) {
+    return {};
+  }
+  std::vector<int> result;
+  int curr_coin = back_idx.back();
+  int curr_pos = goal;
+
+  while (curr_pos != curr_coin) {
+    result.push_back(min_coin > 0 ? curr_coin : curr_coin - 1 + min_coin);
+    curr_pos -= curr_coin;
+    curr_coin = back_idx[curr_pos];
+  }
+  return result;
+}
