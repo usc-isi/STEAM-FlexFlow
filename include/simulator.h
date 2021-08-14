@@ -17,6 +17,7 @@
 
 #include "ffconst.h"
 #include "config.h"
+#include "blossom_match.h"
 #include <memory>
 #include <queue>
 #include <fstream>
@@ -308,6 +309,7 @@ public:
         const std::map<size_t, CommDevice*>& devmap, int total_devs);
     virtual EcmpRoutes get_routes(int src_node, int dst_node);
     void hop_count(int src_node, int dst_node, int & hop, int & narrowest);
+    std::vector<std::pair<int, int>> hop_count(int src_node);
     void clear();
 private:
     const ConnectionMatrix& conn;
@@ -870,6 +872,8 @@ public:
   double compute_mp_satified(const ConnectionMatrix & hop_matrix);
   void construct_candidate_jumps();
   std::vector<int> coin_change(const std::set<int> & coins, int goal);
+  std::pair<blossom_match::Graph, std::vector<double>>
+    convert_to_blsm_match_graph(std::unordered_map<uint64_t, uint64_t> & mp_tm);
 
   // uint64_t get_mp_bandwidth_tax(const ConnectionMatrix & conn);
 
@@ -881,7 +885,6 @@ public:
   inline bool segment_overlap(const std::vector<int>& a, const std::vector<int>& b);
   inline std::vector<int> negative(const std::vector<int>& v);
   inline std::vector<int> choose_n(const std::vector<int>& cjs, int init_jmp, int n);
-  inline std::unordered_map<uint64_t, uint64_t> flip_tm(const std::unordered_map<uint64_t, uint64_t> & tm);
 
   std::unordered_map<uint64_t, std::vector<int>> candidate_jumps;
   std::unordered_map<uint64_t, std::vector<std::vector<int>>> selected_jumps;
