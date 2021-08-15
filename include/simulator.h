@@ -852,7 +852,7 @@ struct DPGroup {
 };
 
 // Space-multiplexed matching?...
-class SpMulMat : public L1Optimizer {
+class SpMulMat : public DemandHeuristicNetworkOptimizer {
 public: 
   SpMulMat(MachineModel * machine, int degree, bool bidir);
   ~SpMulMat() = default;

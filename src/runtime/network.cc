@@ -1539,7 +1539,7 @@ DemandHeuristicNetworkOptimizerPlus::construct_indir_traffic_list(const Connecti
 }
 
 std::unordered_map<size_t, size_t> 
-  DemandHeuristicNetworkOptimizerPlus::construct_bidir_negative_util(const ConnectionMatrix &conn)
+DemandHeuristicNetworkOptimizerPlus::construct_bidir_negative_util(const ConnectionMatrix &conn)
 {
   NetworkedMachineModel * nm = static_cast<NetworkedMachineModel*>(this->machine);
   ShortestPathNetworkRoutingStrategy s{conn, nm->ids_to_nw_comm_device, nm->total_devs};
@@ -1624,7 +1624,7 @@ void DemandHeuristicNetworkOptimizerPlus::optimize(int mcmc_iter, float sim_iter
 }
 
 SpMulMat::SpMulMat(MachineModel * machine, int degree, bool bidir)
-: L1Optimizer(machine), degree(degree), bidir(bidir)
+: DemandHeuristicNetworkOptimizer(machine), degree(degree), bidir(bidir)
 {
 
 }
@@ -1780,6 +1780,7 @@ std::vector<std::pair<uint64_t, int>> SpMulMat::generate_dp_topology(ConnectionM
 
   std::vector<std::pair<uint64_t, int>> n_parallel_rings;
   int n_rings_assigned = 0;
+  bool all_ring = false;
   for (auto & entry: sorted_dpgrp_id) {
     int nlink = total_traffic * dp_degree / entry.first;
     if (nlink == 0) nlink = 1;
@@ -1792,9 +1793,18 @@ std::vector<std::pair<uint64_t, int>> SpMulMat::generate_dp_topology(ConnectionM
     }
     n_rings_assigned += nlink;
     n_parallel_rings.emplace_back(std::make_pair(entry.second, nlink));
+    if (entry.second == machine->get_num_nodes()) all_ring = true;
     if (n_rings_assigned == dp_degree) 
       break;
   }
+  // corner case: in DP only case or mp degree = 1, makes sure dp is connected
+  // if (dp_degree >= if_cnt - 1 && !all_ring) {
+    n_parallel_rings.back().second -= bidir ? 2 : 1;
+    if (n_parallel_rings.back().second == 0) {
+      n_parallel_rings.pop_back();
+    }
+    n_parallel_rings.emplace_back(std::make_pair(machine->get_num_nodes(), bidir ? 2 : 1));
+  // }
 
   // rounding issue...
   while (n_rings_assigned < dp_degree) {
@@ -1863,7 +1873,9 @@ std::vector<std::pair<uint64_t, int>> SpMulMat::generate_dp_topology(ConnectionM
     std::set<std::vector<int>, std::function<bool(const std::vector<int>&, const std::vector<int>&)>>
       solutions(vec_len_comp);
     for (auto & cj: candidate_jumps.at(entry)) {
-      solutions.insert(coin_change(coins, cj));
+      auto sol = coin_change(coins, cj);
+      if (sol.size() > 0) 
+        solutions.insert(sol);
     }
     std::vector<std::vector<int>> final_choice{};
     // TODO: what's the best solution here... 
@@ -2073,6 +2085,8 @@ void SpMulMat::optimize(int mcmc_iter, float sim_iter_time)
 
   ConnectionMatrix final = mpconn + dpconn;
   // connect_topology(final, dp_rings, mp_degree);
+  nm->set_topology(final);
+  nm->update_route();
 }
 
 ConnectionMatrix SpMulMat::connect_topology(const ConnectionMatrix & conn, 
@@ -2127,11 +2141,108 @@ ConnectionMatrix SpMulMat::connect_topology(const ConnectionMatrix & conn,
 #endif
   assert(n_cc > 0);
   if (n_cc > 1) {
-    if (mp_degree > 1) {
-      
-    }
-    else {
+    if (mp_degree > 1 && bidir) {
+      int v00, v01, v10, v11;
+      while (n_cc > 1) {
+        if (ccs[0].size() == 1 && ccs[1].size() == 1) {
+          bool success = add_link(*ccs[0].begin(), *ccs[1].begin(), mp_conn);
+          assert(success);
+          success = add_link(*ccs[0].begin(), *ccs[1].begin(), mp_conn);
+          assert(success);
+        }
+        else if (ccs[0].size() == 1 || ccs[1].size() == 1) { // ccs[1].size > 1
+          size_t singleton = ccs[0].size() == 1 ? 0 : 1;
+          size_t group = singleton == 0 ? 1 : 0;
 
+          uint64_t e_to_remove = 0;
+          uint64_t min_demand = std::numeric_limits<uint64_t>::max();
+
+          for (size_t i = 0; i < num_nodes; i++) {
+            for (size_t j = i + 1; j < num_nodes; j++) {
+              if (ccs[group].find(i) != ccs[group].end() && 
+                  ccs[group].find(j) != ccs[group].end() && 
+                  mp_conn[edge_id(i, j)] > 0) {
+                uint64_t eid = edge_id(i, j);
+                uint64_t ueid = unordered_edge_id(i, j);
+                if (mp_tm_logical.find(eid) == mp_tm_logical.end()) {
+                  e_to_remove = ueid;
+                  break;
+                }
+                else {
+                  if (mp_tm_logical[eid] < min_demand) {
+                    min_demand = mp_tm_logical[eid];
+                    e_to_remove = ueid;
+                  }
+                }
+              }
+            }
+          }
+          assert(e_to_remove != 0);
+
+          // std::cout << "1-n removing " << e_to_remove % ndevs << ", " <<  e_to_remove / ndevs << std::endl;
+          remove_link(e_to_remove % ndevs, e_to_remove / ndevs, mp_conn);
+          bool success = add_link(*ccs[singleton].begin(), e_to_remove % ndevs, mp_conn);
+          assert(success);
+          success = add_link(*ccs[singleton].begin(), e_to_remove / ndevs, mp_conn);
+          assert(success);
+
+        }
+
+        else {
+          std::vector<uint64_t> new_links;
+          for (size_t i = 0; i < num_nodes; i++) {
+            for (size_t j = i + 1; j < num_nodes; j++) {
+              if (conn[edge_id(i, j)] > 0) {
+                new_links.emplace_back(unordered_edge_id(i, j));
+              }
+            }
+          }
+
+          sort(new_links.begin(), new_links.end(), [&] (uint64_t lhs, uint64_t rhs) {
+            auto liter = mp_tm_logical.find(lhs);
+            uint64_t l = liter == mp_tm_logical.end() ? 0 : liter->second;
+            auto riter = mp_tm_logical.find(rhs);
+            uint64_t r = riter == mp_tm_logical.end() ? 0 : riter->second;
+            return l < r;
+          });
+          // cc0_d.clear();
+          // cc1_d.clear();
+          v00 = v01 = v10 = v11 = -1;
+
+          for (auto & item: new_links) {
+            size_t n0 = item % ndevs;
+            size_t n1 = item / ndevs;
+            if (v00 == -1 && 
+                ccs[0].find(n0) != ccs[0].end() &&
+                ccs[0].find(n1) != ccs[0].end()) {
+              v00 = n0;
+              v01 = n1;
+            }
+            else if (v10 == -1 && 
+                ccs[1].find(n0) != ccs[1].end() &&
+                ccs[1].find(n1) != ccs[1].end()) {
+              v10 = n0;
+              v11 = n1;
+            }
+            if (v00 != -1 && v10 != -1) {
+              
+              // std::cout << "swappig " << v00 << ", " << v01 << " and " << v10 << ", " << v11 << std::endl;
+              remove_link(v00, v01, mp_conn);
+              remove_link(v10, v11, mp_conn);
+              bool success = add_link(v00, v11, mp_conn);
+              assert(success);
+              success = add_link(v01, v10, mp_conn);
+              assert(success);
+
+              break;
+            }
+          }
+          assert(v00 != -1);
+        }
+        n_cc--;
+        ccs[1].insert(ccs[0].begin(), ccs[0].end());
+        ccs.erase(ccs.begin());
+      }
     }
   }
 }
