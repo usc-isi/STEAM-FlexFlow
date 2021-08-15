@@ -26,6 +26,20 @@ static std::uniform_real_distribution<double> unif(0, 1);
 // all prime numbers below 2048. I know how to write a sieve but this is good enouggh.
 const static std::vector<uint16_t> PRIMES{2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271, 277, 281, 283, 293, 307, 311, 313, 317, 331, 337, 347, 349, 353, 359, 367, 373, 379, 383, 389, 397, 401, 409, 419, 421, 431, 433, 439, 443, 449, 457, 461, 463, 467, 479, 487, 491, 499, 503, 509, 521, 523, 541, 547, 557, 563, 569, 571, 577, 587, 593, 599, 601, 607, 613, 617, 619, 631, 641, 643, 647, 653, 659, 661, 673, 677, 683, 691, 701, 709, 719, 727, 733, 739, 743, 751, 757, 761, 769, 773, 787, 797, 809, 811, 821, 823, 827, 829, 839, 853, 857, 859, 863, 877, 881, 883, 887, 907, 911, 919, 929, 937, 941, 947, 953, 967, 971, 977, 983, 991, 997, 1009, 1013, 1019, 1021, 1031, 1033, 1039, 1049, 1051, 1061, 1063, 1069, 1087, 1091, 1093, 1097, 1103, 1109, 1117, 1123, 1129, 1151, 1153, 1163, 1171, 1181, 1187, 1193, 1201, 1213, 1217, 1223, 1229, 1231, 1237, 1249, 1259, 1277, 1279, 1283, 1289, 1291, 1297, 1301, 1303, 1307, 1319, 1321, 1327, 1361, 1367, 1373, 1381, 1399, 1409, 1423, 1427, 1429, 1433, 1439, 1447, 1451, 1453, 1459, 1471, 1481, 1483, 1487, 1489, 1493, 1499, 1511, 1523, 1531, 1543, 1549, 1553, 1559, 1567, 1571, 1579, 1583, 1597, 1601, 1607, 1609, 1613, 1619, 1621, 1627, 1637, 1657, 1663, 1667, 1669, 1693, 1697, 1699, 1709, 1721, 1723, 1733, 1741, 1747, 1753, 1759, 1777, 1783, 1787, 1789, 1801, 1811, 1823, 1831, 1847, 1861, 1867, 1871, 1873, 1877, 1879, 1889, 1901, 1907, 1913, 1931, 1933, 1949, 1951, 1973, 1979, 1987, 1993, 1997, 1999, 2003, 2011, 2017, 2027, 2029, 2039};
 
+// for summing connections...
+template <typename T>
+static std::vector<T> operator+(const std::vector<T>& a, const std::vector<T>& b)
+{
+  assert(a.size() == b.size());
+
+  std::vector<T> result;
+  result.reserve(a.size());
+
+  std::transform(a.begin(), a.end(), b.begin(), 
+                  std::back_inserter(result), std::plus<T>());
+  return result;
+}
+
 WeightedShortestPathRoutingStragtegy::WeightedShortestPathRoutingStragtegy(
     const ConnectionMatrix & c, 
     const std::map<size_t, CommDevice*>& devmap,
@@ -1637,7 +1651,7 @@ void SpMulMat::task_added(SimTask * task)
     dpg.starting_node = reinterpret_cast<int>(task->next_tasks[0]);
     dpg.xfer_size = task->xfer_size;
     dpgrps.emplace_back(dpg);
-    INSERT_OR_ADD(dpgrp_xfersize, dpgrp_unique_key(dpg), (double)task->xfer_size * (2.0 * (double)dpg.group_size - 1) / (double)dpg.group_size);
+    INSERT_OR_ADD(dpgrpsz_xfersize, dpg.group_size, (double)task->xfer_size * (2.0 * (double)dpg.group_size - 1) / (double)dpg.group_size);
   break;
 
   case SimTask::TASK_BARRIER:
@@ -1660,20 +1674,20 @@ size_t SpMulMat::unordered_edge_id(int i, int j) const
   return i > j ? edge_id(i, j) : edge_id(j, i);
 }
 
-uint64_t SpMulMat::dpgrp_unique_key(const DPGroup & dpg) const
-{
-  return (((uint64_t)dpg.group_size) << 32) | (dpg.starting_node);
-}
+// uint64_t SpMulMat::dpgrp_unique_key(const DPGroup & dpg) const
+// {
+//   return (((uint64_t)dpg.group_size) << 32) | (dpg.starting_node);
+// }
 
-int SpMulMat::get_start_node(uint64_t id) const 
-{
-  return (int)(id & 0x00000000FFFFFFFFULL);
-}
+// int SpMulMat::get_start_node(uint64_t id) const 
+// {
+//   return (int)(id & 0x00000000FFFFFFFFULL);
+// }
 
-int SpMulMat::get_group_size(uint64_t id) const 
-{
-  return (int)((id & 0xFFFFFFFF00000000ULL) >> 32);
-}
+// int SpMulMat::get_group_size(uint64_t id) const 
+// {
+//   return (int)((id & 0xFFFFFFFF00000000ULL) >> 32);
+// }
 
 std::vector<int> SpMulMat::negative(const std::vector<int>& v)
 {
@@ -1749,7 +1763,7 @@ void SpMulMat::get_dp_mp_degree(int & dp_degree, int & mp_degree)
   assert(mp_degree + dp_degree == degree);
 }
 
-void SpMulMat::generate_dp_topology(ConnectionMatrix & conn, int dp_degree) 
+std::vector<std::pair<uint64_t, int>> SpMulMat::generate_dp_topology(ConnectionMatrix & conn, int dp_degree) 
 {
   size_t ndevs = machine->get_num_nodes();
   // reset conn
@@ -1759,7 +1773,7 @@ void SpMulMat::generate_dp_topology(ConnectionMatrix & conn, int dp_degree)
   std::set<std::pair<uint64_t, uint64_t>, std::greater<std::pair<uint64_t, uint64_t>>> sorted_dpgrp_id;
   uint64_t total_traffic = 0;
 
-  for (auto & entry: dpgrp_xfersize) {
+  for (auto & entry: dpgrpsz_xfersize) {
     sorted_dpgrp_id.emplace(std::make_pair(entry.second, entry.first));
     total_traffic += entry.second;
   }
@@ -1796,7 +1810,6 @@ void SpMulMat::generate_dp_topology(ConnectionMatrix & conn, int dp_degree)
   // contains all the hops one can do on the ring
   std::set<int> coins;
 
-  // O(d. N/ln N . N^2)
   for (int i = 0; i < n_parallel_rings.size(); i++) {
     auto & curr_dpg = n_parallel_rings[i];
     double mp_satisfied = std::numeric_limits<double>::lowest();
@@ -1807,10 +1820,11 @@ void SpMulMat::generate_dp_topology(ConnectionMatrix & conn, int dp_degree)
     // for (int j = 0; j < curr_dpg.second; j += bidir ? 2 : 1) {
     for (auto & cj: candidate_jumps.at(curr_dpg.first)) {
       std::vector<int> jmps = choose_n(candidate_jumps.at(curr_dpg.first), cj, curr_dpg.second);
-      ConnectionMatrix proposed = 
-        add_ring(conn, get_start_node(curr_dpg.first), cj);
-      for (int j = 1; j < jmps.size(); j++) {
-        proposed = add_ring(proposed, get_start_node(curr_dpg.first), jmps[j]);
+      ConnectionMatrix proposed = conn;
+      for (int j = 0; j < jmps.size(); j++) {
+        for (int k = 0; k < ndevs / curr_dpg.first; k++) {
+          proposed = add_ring(proposed, k, jmps[j]);
+        }
       }
       // ConnectionMatrix hopm = construct_hop_matrix(conn);
       double mp_this = compute_mp_satified(proposed);
@@ -1833,8 +1847,8 @@ void SpMulMat::generate_dp_topology(ConnectionMatrix & conn, int dp_degree)
   // construct multihop rings
   // find where are the non-satisfied rings
   std::set<uint64_t> unsatisfied_rings;
-  for (auto & entry: sorted_dpgrp_id) {
-    unsatisfied_rings.insert(entry.second);
+  for (auto & entry: candidate_jumps) {
+    unsatisfied_rings.insert(entry.first);
   }
   for (auto & entry: n_parallel_rings) {
     unsatisfied_rings.erase(unsatisfied_rings.find(entry.first));
@@ -1852,10 +1866,10 @@ void SpMulMat::generate_dp_topology(ConnectionMatrix & conn, int dp_degree)
       solutions.insert(coin_change(coins, cj));
     }
     std::vector<std::vector<int>> final_choice{};
-    // what's the best solution here... 
+    // TODO: what's the best solution here... 
     // backoff and add a +1 ring always?
     if (solutions.size() == 0) {
-      // TODO
+      selected_jumps.emplace(entry, final_choice);
       continue;
     }
     else {
@@ -1876,6 +1890,7 @@ void SpMulMat::generate_dp_topology(ConnectionMatrix & conn, int dp_degree)
     }
     selected_jumps.emplace(entry, final_choice);
   }
+  return n_parallel_rings;
 }
 
 void SpMulMat::generate_mp_matching(ConnectionMatrix & conn, int mp_degree) 
@@ -1978,13 +1993,15 @@ std::vector<int> SpMulMat::coin_change(const std::set<int> & coins, int goal)
   int min_coin = coins_vec[0];
   if (min_coin < 0) {
     std::transform(coins_vec.cbegin(), coins_vec.cend(), coins_vec.begin(),
-      [&] (int i) -> int {return i + 1 - min_coin;}
+      [&] (int i) -> int {return i > 0 ? i : machine->get_num_nodes() + i;}
     );
-    goal = goal - min_coin + 1;
+    // goal = goal - min_coin + 1;
+    std::sort(coins_vec.begin(), coins_vec.end());
+    coins_vec.erase(std::unique(coins_vec.begin(), coins_vec.end()), coins_vec.end());
   }
 
-  std::vector<int> dist(goal, 0);
-  std::vector<int> back_idx(goal, -1);
+  std::vector<int> dist(machine->get_num_nodes(), 0);
+  std::vector<int> back_idx(machine->get_num_nodes(), -1);
   for (int c: coins_vec) {
     dist[c - 1] = 1;
     back_idx[c - 1] = c - 1;
@@ -1995,12 +2012,12 @@ std::vector<int> SpMulMat::coin_change(const std::set<int> & coins, int goal)
     int index_candididate = -1;
     int min_dist = 0;
     for (int c: coins_vec) {
-      if (i - (c - 1) >= 0) {
-        if (!min_dist || (dist[i-(c-1)] + 1 < min_dist)) {
-          min_dist = dist[i-(c-1)] + 1;
+      // if (i - (c - 1) >= 0) {
+        if (!min_dist || (dist[MOD(i-(c-1), machine->get_num_nodes())] + 1 < min_dist)) {
+          min_dist = dist[MOD(i-(c-1), machine->get_num_nodes())] + 1;
           index_candididate = c-1;
         }
-      }
+      // }
     }
   }
 
@@ -2012,9 +2029,125 @@ std::vector<int> SpMulMat::coin_change(const std::set<int> & coins, int goal)
   int curr_pos = goal;
 
   while (curr_pos != curr_coin) {
-    result.push_back(min_coin > 0 ? curr_coin : curr_coin - 1 + min_coin);
-    curr_pos -= curr_coin;
+    result.push_back(coins.find(curr_coin) != coins.end() ? curr_coin : curr_coin - machine->get_num_nodes());
+    curr_pos = MOD(curr_pos - curr_coin, machine->get_num_nodes());
     curr_coin = back_idx[curr_pos];
   }
   return result;
+}
+
+
+void SpMulMat::optimize(int mcmc_iter, float sim_iter_time) 
+{
+  if (sim_iter_time < best_sim_time) {
+    best_sim_time = sim_iter_time;
+  }
+  float diff = sim_iter_time - curr_sim_time;
+  std::cerr << "sim_iter_time: " << sim_iter_time << ", curr_sim_time: " << curr_sim_time 
+            << ", best_iter_time: " << best_sim_time << std::endl;
+  bool change = diff < 0 ? true :
+    static_cast<float>(std::rand()) / static_cast<float>(static_cast<float>(RAND_MAX)) < std::exp(-alpha * diff);
+  if (change) {
+    curr_sim_time = sim_iter_time;
+  }
+  else {
+    num_iter_nochange++; 
+  }
+
+  if (!change && num_iter_nochange < no_improvement_th)
+    return;
+  
+  num_iter_nochange = 0;
+  NetworkedMachineModel * nm = static_cast<NetworkedMachineModel*>(this->machine);
+  
+  // TODO: copy machine-switch link?
+  size_t nnode = machine->get_num_nodes();
+  size_t ndevs = machine->get_total_devs();
+  ConnectionMatrix dpconn = std::vector<int>(ndevs*ndevs, 0);
+  ConnectionMatrix mpconn = std::vector<int>(ndevs*ndevs, 0);
+
+  int dp_degree, mp_degree;
+  get_dp_mp_degree(dp_degree, mp_degree);
+  auto dp_rings = generate_dp_topology(dpconn, dp_degree);
+  generate_mp_matching(mpconn, mp_degree);
+
+  ConnectionMatrix final = mpconn + dpconn;
+  // connect_topology(final, dp_rings, mp_degree);
+}
+
+ConnectionMatrix SpMulMat::connect_topology(const ConnectionMatrix & conn, 
+  ConnectionMatrix & mp_conn, ConnectionMatrix & dp_conn,
+  const std::vector<std::pair<uint64_t, int>> & dp_rings, int mp_degree)
+{
+  NetworkedMachineModel * nm = static_cast<NetworkedMachineModel*>(this->machine);
+  size_t num_nodes = nm->num_nodes;
+  size_t ndevs = nm->num_switches + num_nodes;
+  // find connected components 
+  int n_cc = 0;
+  std::vector<int> node_to_ccid = std::vector<int>(num_nodes, -1);
+  std::vector<std::set<size_t> > ccs;
+  std::queue<size_t> search_q;
+  for (size_t i = 0; i < num_nodes; i++) {
+    if (node_to_ccid[i] == -1) {
+      search_q.push(i);
+      node_to_ccid[i] = n_cc++;
+      ccs.emplace_back();
+      ccs.back().insert(i);
+      while (!search_q.empty()) {
+        size_t curr = search_q.front();
+        search_q.pop();
+        for (size_t j = 0; j < num_nodes; j++) {
+          if (curr != j && conn[edge_id(curr, j)] > 0 && node_to_ccid[j] == -1) {
+            node_to_ccid[j] = node_to_ccid[curr];
+            ccs.back().insert(j);
+            search_q.push(j);
+          }
+        }
+      }
+    }
+    else {
+      continue;
+    }
+  }
+#ifdef DEBUG_PRINT
+  std::cout << "n_cc " << n_cc << std::endl;
+  std::cout << "node_to_ccid:" << std::endl;
+
+  for (size_t i = 0; i < node_to_ccid.size(); i++) {
+    std::cout << "\t" << i << ", " << node_to_ccid[i] << std::endl;
+  }
+  
+  for (size_t i = 0; i < ccs.size(); i++) {
+    std::cout << "CC " << i << ": " << std::endl;
+    for (size_t v: ccs[i]) {
+      std::cout << "\t" << v;
+    }
+    std::cout << std::endl;
+  }
+#endif
+  assert(n_cc > 0);
+  if (n_cc > 1) {
+    if (mp_degree > 1) {
+      
+    }
+    else {
+
+    }
+  }
+}
+
+void SpMulMat::reset() 
+{
+  mp_tm_logical.clear();
+  // selected_jumps.clear();
+}
+
+void* SpMulMat::export_information() 
+{
+
+}
+
+void SpMulMat::store_tm() const
+{
+
 }

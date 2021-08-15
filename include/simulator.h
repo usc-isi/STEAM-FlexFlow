@@ -863,8 +863,7 @@ public:
   virtual void* export_information();
   virtual void store_tm() const; 
 
-  inline void get_dp_mp_degree(int & dp_degree, int & mp_degree);
-  void generate_dp_topology(ConnectionMatrix & conn, int dp_degree);
+  std::vector<std::pair<uint64_t, int>> generate_dp_topology(ConnectionMatrix & conn, int dp_degree);
   void generate_mp_matching(ConnectionMatrix & conn, int dp_degree);
   void generate_one_match(ConnectionMatrix & conn, std::unordered_map<uint64_t, uint64_t> & mp_tm);
   ConnectionMatrix add_ring(const ConnectionMatrix & conn, int start, int dist);
@@ -874,26 +873,37 @@ public:
   std::vector<int> coin_change(const std::set<int> & coins, int goal);
   std::pair<blossom_match::Graph, std::vector<double>>
     convert_to_blsm_match_graph(std::unordered_map<uint64_t, uint64_t> & mp_tm);
+  std::unordered_map<uint64_t, std::vector<std::vector<int>>>
+    get_selected_jumps(); 
+  ConnectionMatrix connect_topology(const ConnectionMatrix & conn, 
+    ConnectionMatrix & mp_conn, ConnectionMatrix & dp_conn, 
+    const std::vector<std::pair<uint64_t, int>> & dp_rings, int mp_degree);
 
   // uint64_t get_mp_bandwidth_tax(const ConnectionMatrix & conn);
 
-  inline uint64_t dpgrp_unique_key(const DPGroup & dpg) const;
+  inline void get_dp_mp_degree(int & dp_degree, int & mp_degree);
   inline size_t edge_id(int i, int j) const;
   inline size_t unordered_edge_id(int i, int j) const;
-  inline int get_start_node(uint64_t id) const;
-  inline int get_group_size(uint64_t id) const;
+  // inline int get_start_node(uint64_t id) const;
+  // inline int get_group_size(uint64_t id) const;
+  // inline uint64_t dpgrp_unique_key(const DPGroup & dpg) const;
   inline bool segment_overlap(const std::vector<int>& a, const std::vector<int>& b);
   inline std::vector<int> negative(const std::vector<int>& v);
   inline std::vector<int> choose_n(const std::vector<int>& cjs, int init_jmp, int n);
 
   std::unordered_map<uint64_t, std::vector<int>> candidate_jumps;
   std::unordered_map<uint64_t, std::vector<std::vector<int>>> selected_jumps;
-  std::unordered_map<uint64_t, uint64_t> dpgrp_xfersize;
+  std::unordered_map<uint64_t, uint64_t> dpgrpsz_xfersize;
   std::vector<DPGroup> dpgrps;
   std::unordered_map<uint64_t, uint64_t> mp_tm_logical;
 
   int degree;
   bool bidir;
+  float best_sim_time;
+  float curr_sim_time;
+  float alpha;
+  int num_iter_nochange;
+  int no_improvement_th;
 };
 
 #endif
