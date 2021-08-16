@@ -2316,12 +2316,15 @@ void FFModel::optimize(Simulator* simulator,
 {
   // Start from data parallel
   std::map<Op*, ParallelConfig> current, next;
+  void *l1bestinfo, *l1currinfo;
   float best_runtime = simulator->simulate_runtime(this, best, comp_mode);
   current = best;
   float current_runtime = best_runtime;
   if (simulator->l1optimizer) {
     simulator->l1optimizer->optimize(0, best_runtime);
-    simulator->l1optimizer->store_tm();
+    l1bestinfo = simulator->l1optimizer->export_information();
+    l1currinfo = l1bestinfo;
+    // simulator->l1optimizer->store_tm();
   }
   size_t reset_span = budget / 100, last_reset_iter = 0;
   if (reset_span == 0)
@@ -2334,6 +2337,11 @@ void FFModel::optimize(Simulator* simulator,
       current = best;
       current_runtime = best_runtime;
       last_reset_iter = iter;
+      if (simulator->l1optimizer) {
+        simulator->l1optimizer->import_information(l1bestinfo);
+        simulator->l1optimizer->delete_information(l1currinfo);
+        l1currinfo = l1bestinfo;
+      }
     }
     rewrite(current, next, use_propagation);
     float next_runtime = simulator->simulate_runtime(this, next, comp_mode);
@@ -2365,19 +2373,48 @@ void FFModel::optimize(Simulator* simulator,
     if (next_runtime < best_runtime) {
       best_runtime = next_runtime;
       best = next;
-      if (simulator->l1optimizer)
-        simulator->l1optimizer->store_tm();
+      if (simulator->l1optimizer) {
+        simulator->l1optimizer->delete_information(l1bestinfo);
+        l1bestinfo = simulator->l1optimizer->export_information();
+        simulator->l1optimizer->optimize(iter, next_runtime);
+        simulator->l1optimizer->delete_information(l1currinfo);
+        l1currinfo = simulator->l1optimizer->export_information();
+      }
     }
     if (next_runtime < current_runtime) {
       current = next;
       current_runtime = next_runtime;
+      if (simulator->l1optimizer) {
+        simulator->l1optimizer->delete_information(l1bestinfo);
+        l1bestinfo = simulator->l1optimizer->export_information();
+        simulator->l1optimizer->optimize(iter, next_runtime, true);
+        simulator->l1optimizer->delete_information(l1currinfo);
+        l1currinfo = simulator->l1optimizer->export_information();
+      }
     } else if (rn < std::exp(-alpha * diff)) {
       current = next;
       current_runtime = next_runtime;
+      if (simulator->l1optimizer) {
+        simulator->l1optimizer->delete_information(l1bestinfo);
+        l1bestinfo = simulator->l1optimizer->export_information();
+        simulator->l1optimizer->optimize(iter, next_runtime ,true);
+        simulator->l1optimizer->delete_information(l1currinfo);
+        l1currinfo = simulator->l1optimizer->export_information();
+      }
+    }
+    else {
+      // restore l1 state
+      if (simulator->l1optimizer) {
+        simulator->l1optimizer->import_information(l1currinfo);
+      }
     }
 
-    if (simulator->l1optimizer)
-      simulator->l1optimizer->optimize(iter, next_runtime);
+    if (simulator->l1optimizer) {
+      if (simulator->l1optimizer->optimize(iter, next_runtime)) {
+        simulator->l1optimizer->delete_information(l1currinfo);
+        l1currinfo = simulator->l1optimizer->export_information();
+      }
+    }
   }
   printf("=========== Best Discovered Strategy ==========\n");
   simulator->simulate_runtime(this, best, comp_mode, this->config.export_strategy_task_graph_file);

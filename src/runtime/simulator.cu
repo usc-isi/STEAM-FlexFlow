@@ -412,3 +412,12 @@ void LogicalTaskgraphBasedSimulator::simulation_task(const Task *task,
   delete(simulator);
   delete(machine);
 }
+
+SpMulMatSimulator::SpMulMatSimulator(const FFModel* model,
+  FFHandler handler, Memory memory, MachineModel *machine) 
+: LogicalTaskgraphBasedSimulator(model, handler, memory, machine)
+{
+
+}
+
+

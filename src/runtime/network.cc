@@ -300,56 +300,6 @@ void ShortestPathNetworkRoutingStrategy::hop_count(int src_node, int dst_node, i
   assert(hop > 0 || src_node == dst_node);
 }
 
-void ShortestPathNetworkRoutingStrategy::hop_count(int src_node, int dst_node, int & hop, int & narrowest)
-{
-  int key = src_node * total_devs + dst_node;
-
-  if (conn[key] > 0) {
-    hop = 0;
-    narrowest = conn[key];
-    return;
-  }
-  // one-shortest path routing
-  std::vector<uint64_t> dist(total_devs, std::numeric_limits<uint64_t>::max());
-  std::vector<int> prev(total_devs, -1);
-  std::vector<bool> visited(total_devs, false);
-
-  std::queue<uint64_t> q;
-  q.push(src_node);
-  dist[src_node] = 0;
-
-  // BFS
-  while (!q.empty()) {
-    int min_node = q.front();
-    q.pop();
-    visited[min_node] = true;
-
-    if (min_node == dst_node)
-      break;
-
-    for (int i = 0; i < total_devs; i++) {
-      if (visited[i] || conn[min_node * total_devs + i] == 0) {
-        continue;
-      }
-      double new_dist = dist[min_node] + 1; 
-      if (new_dist < dist[i] || (new_dist == dist[i] && unif(gen) < 0.5)) {
-        dist[i] = new_dist;
-        prev[i] = min_node;
-        q.push(i);
-      }
-    }
-  }
-  hop = 0;
-  narrowest = std::numeric_limits<int>::max();
-  int curr = dst_node;
-  while (prev[curr] != -1) {
-    if (narrowest > conn[prev[curr] * total_devs + curr]) narrowest = conn[prev[curr] * total_devs + curr];
-    hop++;
-    curr = prev[curr];
-  }
-  assert(hop > 0 || src_node == dst_node);
-}
-
 std::vector<std::pair<int, int>> ShortestPathNetworkRoutingStrategy::hop_count(int src_node) 
 {
   std::vector<uint64_t> dist(total_devs, std::numeric_limits<uint64_t>::max());
@@ -559,7 +509,7 @@ size_t DemandHeuristicNetworkOptimizer::unordered_edge_id(int i, int j) const
 
 typedef std::pair<uint64_t, uint64_t> DemandToIdMap;
 
-void DemandHeuristicNetworkOptimizer::optimize(int mcmc_iter, float sim_iter_time)
+bool DemandHeuristicNetworkOptimizer::optimize(int mcmc_iter, float sim_iter_time, bool forced)
 {
   if (sim_iter_time < best_sim_time) {
     best_sim_time = sim_iter_time;
@@ -576,8 +526,8 @@ void DemandHeuristicNetworkOptimizer::optimize(int mcmc_iter, float sim_iter_tim
     num_iter_nochange++; 
   }
 
-  if (!change && num_iter_nochange < no_improvement_th)
-    return;
+  if (forced || !change && num_iter_nochange < no_improvement_th)
+    return false;
   
   num_iter_nochange = 0;
   NetworkedMachineModel * nm = static_cast<NetworkedMachineModel*>(this->machine);
@@ -606,7 +556,7 @@ void DemandHeuristicNetworkOptimizer::optimize(int mcmc_iter, float sim_iter_tim
   nm->set_topology(conn); 
   nm->update_route();
   // simulator->print_conn_matrix();
-
+  return true;
 }
 
 void DemandHeuristicNetworkOptimizer::optimize_demand(
@@ -1009,10 +959,22 @@ void DemandHeuristicNetworkOptimizer::reset()
   
 }
 
-// TODO
 void* DemandHeuristicNetworkOptimizer::export_information()
 {
-  return nullptr;
+  NetworkedMachineModel * nm = static_cast<NetworkedMachineModel*>(this->machine);
+  return (void*)(new ConnectionMatrix{nm->conn_matrix});
+}
+
+void DemandHeuristicNetworkOptimizer::import_information(void * information) 
+{
+  NetworkedMachineModel * nm = static_cast<NetworkedMachineModel*>(this->machine);
+  nm->set_topology(*(ConnectionMatrix*)information);
+  nm->update_route();
+}
+
+void DemandHeuristicNetworkOptimizer::delete_information(void * information) 
+{
+  delete (ConnectionMatrix*)information;
 }
 
 void DemandHeuristicNetworkOptimizer::store_tm() const 
@@ -1146,12 +1108,12 @@ void DemandHeuristicNetworkOptimizerPlus::connectivity_assign(
     }
   }
 
-  for (int i = 0; i < nnode; i++) {
-    conn[edge_id(i, (i + nnode / 5) % nnode)]++;
-    conn[edge_id(i, 2 * (i + nnode / 5) % nnode)]++;
-    conn[edge_id(i, 3 * (i + nnode / 5) % nnode)]++;
-    conn[edge_id(i, 4 * (i + nnode / 5) % nnode)]++;
-  }
+  // for (int i = 0; i < nnode; i++) {
+  //   conn[edge_id(i, (i + nnode / 5) % nnode)]++;
+  //   conn[edge_id(i, 2 * (i + nnode / 5) % nnode)]++;
+  //   conn[edge_id(i, 3 * (i + nnode / 5) % nnode)]++;
+  //   conn[edge_id(i, 4 * (i + nnode / 5) % nnode)]++;
+  // }
 }
 
 void DemandHeuristicNetworkOptimizerPlus::connect_topology(
@@ -1566,7 +1528,7 @@ DemandHeuristicNetworkOptimizerPlus::construct_bidir_negative_util(const Connect
   return result;
 }
 
-void DemandHeuristicNetworkOptimizerPlus::optimize(int mcmc_iter, float sim_iter_time)
+bool DemandHeuristicNetworkOptimizerPlus::optimize(int mcmc_iter, float sim_iter_time, bool forced)
 {
   if (sim_iter_time < best_sim_time) {
     best_sim_time = sim_iter_time;
@@ -1583,8 +1545,8 @@ void DemandHeuristicNetworkOptimizerPlus::optimize(int mcmc_iter, float sim_iter
     num_iter_nochange++; 
   }
 
-  if (!change && num_iter_nochange < no_improvement_th)
-    return;
+  if (forced || !change && num_iter_nochange < no_improvement_th)
+    return false;
   
   num_iter_nochange = 0;
   NetworkedMachineModel * nm = static_cast<NetworkedMachineModel*>(this->machine);
@@ -1620,13 +1582,15 @@ void DemandHeuristicNetworkOptimizerPlus::optimize(int mcmc_iter, float sim_iter
   nm->set_topology(conn); 
   nm->update_route();
   // simulator->print_conn_matrix();
+  return true;
 
 }
 
 SpMulMat::SpMulMat(MachineModel * machine, int degree, bool bidir)
-: DemandHeuristicNetworkOptimizer(machine), degree(degree), bidir(bidir)
+: DemandHeuristicNetworkOptimizer(machine), bidir(bidir)
 {
-
+  if_cnt = degree;
+  constructed = false;
 }
 
 void SpMulMat::task_added(SimTask * task) 
@@ -1648,7 +1612,7 @@ void SpMulMat::task_added(SimTask * task)
 
   case SimTask::TASK_ALLREDUCE:
     dpg.group_size = task->next_tasks.size();
-    dpg.starting_node = reinterpret_cast<int>(task->next_tasks[0]);
+    dpg.starting_node = reinterpret_cast<uint64_t>(task->next_tasks[0]);
     dpg.xfer_size = task->xfer_size;
     dpgrps.emplace_back(dpg);
     INSERT_OR_ADD(dpgrpsz_xfersize, dpg.group_size, (double)task->xfer_size * (2.0 * (double)dpg.group_size - 1) / (double)dpg.group_size);
@@ -1662,16 +1626,6 @@ void SpMulMat::task_added(SimTask * task)
 
   break;
   }
-}
-
-size_t SpMulMat::edge_id(int i, int j) const
-{
-  return i * machine->get_total_devs() + j;
-}
-
-size_t SpMulMat::unordered_edge_id(int i, int j) const
-{
-  return i > j ? edge_id(i, j) : edge_id(j, i);
 }
 
 // uint64_t SpMulMat::dpgrp_unique_key(const DPGroup & dpg) const
@@ -1753,14 +1707,14 @@ void SpMulMat::get_dp_mp_degree(int & dp_degree, int & mp_degree)
     total_dp_traffic += entry.second;
   }
 
-  dp_degree = lround(total_dp_traffic / (total_dp_traffic + total_mp_traffic) * degree);
-  mp_degree = lround(total_mp_traffic / (total_dp_traffic + total_mp_traffic) * degree);
+  dp_degree = lround(total_dp_traffic / (total_dp_traffic + total_mp_traffic) * if_cnt);
+  mp_degree = lround(total_mp_traffic / (total_dp_traffic + total_mp_traffic) * if_cnt);
 
   if (bidir && dp_degree % 2 != 0) {
     mp_degree--;
     dp_degree++;
   }
-  assert(mp_degree + dp_degree == degree);
+  assert(mp_degree + dp_degree == if_cnt);
 }
 
 std::vector<std::pair<uint64_t, int>> SpMulMat::generate_dp_topology(ConnectionMatrix & conn, int dp_degree) 
@@ -2049,7 +2003,7 @@ std::vector<int> SpMulMat::coin_change(const std::set<int> & coins, int goal)
 }
 
 
-void SpMulMat::optimize(int mcmc_iter, float sim_iter_time) 
+bool SpMulMat::optimize(int mcmc_iter, float sim_iter_time, bool forced) 
 {
   if (sim_iter_time < best_sim_time) {
     best_sim_time = sim_iter_time;
@@ -2066,10 +2020,32 @@ void SpMulMat::optimize(int mcmc_iter, float sim_iter_time)
     num_iter_nochange++; 
   }
 
-  if (!change && num_iter_nochange < no_improvement_th)
-    return;
+  if (forced || !change && num_iter_nochange < no_improvement_th)
+    return false;
   
   num_iter_nochange = 0;
+  NetworkedMachineModel * nm = static_cast<NetworkedMachineModel*>(this->machine);
+  
+  // TODO: copy machine-switch link?
+  size_t nnode = machine->get_num_nodes();
+  size_t ndevs = machine->get_total_devs();
+  ConnectionMatrix dpconn = std::vector<int>(ndevs*ndevs, 0);
+  ConnectionMatrix mpconn = std::vector<int>(ndevs*ndevs, 0);
+
+  int dp_degree, mp_degree;
+  get_dp_mp_degree(dp_degree, mp_degree);
+  auto dp_rings = generate_dp_topology(dpconn, dp_degree);
+  generate_mp_matching(mpconn, mp_degree);
+
+  ConnectionMatrix final = mpconn + dpconn;
+  // connect_topology(final, dp_rings, mp_degree);
+  nm->set_topology(final);
+  nm->update_route();
+  return true;
+}
+
+void SpMulMat::construct_topology()
+{
   NetworkedMachineModel * nm = static_cast<NetworkedMachineModel*>(this->machine);
   
   // TODO: copy machine-switch link?
@@ -2093,6 +2069,9 @@ ConnectionMatrix SpMulMat::connect_topology(const ConnectionMatrix & conn,
   ConnectionMatrix & mp_conn, ConnectionMatrix & dp_conn,
   const std::vector<std::pair<uint64_t, int>> & dp_rings, int mp_degree)
 {
+  // TODO: better way. This is to be implemented...
+  return dp_conn+mp_conn;
+#if 0
   NetworkedMachineModel * nm = static_cast<NetworkedMachineModel*>(this->machine);
   size_t num_nodes = nm->num_nodes;
   size_t ndevs = nm->num_switches + num_nodes;
@@ -2245,7 +2224,13 @@ ConnectionMatrix SpMulMat::connect_topology(const ConnectionMatrix & conn,
       }
     }
   }
+#endif
 }
+
+// std::vector<std::vector<int>> SpMulMat::get_selected_jumps(int grp_sz) 
+// {
+//   return selected_jumps[grp_sz];
+// }
 
 void SpMulMat::reset() 
 {
@@ -2255,10 +2240,66 @@ void SpMulMat::reset()
 
 void* SpMulMat::export_information() 
 {
+  NetworkedMachineModel * nm = static_cast<NetworkedMachineModel*>(this->machine);
+  SpMulMatInformation * info = new SpMulMatInformation();
+  info->conn = nm->conn_matrix;
+  info->dp_ncomms = dp_ncomms;
+  info->selected_jumps = selected_jumps;
+  return (void*)(info);
+}
 
+
+void SpMulMat::import_information(void * information) 
+{
+  NetworkedMachineModel * nm = static_cast<NetworkedMachineModel*>(this->machine);
+  SpMulMatInformation * info = (SpMulMatInformation*)(information);
+  dp_ncomms = info->dp_ncomms;
+  selected_jumps = info->selected_jumps;
+  nm->set_topology(info->conn);
+  nm->update_route();
+}
+
+void SpMulMat::delete_information(void * information)  
+{
+  SpMulMatInformation * info = (SpMulMatInformation*)information;
+  for (auto & entry: info->dp_ncomms) {
+    for (NominalCommDevice * c: entry.second) {
+      delete c;
+    }
+  }
+  delete info;
 }
 
 void SpMulMat::store_tm() const
 {
 
+}
+
+const std::vector<NominalCommDevice*>& SpMulMat::get_dp_ncomms(int src, int grp_sz)
+{
+  NetworkedMachineModel * nm = static_cast<NetworkedMachineModel*>(this->machine);
+  uint64_t key = ((uint64_t)src) << 32 | grp_sz;
+  if (dp_ncomms.find(key) != dp_ncomms.end()) {
+    return dp_ncomms[key];
+  }
+  int total_devs = machine->get_num_nodes();
+  auto & paths = selected_jumps[grp_sz];
+  dp_ncomms[key] = std::vector<NominalCommDevice*>{};
+  for (int i = 0; i < paths.size(); i++) {
+    int dst = (src + (total_devs / grp_sz)) % total_devs;
+    std::string link_name = "NOMINAL_DP_" + std::to_string(src) + "-" + std::to_string(dst) + "-" + std::to_string(grp_sz) + "-" + std::to_string(i);
+    int device_id = src * total_devs + dst;
+    NominalCommDevice * ncomm = new NominalCommDevice(link_name, device_id, total_devs, *nm->routing_strategy);
+    Route r;
+    int curr = src;
+    int next;
+    for (int j = 0; j < paths[i].size(); j++) {
+      next = MOD(curr + paths[i][j], total_devs);
+      r.push_back(nm->ids_to_nw_comm_device.at(curr * total_devs + next));
+      curr = next;
+    }
+    ncomm->set_physical_paths(std::make_pair(std::vector<float>{1}, std::vector<Route>{r}));
+    dp_ncomms[key].push_back(ncomm);
+  }
+  return dp_ncomms[key];
 }

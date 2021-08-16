@@ -804,18 +804,18 @@ float LogicalTaskgraphBasedSimulator::simulate_runtime(
     float backward_time = cost_metrics.backward_time;
     SimTask *ar_task = nullptr;
     for (int j = 0; j < config.num_parts(); j++) {
-      // SimTask* task1 = task_manager->new_forward_task(op, j);
-      // task1->device = machine->get_gpu(config.device_ids[j]);
-      // task1->mem = machine->get_gpu_fb_mem(config.device_ids[j]);
-      // task1->run_time = forward_time;
-      // if (l1optimizer) 
-      //   l1optimizer->task_added(task1);
+      SimTask* task1 = task_manager->new_forward_task(op, j);
+      task1->device = machine->get_gpu(config.device_ids[j]);
+      task1->mem = machine->get_gpu_fb_mem(config.device_ids[j]);
+      task1->run_time = forward_time;
+      if (l1optimizer) 
+        l1optimizer->task_added(task1);
       if (comp_mode == COMP_MODE_TRAINING) {
         SimTask* task2 = task_manager->new_backward_task(op, j);
         task2->device = machine->get_gpu(config.device_ids[j]);
         task2->mem = machine->get_gpu_fb_mem(config.device_ids[j]);
         task2->run_time = backward_time;
-        // task1->add_next_task(task2);
+        task1->add_next_task(task2);
         if (l1optimizer) 
           l1optimizer->task_added(task2);
         
@@ -823,43 +823,43 @@ float LogicalTaskgraphBasedSimulator::simulate_runtime(
     }
   }
 
-  // for (size_t l = 0; l < model->layers.size(); l++) {
-  //   Op* op = model->layers[l];
-  //   ParallelConfig config = global.find(op)->second;
-  //   size_t element_size = data_type_size(DT_FLOAT);
-  //   // NER step: add allreduce task after backward propogation
-  //   for (int j = 0; j < op->numWeights; j++) {
-  //     std::set<int> synched;
-  //     std::vector<int> node_ids;
-  //     for (int firstId = 0; firstId < config.num_parts(); firstId++) {
-  //       if (synched.find(firstId) == synched.end()) {
-  //         synched.insert(firstId);
-  //         Domain firstR = op->get_weight_tensor_shape(config, j, firstId);
-  //         size_t xfer_size = firstR.get_volume() * element_size;
-  //         node_ids.push_back(config.device_ids[firstId]);
-  //         for (int nextId = firstId+1; nextId < config.num_parts(); nextId++) {
-  //           Domain nextR = op->get_weight_tensor_shape(config, j, nextId);
-  //           if (firstR.intersection(nextR).get_volume() > 0) {
-  //             // Assert all or nothing:
-  //             // The two weights must be fully overlapped or not at all
-  //             assert(firstR == nextR);
-  //             assert(synched.find(nextId) == synched.end());
-  //             synched.insert(nextId);
-  //             node_ids.push_back(config.device_ids[nextId]);
-  //           }
-  //         }
+  for (size_t l = 0; l < model->layers.size(); l++) {
+    Op* op = model->layers[l];
+    ParallelConfig config = global.find(op)->second;
+    size_t element_size = data_type_size(DT_FLOAT);
+    // NER step: add allreduce task after backward propogation
+    for (int j = 0; j < op->numWeights; j++) {
+      std::set<int> synched;
+      std::vector<int> node_ids;
+      for (int firstId = 0; firstId < config.num_parts(); firstId++) {
+        if (synched.find(firstId) == synched.end()) {
+          synched.insert(firstId);
+          Domain firstR = op->get_weight_tensor_shape(config, j, firstId);
+          size_t xfer_size = firstR.get_volume() * element_size;
+          node_ids.push_back(config.device_ids[firstId]);
+          for (int nextId = firstId+1; nextId < config.num_parts(); nextId++) {
+            Domain nextR = op->get_weight_tensor_shape(config, j, nextId);
+            if (firstR.intersection(nextR).get_volume() > 0) {
+              // Assert all or nothing:
+              // The two weights must be fully overlapped or not at all
+              assert(firstR == nextR);
+              assert(synched.find(nextId) == synched.end());
+              synched.insert(nextId);
+              node_ids.push_back(config.device_ids[nextId]);
+            }
+          }
           
-  //         SimTask* ar_task = task_manager->new_allreduce_task(op, node_ids, xfer_size);
-  //         if (l1optimizer) 
-  //           l1optimizer->task_added(ar_task);
-  //         for (int dstId = 0; dstId < config.num_parts(); dstId ++) {
-  //           task_manager->get_backward_task(op, dstId)->add_next_task(ar_task);
-  //         }
-  //       }
+          SimTask* ar_task = task_manager->new_allreduce_task(op, node_ids, xfer_size);
+          if (l1optimizer) 
+            l1optimizer->task_added(ar_task);
+          for (int dstId = 0; dstId < config.num_parts(); dstId ++) {
+            task_manager->get_backward_task(op, dstId)->add_next_task(ar_task);
+          }
+        }
       
-  //     }
-  //   }
-  // }
+      }
+    }
+  }
         
 
   // Step 2: insert dependencies and comm. tasks before compute tasks
@@ -879,11 +879,11 @@ float LogicalTaskgraphBasedSimulator::simulate_runtime(
           Domain srcR = pre_op->get_output_tensor_shape(pre_config, t.owner_idx, srcId);
           if (dstR.intersection(srcR).get_volume() > 0) {
             // Forward dependency
-            // {
-            //   SimTask* dstT = task_manager->get_forward_task(op, dstId);
-            //   SimTask* srcT = task_manager->get_forward_task(pre_op, srcId);
-            //   add_task_dependencies_with_xfer(srcT, dstT, dstR.intersection(srcR).get_volume() * element_size);
-            // }
+            {
+              SimTask* dstT = task_manager->get_forward_task(op, dstId);
+              SimTask* srcT = task_manager->get_forward_task(pre_op, srcId);
+              add_task_dependencies_with_xfer(srcT, dstT, dstR.intersection(srcR).get_volume() * element_size);
+            }
             // Backward dependency
             if (comp_mode == COMP_MODE_TRAINING) {
               SimTask* dstT = task_manager->get_backward_task(op, dstId);
@@ -1401,4 +1401,258 @@ void LogicalTaskgraphBasedSimulator::get_taskgraph_flatbuf(const FFModel* model,
 
   auto ftg = tg_builder.Finish();
   builder.Finish(ftg);
+}
+
+float SpMulMatSimulator::simulate_runtime(
+                                  const FFModel* model,
+                                  const std::map<Op*, ParallelConfig>& global,
+                                  CompMode comp_mode,
+                                  std::string const &export_file_name) 
+{
+#ifdef WRITE_NETWORK_TRANSFER
+  network_transfer_log.open("network.log");
+#endif
+  // printf("%s\n", machine->to_string().c_str());
+  task_manager->reset();
+  if (l1optimizer)
+    l1optimizer->reset();
+  // Step 1: register forward and backward tasks
+  for (size_t l = 0; l < model->layers.size(); l++) {
+    Op* op = model->layers[l];
+    ParallelConfig config = global.find(op)->second;
+    CostMetrics cost_metrics = measure_operator_cost(op, config);
+    float forward_time = cost_metrics.forward_time;
+    float backward_time = cost_metrics.backward_time;
+    SimTask *ar_task = nullptr;
+    for (int j = 0; j < config.num_parts(); j++) {
+      SimTask* task1 = task_manager->new_forward_task(op, j);
+      task1->device = machine->get_gpu(config.device_ids[j]);
+      task1->mem = machine->get_gpu_fb_mem(config.device_ids[j]);
+      task1->run_time = forward_time;
+      if (l1optimizer) 
+        l1optimizer->task_added(task1);
+      if (comp_mode == COMP_MODE_TRAINING) {
+        SimTask* task2 = task_manager->new_backward_task(op, j);
+        task2->device = machine->get_gpu(config.device_ids[j]);
+        task2->mem = machine->get_gpu_fb_mem(config.device_ids[j]);
+        task2->run_time = backward_time;
+        task1->add_next_task(task2);
+        if (l1optimizer) 
+          l1optimizer->task_added(task2);
+        
+      }
+    }
+  }
+
+  for (size_t l = 0; l < model->layers.size(); l++) {
+    Op* op = model->layers[l];
+    ParallelConfig config = global.find(op)->second;
+    size_t element_size = data_type_size(DT_FLOAT);
+    // NER step: add allreduce task after backward propogation
+    for (int j = 0; j < op->numWeights; j++) {
+      std::set<int> synched;
+      std::vector<int> node_ids;
+      for (int firstId = 0; firstId < config.num_parts(); firstId++) {
+        if (synched.find(firstId) == synched.end()) {
+          synched.insert(firstId);
+          Domain firstR = op->get_weight_tensor_shape(config, j, firstId);
+          size_t xfer_size = firstR.get_volume() * element_size;
+          node_ids.push_back(config.device_ids[firstId]);
+          for (int nextId = firstId+1; nextId < config.num_parts(); nextId++) {
+            Domain nextR = op->get_weight_tensor_shape(config, j, nextId);
+            if (firstR.intersection(nextR).get_volume() > 0) {
+              // Assert all or nothing:
+              // The two weights must be fully overlapped or not at all
+              assert(firstR == nextR);
+              assert(synched.find(nextId) == synched.end());
+              synched.insert(nextId);
+              node_ids.push_back(config.device_ids[nextId]);
+            }
+          }
+          SimTask* ar_task = task_manager->new_allreduce_task(op, node_ids, xfer_size);
+          if (l1optimizer) 
+            l1optimizer->task_added(ar_task);
+          for (int dstId = 0; dstId < config.num_parts(); dstId ++) {
+            task_manager->get_backward_task(op, dstId)->add_next_task(ar_task);
+          }
+        }
+      }
+    }
+  }
+
+  // Step 2: insert dependencies and comm. tasks before compute tasks
+  for (size_t l = 0; l < model->layers.size(); l++) {
+    Op* op = model->layers[l];
+    ParallelConfig config = global.find(op)->second;
+    for (int j = 0; j < op->numInputs; j++) {
+      Tensor t = op->inputs[j];
+      Op* pre_op = t.owner_op;
+      if (pre_op == NULL)
+        continue;
+      ParallelConfig pre_config = global.find(pre_op)->second;
+      size_t element_size = data_type_size(t.data_type);
+      for (int dstId = 0; dstId < config.num_parts(); dstId ++) {
+        Domain dstR = op->get_input_tensor_shape(config, j, dstId);
+        for (int srcId = 0; srcId < pre_config.num_parts(); srcId ++) {
+          Domain srcR = pre_op->get_output_tensor_shape(pre_config, t.owner_idx, srcId);
+          if (dstR.intersection(srcR).get_volume() > 0) {
+            // Forward dependency
+            {
+              SimTask* dstT = task_manager->get_forward_task(op, dstId);
+              SimTask* srcT = task_manager->get_forward_task(pre_op, srcId);
+              add_task_dependencies_with_xfer(srcT, dstT, dstR.intersection(srcR).get_volume() * element_size);
+            }
+            // Backward dependency
+            if (comp_mode == COMP_MODE_TRAINING) {
+              SimTask* dstT = task_manager->get_backward_task(op, dstId);
+              SimTask* srcT = task_manager->get_backward_task(pre_op, srcId);
+              add_task_dependencies_with_xfer(dstT, srcT, dstR.intersection(srcR).get_volume() * element_size);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  SpMulMat * smmOpt = reinterpret_cast<SpMulMat*>(l1optimizer);
+  if (!smmOpt->constructed) {
+    reinterpret_cast<SpMulMat*>(l1optimizer)->construct_topology();
+    smmOpt->constructed = true;
+  }
+  
+  // Step 4: add ready tasks into ready_queue
+  std::priority_queue<SimTask*, std::vector<SimTask*>, SimTaskCompare> ready_queue;
+  for (size_t i = 0; i < task_manager->global_task_id; i++)
+    if (task_manager->tasks[i]->counter == 0)
+      ready_queue.push(task_manager->tasks[i]);
+
+  // Step 5: perform simulation
+
+  float sim_time = 0.0f;
+  std::map<Device*, float> device_times;
+  // map<Device*, SimTask*> device_schedule;
+  size_t idx = 0;
+  while (!ready_queue.empty()) {
+    // Find the task with the earliest start time
+    SimTask* cur_task = ready_queue.top();
+    ready_queue.pop();
+    float ready_time = 0;
+    float end_time;
+    if (device_times.find(cur_task->device) != device_times.end()) {
+      ready_time = device_times[cur_task->device];
+    }
+    float start_time = std::max(ready_time, cur_task->ready_time);
+    if (cur_task->type == SimTask::TASK_NOMINAL_COMM) {
+      end_time = route_transfer(cur_task, start_time, device_times);
+    }
+    else if (cur_task->type == SimTask::TASK_ALLREDUCE) {
+      expand_allreduce(cur_task, start_time, ready_queue);
+      idx++;
+      continue;
+    }
+    else {
+      end_time = start_time + cur_task->run_time;
+      device_times[cur_task->device] = end_time;
+    }
+
+#ifdef DEBUG_PRINT
+    printf("task[%lu/%lu] type(%d) run_time(%.4lf) ready_time(%.4lf) start_time(%.4lf) device(%s)\n",
+          idx, task_manager->global_task_id, cur_task->type, cur_task->run_time, ready_time, start_time, (cur_task->device->name).c_str());
+#endif
+
+    if (end_time > sim_time) {
+      sim_time = end_time;
+    }
+
+    for (size_t i = 0; i < cur_task->next_tasks.size(); i++) {
+      SimTask* next = cur_task->next_tasks[i];
+      // next->ready_time = max(next->ready_time, end_time);
+      if (end_time > next->ready_time) {
+        next->ready_time = end_time;
+        // next->prev = t;
+      }
+      next->counter--;
+      if (next->counter == 0) {
+        ready_queue.push(next);
+      }
+    }
+    idx++;
+  }
+  assert(idx == task_manager->global_task_id);
+  
+  // Step 6: add penalty to strategies that exceed the memory limits on devices
+  // std::vector<size_t> gpu_mem_usage(machine->get_num_gpus(), 0);
+  // float memory_penalty = 0.0f;
+  // for (size_t l = 0; l < model->layers.size(); l++) {
+  //   Op* op = model->layers[l];
+  //   ParallelConfig config = global.find(op)->second;
+  //   CostMetrics cost_metrics = measure_operator_cost(op, config);
+  //   size_t memory_requirement = cost_metrics.memory_requirement;
+  //   for (int j = 0; j < config.num_parts(); j++) {
+  //     gpu_mem_usage[config.device_ids[j]] += memory_requirement;
+  //   }
+  // }
+  // if (export_file_name != "") {  
+  //   for (int i = 0; i < machine->get_num_gpus(); i++) {
+  //       printf("Before penalty, dev id %d, usage %zu \n", i, gpu_mem_usage[i]); 
+  //   }
+  // }
+  // // Penalize the total runtiem by 1ms if we exceed the memory budget by 1MB
+  // for (int i = 0; i < machine->get_num_gpus(); i++) {
+  //   MemDevice* gpu_fb_mem = machine->get_gpu_fb_mem(i);
+  //   if (gpu_mem_usage[i] > gpu_fb_mem->capacity and gpu_fb_mem->capacity >= 0)
+  //     memory_penalty += (gpu_mem_usage[i] - gpu_fb_mem->capacity) * 1e-6;
+  // }
+  //if (memory_penalty > 0.0f)
+  //  printf("Memory penalty = %.4lf ms\n", memory_penalty);
+  searlize_logical_taskgraph(model, "exp");
+#ifdef WRITE_NETWORK_TRANSFER
+  network_transfer_log.close();
+#endif
+  return sim_time;//  + memory_penalty;
+}
+
+float SpMulMatSimulator::simulate_runtime(const FFModel* model,
+                                  const std::map<Op*, ParallelConfig>& global,
+                                  CompMode comp_mode)
+{
+  return this->simulate_runtime(model, global, comp_mode, "");
+}  
+
+void SpMulMatSimulator::expand_allreduce(SimTask * allreduce_task, float start_time,std::priority_queue<SimTask*, std::vector<SimTask*>, SimTaskCompare>& ready_queue)
+{
+  int n_participants = allreduce_task->next_tasks.size();
+  if (n_participants == 1) return;
+  
+  SimTask * final_task = new_update_task_unrecorded();
+  SpMulMat * smmOpt = reinterpret_cast<SpMulMat*>(l1optimizer);
+  size_t npath = smmOpt->get_dp_ncomms(0, n_participants).size();
+  assert(npath > 0);
+
+// #ifdef FF_USE_NCCL
+  // recall that next_task stores node group in this case
+  final_task->device = machine->get_gpu(reinterpret_cast<uint64_t>(allreduce_task->next_tasks[0]));
+  double individual_xfer_size = (2.0 * (n_participants-1)) * allreduce_task->xfer_size / n_participants / npath;
+  int hops = machine->get_num_nodes() / n_participants;
+  for (int i = 0; i < n_participants; i++) {
+    uint64_t src = reinterpret_cast<uint64_t>(allreduce_task->next_tasks[0]);
+    const std::vector<NominalCommDevice*>& ncomms = smmOpt->get_dp_ncomms(src, n_participants);
+    for (NominalCommDevice * d: ncomms) {
+      SimTask* task = new_comm_task_unrecorded();
+      task->device = d;
+      task->run_time = 0;
+      task->ready_time = allreduce_task->ready_time;
+      task->xfer_size = individual_xfer_size;
+      task->add_next_task(final_task);
+      ready_queue.push(task);
+    }
+  }
+  if (final_task->counter == 0) {
+    final_task->ready_time = allreduce_task->ready_time;
+    ready_queue.push(final_task);
+  }
+// #else
+//   assert("SpMulMat requires ring allreduce." && false);
+// #endif
+
 }
