@@ -24,7 +24,7 @@ static std::mt19937 gen = std::mt19937(rd());
 static std::uniform_real_distribution<double> unif(0, 1);
 
 // all prime numbers below 2048. I know how to write a sieve but this is good enouggh.
-const static std::vector<uint16_t> PRIMES{2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271, 277, 281, 283, 293, 307, 311, 313, 317, 331, 337, 347, 349, 353, 359, 367, 373, 379, 383, 389, 397, 401, 409, 419, 421, 431, 433, 439, 443, 449, 457, 461, 463, 467, 479, 487, 491, 499, 503, 509, 521, 523, 541, 547, 557, 563, 569, 571, 577, 587, 593, 599, 601, 607, 613, 617, 619, 631, 641, 643, 647, 653, 659, 661, 673, 677, 683, 691, 701, 709, 719, 727, 733, 739, 743, 751, 757, 761, 769, 773, 787, 797, 809, 811, 821, 823, 827, 829, 839, 853, 857, 859, 863, 877, 881, 883, 887, 907, 911, 919, 929, 937, 941, 947, 953, 967, 971, 977, 983, 991, 997, 1009, 1013, 1019, 1021, 1031, 1033, 1039, 1049, 1051, 1061, 1063, 1069, 1087, 1091, 1093, 1097, 1103, 1109, 1117, 1123, 1129, 1151, 1153, 1163, 1171, 1181, 1187, 1193, 1201, 1213, 1217, 1223, 1229, 1231, 1237, 1249, 1259, 1277, 1279, 1283, 1289, 1291, 1297, 1301, 1303, 1307, 1319, 1321, 1327, 1361, 1367, 1373, 1381, 1399, 1409, 1423, 1427, 1429, 1433, 1439, 1447, 1451, 1453, 1459, 1471, 1481, 1483, 1487, 1489, 1493, 1499, 1511, 1523, 1531, 1543, 1549, 1553, 1559, 1567, 1571, 1579, 1583, 1597, 1601, 1607, 1609, 1613, 1619, 1621, 1627, 1637, 1657, 1663, 1667, 1669, 1693, 1697, 1699, 1709, 1721, 1723, 1733, 1741, 1747, 1753, 1759, 1777, 1783, 1787, 1789, 1801, 1811, 1823, 1831, 1847, 1861, 1867, 1871, 1873, 1877, 1879, 1889, 1901, 1907, 1913, 1931, 1933, 1949, 1951, 1973, 1979, 1987, 1993, 1997, 1999, 2003, 2011, 2017, 2027, 2029, 2039};
+const static uint16_t PRIMES[] = {1, 2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271, 277, 281, 283, 293, 307, 311, 313, 317, 331, 337, 347, 349, 353, 359, 367, 373, 379, 383, 389, 397, 401, 409, 419, 421, 431, 433, 439, 443, 449, 457, 461, 463, 467, 479, 487, 491, 499, 503, 509, 521, 523, 541, 547, 557, 563, 569, 571, 577, 587, 593, 599, 601, 607, 613, 617, 619, 631, 641, 643, 647, 653, 659, 661, 673, 677, 683, 691, 701, 709, 719, 727, 733, 739, 743, 751, 757, 761, 769, 773, 787, 797, 809, 811, 821, 823, 827, 829, 839, 853, 857, 859, 863, 877, 881, 883, 887, 907, 911, 919, 929, 937, 941, 947, 953, 967, 971, 977, 983, 991, 997, 1009, 1013, 1019, 1021, 1031, 1033, 1039, 1049, 1051, 1061, 1063, 1069, 1087, 1091, 1093, 1097, 1103, 1109, 1117, 1123, 1129, 1151, 1153, 1163, 1171, 1181, 1187, 1193, 1201, 1213, 1217, 1223, 1229, 1231, 1237, 1249, 1259, 1277, 1279, 1283, 1289, 1291, 1297, 1301, 1303, 1307, 1319, 1321, 1327, 1361, 1367, 1373, 1381, 1399, 1409, 1423, 1427, 1429, 1433, 1439, 1447, 1451, 1453, 1459, 1471, 1481, 1483, 1487, 1489, 1493, 1499, 1511, 1523, 1531, 1543, 1549, 1553, 1559, 1567, 1571, 1579, 1583, 1597, 1601, 1607, 1609, 1613, 1619, 1621, 1627, 1637, 1657, 1663, 1667, 1669, 1693, 1697, 1699, 1709, 1721, 1723, 1733, 1741, 1747, 1753, 1759, 1777, 1783, 1787, 1789, 1801, 1811, 1823, 1831, 1847, 1861, 1867, 1871, 1873, 1877, 1879, 1889, 1901, 1907, 1913, 1931, 1933, 1949, 1951, 1973, 1979, 1987, 1993, 1997, 1999, 2003, 2011, 2017, 2027, 2029, 2039};
 
 // for summing connections...
 template <typename T>
@@ -330,9 +330,14 @@ std::vector<std::pair<int, int>> ShortestPathNetworkRoutingStrategy::hop_count(i
   }
 
   std::vector<std::pair<int, int>> result;
-  for (int curr = 0; curr < total_devs; curr++) {
+  for (int i = 0; i < total_devs; i++) {
+    if (i == src_node) {
+      result.emplace_back(std::make_pair(-1, 0));
+      continue;
+    }
     int hop = -1;
     int narrowest = 0;
+    int curr = i;
     while (prev[curr] != -1) {
       if (!narrowest || (narrowest > conn[prev[curr] * total_devs + curr])) 
         narrowest = conn[prev[curr] * total_devs + curr];
@@ -1591,6 +1596,7 @@ SpMulMat::SpMulMat(MachineModel * machine, int degree, bool bidir)
 {
   if_cnt = degree;
   constructed = false;
+  construct_candidate_jumps();
 }
 
 void SpMulMat::task_added(SimTask * task) 
@@ -1646,7 +1652,8 @@ void SpMulMat::task_added(SimTask * task)
 std::vector<int> SpMulMat::negative(const std::vector<int>& v)
 {
   std::vector<int> result{v};
-  std::transform(result.cbegin(),result.cend(),result.begin(),std::negate<int>{});
+  std::transform(result.cbegin(),result.cend(),result.begin(),
+    [&](int x)->int{return machine->get_num_nodes() - x;});
   return result;
 }
 
@@ -1666,27 +1673,34 @@ std::vector<int> SpMulMat::choose_n(const std::vector<int>& cjs, int jmp, int n)
   if (n == 1) {
     return {jmp};
   }
-  std::set<int> result{jmp};
-  for (int i = 1; i < n; i++) {
+  std::set<int> result{};
+  for (int i = 0; i < n; i++) {
+    if (jmp >= cjs.back()) {
+      result.insert(cjs.front());
+    }
+    else {
+      result.insert(*std::upper_bound(cjs.cbegin(), cjs.cend(), jmp));
+    }
+    // std::cerr << "Adding " << *std::upper_bound(cjs.cbegin(), cjs.cend(), jmp) 
+    //           << ", jmp = " << jmp << std::endl;
     jmp = MOD(jmp + machine->get_num_nodes()/n, machine->get_num_nodes());
-    result.insert(*std::upper_bound(cjs.cbegin(), cjs.cend(), jmp));
   }
   return std::vector<int>{result.cbegin(), result.cend()};
 }
 
 void SpMulMat::construct_candidate_jumps() {
   int total_nodes = machine->get_num_nodes();
-  for (int i = 1; i <= total_nodes; i++) {
+  for (int i = 2; i <= total_nodes; i++) {
     if (total_nodes % i == 0) {
       int group_size = i;
       int base_jump = total_nodes / i;
       int nconfs = total_nodes % i;
-      candidate_jumps.emplace(std::make_pair(group_size, std::vector<int>{1}));
+      candidate_jumps.emplace(std::make_pair(group_size, std::vector<int>{}));
       for (int k = 0; ; k++) {
-        if (base_jump * PRIMES[k] >= group_size) {
+        if (PRIMES[k] > group_size) {
           break;
         }
-        if (group_size % PRIMES[k] != 0)
+        if (group_size % PRIMES[k] != 0 || PRIMES[k] == 1)
           candidate_jumps[group_size].emplace_back(base_jump * PRIMES[k]);
       }
     }
@@ -1728,8 +1742,10 @@ std::vector<std::pair<uint64_t, int>> SpMulMat::generate_dp_topology(ConnectionM
   uint64_t total_traffic = 0;
 
   for (auto & entry: dpgrpsz_xfersize) {
-    sorted_dpgrp_id.emplace(std::make_pair(entry.second, entry.first));
-    total_traffic += entry.second;
+    if (entry.first != 1) {
+      sorted_dpgrp_id.emplace(std::make_pair(entry.second, entry.first));
+      total_traffic += entry.second;
+    }
   }
 
   std::vector<std::pair<uint64_t, int>> n_parallel_rings;
@@ -1753,12 +1769,14 @@ std::vector<std::pair<uint64_t, int>> SpMulMat::generate_dp_topology(ConnectionM
   }
   // corner case: in DP only case or mp degree = 1, makes sure dp is connected
   // if (dp_degree >= if_cnt - 1 && !all_ring) {
+  if (!all_ring) {
     n_parallel_rings.back().second -= bidir ? 2 : 1;
     if (n_parallel_rings.back().second == 0) {
       n_parallel_rings.pop_back();
     }
     n_parallel_rings.emplace_back(std::make_pair(machine->get_num_nodes(), bidir ? 2 : 1));
-  // }
+  }
+    // }
 
   // rounding issue...
   while (n_rings_assigned < dp_degree) {
@@ -1783,7 +1801,7 @@ std::vector<std::pair<uint64_t, int>> SpMulMat::generate_dp_topology(ConnectionM
       std::make_pair(curr_dpg.first, std::vector<std::vector<int>>{}));
     // for (int j = 0; j < curr_dpg.second; j += bidir ? 2 : 1) {
     for (auto & cj: candidate_jumps.at(curr_dpg.first)) {
-      std::vector<int> jmps = choose_n(candidate_jumps.at(curr_dpg.first), cj, curr_dpg.second);
+      std::vector<int> jmps = choose_n(candidate_jumps.at(curr_dpg.first), cj, curr_dpg.second / (bidir ? 2 : 1));
       ConnectionMatrix proposed = conn;
       for (int j = 0; j < jmps.size(); j++) {
         for (int k = 0; k < ndevs / curr_dpg.first; k++) {
@@ -1801,10 +1819,13 @@ std::vector<std::pair<uint64_t, int>> SpMulMat::generate_dp_topology(ConnectionM
     // }
     assert(best_jmps.size() >= 1);
     conn = best;
-    selected_jumps[curr_dpg.first].emplace_back(best_jmps);
     for (auto jmp: best_jmps) {
+      selected_jumps[curr_dpg.first].emplace_back(std::vector<int>{jmp});
       coins.insert(jmp);
-      if (bidir) coins.insert(-jmp);
+      if (bidir) {
+        selected_jumps[curr_dpg.first].emplace_back(std::vector<int>{machine->get_num_nodes()-jmp});
+        coins.insert(machine->get_num_nodes()-jmp);
+      }
     }
   }
 
@@ -1823,11 +1844,12 @@ std::vector<std::pair<uint64_t, int>> SpMulMat::generate_dp_topology(ConnectionM
       return lhs.size() < rhs.size();
     });
 
+  std::vector<int> all2all_coinchange = all_coin_change(coins);
   for (uint64_t entry: unsatisfied_rings) {
     std::set<std::vector<int>, std::function<bool(const std::vector<int>&, const std::vector<int>&)>>
       solutions(vec_len_comp);
     for (auto & cj: candidate_jumps.at(entry)) {
-      auto sol = coin_change(coins, cj);
+      auto sol = query_path(all2all_coinchange, cj);
       if (sol.size() > 0) 
         solutions.insert(sol);
     }
@@ -1856,6 +1878,8 @@ std::vector<std::pair<uint64_t, int>> SpMulMat::generate_dp_topology(ConnectionM
     }
     selected_jumps.emplace(entry, final_choice);
   }
+
+  // print_all_rings();
   return n_parallel_rings;
 }
 
@@ -1915,12 +1939,12 @@ ConnectionMatrix SpMulMat::add_ring(const ConnectionMatrix & conn, int start, in
   int total_devs = machine->get_total_devs();
   int curr = start;
   int next = (start + dist) % total_devs;
-  while (curr != start) {
+  do {
     result[edge_id(curr, next)]++;
     if (bidir) result[edge_id(next, curr)]++;
     curr = next;
     next = (next + dist) % total_devs;
-  }
+  } while (curr != start);
   return result;
 }
 
@@ -1953,55 +1977,135 @@ double SpMulMat::compute_mp_satified(const ConnectionMatrix & conn)
   return result;
 }
 
-std::vector<int> SpMulMat::coin_change(const std::set<int> & coins, int goal) 
+// std::vector<int> SpMulMat::coin_change(const std::set<int> & coins, int goal) 
+// {
+//   std::vector<int> coins_vec{coins.cbegin(), coins.cend()};
+//   int min_coin = coins_vec[0];
+//   if (min_coin < 0) {
+//     std::transform(coins_vec.cbegin(), coins_vec.cend(), coins_vec.begin(),
+//       [&] (int i) -> int {return i > 0 ? i : machine->get_num_nodes() + i;}
+//     );
+//     // goal = goal - min_coin + 1;
+//     std::sort(coins_vec.begin(), coins_vec.end());
+//     coins_vec.erase(std::unique(coins_vec.begin(), coins_vec.end()), coins_vec.end());
+//   }
+
+//   std::vector<int> dist(machine->get_num_nodes(), 0);
+//   std::vector<int> back_idx(machine->get_num_nodes(), -1);
+//   for (int c: coins_vec) {
+//     dist[c - 1] = 1;
+//     back_idx[c - 1] = c - 1;
+//   }
+
+//   for (int i = 0; i < goal; i++) {
+//     if (dist[i] == 1) continue;
+//     int index_candididate = -1;
+//     int min_dist = 0;
+//     for (int c: coins_vec) {
+//       // if (i - (c - 1) >= 0) {
+//         if (!min_dist || (dist[MOD(i-(c-1), machine->get_num_nodes())] + 1 < min_dist)) {
+//           min_dist = dist[MOD(i-(c-1), machine->get_num_nodes())] + 1;
+//           index_candididate = c-1;
+//         }
+//       // }
+//     }
+//   }
+
+//   if (back_idx.back() == -1) {
+//     return {};
+//   }
+//   std::vector<int> result;
+//   int curr_coin = back_idx.back();
+//   int curr_pos = goal;
+
+//   while (curr_pos != curr_coin) {
+//     result.push_back(coins.find(curr_coin) != coins.end() ? curr_coin : curr_coin - machine->get_num_nodes());
+//     curr_pos = MOD(curr_pos - curr_coin, machine->get_num_nodes());
+//     curr_coin = back_idx[curr_pos];
+//   }
+//   return result;
+// }
+
+std::vector<int> SpMulMat::all_coin_change(const std::set<int> & coins)
 {
-  std::vector<int> coins_vec{coins.cbegin(), coins.cend()};
-  int min_coin = coins_vec[0];
-  if (min_coin < 0) {
-    std::transform(coins_vec.cbegin(), coins_vec.cend(), coins_vec.begin(),
-      [&] (int i) -> int {return i > 0 ? i : machine->get_num_nodes() + i;}
-    );
-    // goal = goal - min_coin + 1;
-    std::sort(coins_vec.begin(), coins_vec.end());
-    coins_vec.erase(std::unique(coins_vec.begin(), coins_vec.end()), coins_vec.end());
+  // std::vector<int> coins_vec{coins.cbegin(), coins.cend()};
+  // int min_coin = coins_vec[0];
+  // if (min_coin < 0) {
+  //   std::transform(coins_vec.cbegin(), coins_vec.cend(), coins_vec.begin(),
+  //     [&] (int i) -> int {return i > 0 ? i : machine->get_num_nodes() + i;}
+  //   );
+  //   // goal = goal - min_coin + 1;
+  //   std::sort(coins_vec.begin(), coins_vec.end());
+  //   coins_vec.erase(std::unique(coins_vec.begin(), coins_vec.end()), coins_vec.end());
+  // }
+  std::vector<std::vector<int>> backtraces{};
+  std::vector<std::vector<int>> dists{};
+  std::vector<int> init_dists(machine->get_num_nodes(), -1);
+  std::vector<int> init_backtrace(machine->get_num_nodes(), -1);
+  for (int c: coins) {
+    init_dists[c] = 0;
+    init_backtrace[c] = c;
   }
-
-  std::vector<int> dist(machine->get_num_nodes(), 0);
-  std::vector<int> back_idx(machine->get_num_nodes(), -1);
-  for (int c: coins_vec) {
-    dist[c - 1] = 1;
-    back_idx[c - 1] = c - 1;
-  }
-
-  for (int i = 0; i < goal; i++) {
-    if (dist[i] == 1) continue;
-    int index_candididate = -1;
-    int min_dist = 0;
-    for (int c: coins_vec) {
-      // if (i - (c - 1) >= 0) {
-        if (!min_dist || (dist[MOD(i-(c-1), machine->get_num_nodes())] + 1 < min_dist)) {
-          min_dist = dist[MOD(i-(c-1), machine->get_num_nodes())] + 1;
-          index_candididate = c-1;
+  backtraces.emplace_back(init_backtrace);
+  dists.emplace_back(init_dists);
+  bool finished = std::find(dists.back().begin(), dists.back().end(), -1) == dists.back().end();
+  while (!finished) {
+    // std::cerr << "iter coin change: " << std::endl;
+    // for (int i : backtraces.back()) {
+    //   std::cerr << i << ", ";
+    // }
+    // std::cerr << std::endl;
+    // for (int i : dists.back()) {
+    //   std::cerr << i << ", ";
+    // }
+    // std::cerr << std::endl;
+    finished = true;
+    std::vector<int> curr_dists(machine->get_num_nodes(), -1);
+    std::vector<int> curr_backtrace(machine->get_num_nodes(), -1);
+    for (int i = 0; i < machine->get_num_nodes(); i++) {
+      if (dists.back()[i] != -1) {
+        curr_dists[i] = dists.back()[i];
+        curr_backtrace[i] = backtraces.back()[i];
+      }
+      else {
+        for (int c: coins) {
+          if (dists.back()[MOD(i-(c), machine->get_num_nodes())] != -1 && 
+              (curr_dists[i] == -1 || 
+              (dists.back()[MOD(i-(c), machine->get_num_nodes())] + 1 < curr_dists[i] || 
+              (dists.back()[MOD(i-(c), machine->get_num_nodes())] + 1 == curr_dists[i] && unif(gen) > 0.5)))) {
+            curr_dists[i] = dists.back()[MOD(i-(c), machine->get_num_nodes())] + 1;
+            curr_backtrace[i] = c; 
+          }
         }
-      // }
+        if (curr_dists[i] == -1) {
+          finished = false;
+        }
+      }
     }
+    backtraces.emplace_back(curr_backtrace);
+    dists.emplace_back(curr_dists);
   }
-
-  if (back_idx.back() == -1) {
-    return {};
-  }
-  std::vector<int> result;
-  int curr_coin = back_idx.back();
-  int curr_pos = goal;
-
-  while (curr_pos != curr_coin) {
-    result.push_back(coins.find(curr_coin) != coins.end() ? curr_coin : curr_coin - machine->get_num_nodes());
-    curr_pos = MOD(curr_pos - curr_coin, machine->get_num_nodes());
-    curr_coin = back_idx[curr_pos];
-  }
-  return result;
+  // std::cerr << "solution to coin change: " << std::endl;
+  // for (int i : backtraces.back()) {
+  //   std::cerr << i << ", ";
+  // }
+  // std::cerr << std::endl;
+  return backtraces.back();
 }
 
+std::vector<int> SpMulMat::query_path(const std::vector<int>& candidates, int jump)
+{
+  // jump;
+  std::vector<int> result;
+  int next_coin = candidates[jump];
+  while (jump) {
+    result.push_back(next_coin);
+    jump = MOD(jump - (next_coin), machine->get_num_nodes());
+    next_coin = candidates[jump];
+  }
+  // result.push_back(next_coin);
+  return result;
+}
 
 bool SpMulMat::optimize(int mcmc_iter, float sim_iter_time, bool forced) 
 {
@@ -2022,6 +2126,17 @@ bool SpMulMat::optimize(int mcmc_iter, float sim_iter_time, bool forced)
 
   if (forced || !change && num_iter_nochange < no_improvement_th)
     return false;
+
+  selected_jumps.clear();
+  for (auto & entry: dp_ncomms) {
+    for (auto & c: entry.second) {
+      if (c != nullptr) {
+        delete c;
+        c = nullptr;
+      }
+    }
+  }
+  dp_ncomms.clear();
   
   num_iter_nochange = 0;
   NetworkedMachineModel * nm = static_cast<NetworkedMachineModel*>(this->machine);
@@ -2235,6 +2350,8 @@ ConnectionMatrix SpMulMat::connect_topology(const ConnectionMatrix & conn,
 void SpMulMat::reset() 
 {
   mp_tm_logical.clear();
+  dpgrpsz_xfersize.clear();
+  dpgrps.clear();
   // selected_jumps.clear();
 }
 
@@ -2243,7 +2360,7 @@ void* SpMulMat::export_information()
   NetworkedMachineModel * nm = static_cast<NetworkedMachineModel*>(this->machine);
   SpMulMatInformation * info = new SpMulMatInformation();
   info->conn = nm->conn_matrix;
-  info->dp_ncomms = dp_ncomms;
+  // info->dp_ncomms = dp_ncomms;
   info->selected_jumps = selected_jumps;
   return (void*)(info);
 }
@@ -2253,7 +2370,16 @@ void SpMulMat::import_information(void * information)
 {
   NetworkedMachineModel * nm = static_cast<NetworkedMachineModel*>(this->machine);
   SpMulMatInformation * info = (SpMulMatInformation*)(information);
-  dp_ncomms = info->dp_ncomms;
+  // dp_ncomms = info->dp_ncomms;
+  for (auto & entry: dp_ncomms) {
+    for (auto & c: entry.second) {
+      if (c != nullptr) {
+        delete c;
+        c = nullptr;
+      }
+    }
+  }
+  dp_ncomms.clear();
   selected_jumps = info->selected_jumps;
   nm->set_topology(info->conn);
   nm->update_route();
@@ -2262,11 +2388,14 @@ void SpMulMat::import_information(void * information)
 void SpMulMat::delete_information(void * information)  
 {
   SpMulMatInformation * info = (SpMulMatInformation*)information;
-  for (auto & entry: info->dp_ncomms) {
-    for (NominalCommDevice * c: entry.second) {
-      delete c;
-    }
-  }
+  // for (auto & entry: info->dp_ncomms) {
+  //   for (auto & c: entry.second) {
+  //     if (c != nullptr) {
+  //       delete c;
+  //       c = nullptr;
+  //     }
+  //   }
+  // }
   delete info;
 }
 
@@ -2286,15 +2415,17 @@ const std::vector<NominalCommDevice*>& SpMulMat::get_dp_ncomms(int src, int grp_
   auto & paths = selected_jumps[grp_sz];
   dp_ncomms[key] = std::vector<NominalCommDevice*>{};
   for (int i = 0; i < paths.size(); i++) {
-    int dst = (src + (total_devs / grp_sz)) % total_devs;
+    int total_hops = 0;
+    for (int h: paths[i]) total_hops += h;
+    int dst = MOD(src + (total_hops), total_devs);
     std::string link_name = "NOMINAL_DP_" + std::to_string(src) + "-" + std::to_string(dst) + "-" + std::to_string(grp_sz) + "-" + std::to_string(i);
     int device_id = src * total_devs + dst;
-    NominalCommDevice * ncomm = new NominalCommDevice(link_name, device_id, total_devs, *nm->routing_strategy);
+    NominalCommDevice * ncomm = new NominalCommDevice(link_name, device_id, total_devs, nm->routing_strategy);
     Route r;
     int curr = src;
     int next;
     for (int j = 0; j < paths[i].size(); j++) {
-      next = MOD(curr + paths[i][j], total_devs);
+      next = MOD(curr + paths[i][(j + 1) % paths[i].size()], total_devs);
       r.push_back(nm->ids_to_nw_comm_device.at(curr * total_devs + next));
       curr = next;
     }
@@ -2302,4 +2433,19 @@ const std::vector<NominalCommDevice*>& SpMulMat::get_dp_ncomms(int src, int grp_
     dp_ncomms[key].push_back(ncomm);
   }
   return dp_ncomms[key];
+}
+
+void SpMulMat::print_all_rings() const 
+{
+  for (auto & grp_paths: selected_jumps) {
+    std::cerr << "Group size: " << grp_paths.first << std::endl;
+    for (auto & path: grp_paths.second) {
+      std::cerr << "\t";
+      for (int hop: path) {
+        std::cerr << hop << ", ";
+      }
+      std::cerr << std::endl;
+    }
+  }
+  std::cerr << std::endl;
 }

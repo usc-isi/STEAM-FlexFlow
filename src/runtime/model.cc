@@ -1809,6 +1809,19 @@ void FFModel::simulate2(CompMode comp_mode)
   future.get_void_result();
 }
 
+void FFModel::simulate_new(CompMode comp_mode) 
+{
+  Context ctx = config.lg_ctx;
+  Runtime* runtime = config.lg_hlr;
+  config.computationMode = comp_mode;
+  // Launch the simulation task
+  FFModel* model = this;
+  TaskLauncher launcher(CUSTOM_SIMULATION_TASK_ID_3,
+      TaskArgument(&model, sizeof(FFModel*)));
+  Future future = runtime->execute_task(ctx, launcher);
+  future.get_void_result();
+}
+
 void FFModel::run_measurement() 
 {
   Context ctx = config.lg_ctx;
@@ -2339,8 +2352,9 @@ void FFModel::optimize(Simulator* simulator,
       last_reset_iter = iter;
       if (simulator->l1optimizer) {
         simulator->l1optimizer->import_information(l1bestinfo);
+        if (l1currinfo != l1bestinfo)
         simulator->l1optimizer->delete_information(l1currinfo);
-        l1currinfo = l1bestinfo;
+        l1currinfo = simulator->l1optimizer->export_information();
       }
     }
     rewrite(current, next, use_propagation);
@@ -2375,9 +2389,10 @@ void FFModel::optimize(Simulator* simulator,
       best = next;
       if (simulator->l1optimizer) {
         simulator->l1optimizer->delete_information(l1bestinfo);
+        if (l1currinfo != l1bestinfo)
+          simulator->l1optimizer->delete_information(l1currinfo);
         l1bestinfo = simulator->l1optimizer->export_information();
-        simulator->l1optimizer->optimize(iter, next_runtime);
-        simulator->l1optimizer->delete_information(l1currinfo);
+        simulator->l1optimizer->optimize(iter, next_runtime, true);
         l1currinfo = simulator->l1optimizer->export_information();
       }
     }
@@ -2385,29 +2400,27 @@ void FFModel::optimize(Simulator* simulator,
       current = next;
       current_runtime = next_runtime;
       if (simulator->l1optimizer) {
-        simulator->l1optimizer->delete_information(l1bestinfo);
-        l1bestinfo = simulator->l1optimizer->export_information();
-        simulator->l1optimizer->optimize(iter, next_runtime, true);
+        if (l1currinfo != l1bestinfo)
         simulator->l1optimizer->delete_information(l1currinfo);
+        simulator->l1optimizer->optimize(iter, next_runtime, true);
         l1currinfo = simulator->l1optimizer->export_information();
       }
     } else if (rn < std::exp(-alpha * diff)) {
       current = next;
       current_runtime = next_runtime;
       if (simulator->l1optimizer) {
-        simulator->l1optimizer->delete_information(l1bestinfo);
-        l1bestinfo = simulator->l1optimizer->export_information();
-        simulator->l1optimizer->optimize(iter, next_runtime ,true);
+        if (l1currinfo != l1bestinfo)
         simulator->l1optimizer->delete_information(l1currinfo);
+        simulator->l1optimizer->optimize(iter, next_runtime, true);
         l1currinfo = simulator->l1optimizer->export_information();
       }
     }
-    else {
-      // restore l1 state
-      if (simulator->l1optimizer) {
-        simulator->l1optimizer->import_information(l1currinfo);
-      }
-    }
+    // else {
+    //   // restore l1 state
+    //   if (simulator->l1optimizer) {
+    //     simulator->l1optimizer->import_information(l1currinfo);
+    //   }
+    // }
 
     if (simulator->l1optimizer) {
       if (simulator->l1optimizer->optimize(iter, next_runtime)) {
@@ -3631,6 +3644,14 @@ void register_flexflow_internal_tasks()
     registrar.set_leaf();
     Runtime::preregister_task_variant<Simulator::simulation_task>(
         registrar, "Simulation Task 2");
+  }
+  {
+    TaskVariantRegistrar registrar(CUSTOM_SIMULATION_TASK_ID_3,
+                                   "Simulation Only 3");
+    registrar.add_constraint(ProcessorConstraint(Processor::TOC_PROC));
+    registrar.set_leaf();
+    Runtime::preregister_task_variant<SpMulMatSimulator::simulation_task>(
+        registrar, "Simulation Task 3");
   }
   {
     TaskVariantRegistrar registrar(CUSTOM_MEASUREMENT_TASK_ID_1,

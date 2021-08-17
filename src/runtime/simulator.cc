@@ -22,7 +22,7 @@
 #include "taskgraph_generated.h"
 
 // #define DEBUG_PRINT
-#define WRITE_NETWORK_TRANSFER
+// #define WRITE_NETWORK_TRANSFER
 
 int ParallelConfig::num_parts() const
 {
@@ -71,7 +71,7 @@ static std::uniform_real_distribution<> std_uniform = std::uniform_real_distribu
 // : CommDevice(name, CommDevice::NW_NOMINAL, -1, -1, device_id, 0, 0), routes(routes)
 // {}
 
-NominalCommDevice::NominalCommDevice(std::string const &name, int device_id, int nnodes, NetworkRoutingStrategy & routing) 
+NominalCommDevice::NominalCommDevice(std::string const &name, int device_id, int nnodes, NetworkRoutingStrategy * routing) 
 : CommDevice(name, CommDevice::NW_NOMINAL, -1, -1, device_id, 0, 0), routing_strategy(routing), dirty(true), nnode(nnodes)
 {}
 
@@ -84,7 +84,10 @@ void NominalCommDevice::reset()
 Route NominalCommDevice::expand_to_physical() const 
 {
   if (dirty) {
-    *const_cast<EcmpRoutes*>(&routes) = routing_strategy.get_routes(device_id / nnode, device_id % nnode);
+    if (routing_strategy == nullptr)
+      assert("don't know how to route!" && false);
+    *const_cast<EcmpRoutes*>(&routes) = routing_strategy->get_routes(device_id / nnode, device_id % nnode);
+    *const_cast<bool*>(&dirty) = false;
   }
 
   int pick = 0;
@@ -100,6 +103,7 @@ Route NominalCommDevice::expand_to_physical() const
 void NominalCommDevice::set_physical_paths(const EcmpRoutes &rs) 
 {
   routes = rs;
+  dirty = false;
 }
 
 const EcmpRoutes & NominalCommDevice::get_all_routes() 
@@ -1635,9 +1639,12 @@ void SpMulMatSimulator::expand_allreduce(SimTask * allreduce_task, float start_t
   double individual_xfer_size = (2.0 * (n_participants-1)) * allreduce_task->xfer_size / n_participants / npath;
   int hops = machine->get_num_nodes() / n_participants;
   for (int i = 0; i < n_participants; i++) {
-    uint64_t src = reinterpret_cast<uint64_t>(allreduce_task->next_tasks[0]);
+    uint64_t src = reinterpret_cast<uint64_t>(allreduce_task->next_tasks[i]);
     const std::vector<NominalCommDevice*>& ncomms = smmOpt->get_dp_ncomms(src, n_participants);
     for (NominalCommDevice * d: ncomms) {
+#ifdef DEBUG_PRINT
+      std::cerr << "expand_ar: adding " << d->name << " for size " << individual_xfer_size << std::endl;
+#endif
       SimTask* task = new_comm_task_unrecorded();
       task->device = d;
       task->run_time = 0;

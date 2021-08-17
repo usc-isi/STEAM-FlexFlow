@@ -95,7 +95,7 @@ void top_level_task(const Task* task,
   if (ffConfig.measurement_only)
     ff.run_measurement();
   else {
-    ff.simulate();
+    ff.simulate_new();
   }
 #if 0
   // Data Loader

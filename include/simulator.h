@@ -121,8 +121,7 @@ class NetworkRoutingStrategy;
 class NominalCommDevice : public CommDevice {
 public:
   // NominalCommDevice(std::string const &name, int device_id, const EcmpRoutes& routes);
-  NominalCommDevice(std::string const &name, int device_id, int nnode, NetworkRoutingStrategy & routing);
-  NominalCommDevice(std::string const &name, int device_id, int nnode);
+  NominalCommDevice(std::string const &name, int device_id, int nnode, NetworkRoutingStrategy * routing);
   /* pick one of the weighted ECMP path */
   Route expand_to_physical() const;
   const EcmpRoutes & get_all_routes();
@@ -131,7 +130,7 @@ public:
   // static inline int get_from_dev(int devid, int total) {return devid / total;}
   // static inline int get_to_dev(int devid, int total) {return devid % total;}
 public:
-  NetworkRoutingStrategy & routing_strategy;
+  NetworkRoutingStrategy * routing_strategy;
   EcmpRoutes routes;
   int nnode;
   bool dirty = true;
@@ -358,6 +357,7 @@ public:
   NetworkedMachineModel(int num_nodes, 
       int num_gpus_per_node, 
       int num_switches, 
+      float network_latency,
       const std::vector<int>& topology, 
       size_t capacity, 
       float link_bandwidth);
@@ -870,7 +870,7 @@ struct DPGroup {
 struct SpMulMatInformation {
   ConnectionMatrix conn;
   std::unordered_map<uint64_t, std::vector<std::vector<int>>> selected_jumps;
-  std::unordered_map<uint64_t, std::vector<NominalCommDevice*>> dp_ncomms;
+  // std::unordered_map<uint64_t, std::vector<NominalCommDevice*>> dp_ncomms;
 };
 
 // Space-multiplexed matching?...
@@ -894,7 +894,8 @@ public:
   // ConnectionMatrix construct_hop_matrix(const ConnectionMatrix & conn);
   double compute_mp_satified(const ConnectionMatrix & hop_matrix);
   void construct_candidate_jumps();
-  std::vector<int> coin_change(const std::set<int> & coins, int goal);
+  std::vector<int> all_coin_change(const std::set<int> & coins);
+  std::vector<int> query_path(const std::vector<int>& candidates, int jump);
   std::pair<blossom_match::Graph, std::vector<double>>
     convert_to_blsm_match_graph(std::unordered_map<uint64_t, uint64_t> & mp_tm);
   // std::vector<std::vector<int>> get_selected_jumps(int group_sz); 
@@ -915,6 +916,8 @@ public:
   inline bool segment_overlap(const std::vector<int>& a, const std::vector<int>& b);
   inline std::vector<int> negative(const std::vector<int>& v);
   inline std::vector<int> choose_n(const std::vector<int>& cjs, int init_jmp, int n);
+
+  void print_all_rings() const;
 
   std::unordered_map<uint64_t, std::vector<int>> candidate_jumps;
   std::unordered_map<uint64_t, std::vector<std::vector<int>>> selected_jumps;
@@ -948,9 +951,9 @@ public:
       CompMode comp_mode,
       std::string const &export_file_name);
   void expand_allreduce(SimTask * allreduce_task, float start_time,std::priority_queue<SimTask*, std::vector<SimTask*>, SimTaskCompare>& ready_queue);
-  // static void simulation_task(const Task *task,
-  //                                 const std::vector<PhysicalRegion> &regions,
-  //                                 Context ctx, Runtime *runtime);
+  static void simulation_task(const Task *task,
+                                  const std::vector<PhysicalRegion> &regions,
+                                  Context ctx, Runtime *runtime);
 };
 
 #endif

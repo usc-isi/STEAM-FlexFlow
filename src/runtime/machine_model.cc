@@ -417,7 +417,7 @@ void EnhancedMachineModel::add_gpus()
     for (int j = 0; j < num_sockets_per_node; j++) {
       int socket_id = i * num_sockets_per_node + j;
       int device_id = socket_id;
-      // add zero copy memory
+      // adpy memory
       std::string z_copy_mem_name = "Z_COPY_MEM " + std::to_string(device_id);
       MemDevice *z_copy_mem = new MemDevice(z_copy_mem_name, MemDevice::Z_COPY_MEM, node_id, socket_id, device_id, -1);
       z_copy_mems.push_back(z_copy_mem);
@@ -805,9 +805,9 @@ std::string EnhancedMachineModel::to_string() const
 
 /* Networked machine model */
 NetworkedMachineModel::NetworkedMachineModel(int num_nodes, 
-        int num_gpus_per_node, int num_switches, 
+        int num_gpus_per_node, int num_switches, float network_latency,
         const std::vector<int>& topology, size_t capacity, float link_bandwidth)
-  : num_nodes(num_nodes), num_gpus_per_node(num_gpus_per_node), 
+  : num_nodes(num_nodes), num_gpus_per_node(num_gpus_per_node), network_latency(network_latency),
     num_switches(num_switches), link_bandwidth(link_bandwidth), conn_matrix(topology)
 {
   version = 0;
@@ -886,7 +886,7 @@ void NetworkedMachineModel::update_route() {
       int device_id = i * total_devs + j;
       std::string link_name = "NOMINAL " + std::to_string(i) + "-" + std::to_string(j);
       if (ids_to_nw_nominal_device.find(device_id) == ids_to_nw_nominal_device.end()) {
-        ids_to_nw_nominal_device[device_id] = new NominalCommDevice(link_name, device_id, total_devs, *routing_strategy);
+        ids_to_nw_nominal_device[device_id] = new NominalCommDevice(link_name, device_id, total_devs, routing_strategy);
       }
       ids_to_nw_nominal_device[device_id]->reset();
       // ids_to_nw_nominal_device[device_id]->set_physical_paths(routing_strategy->get_routes(i, j));
