@@ -86,6 +86,7 @@ Route NominalCommDevice::expand_to_physical() const
   if (dirty) {
     if (routing_strategy == nullptr)
       assert("don't know how to route!" && false);
+    // std::cerr << name << " dirty... " << std::endl;
     *const_cast<EcmpRoutes*>(&routes) = routing_strategy->get_routes(device_id / nnode, device_id % nnode);
     *const_cast<bool*>(&dirty) = false;
   }
@@ -1636,7 +1637,7 @@ void SpMulMatSimulator::expand_allreduce(SimTask * allreduce_task, float start_t
 // #ifdef FF_USE_NCCL
   // recall that next_task stores node group in this case
   final_task->device = machine->get_gpu(reinterpret_cast<uint64_t>(allreduce_task->next_tasks[0]));
-  double individual_xfer_size = (2.0 * (n_participants-1)) * allreduce_task->xfer_size / n_participants / npath;
+  double individual_xfer_size = std::ceil((2.0 * (n_participants-1)) * allreduce_task->xfer_size / n_participants / npath);
   int hops = machine->get_num_nodes() / n_participants;
   for (int i = 0; i < n_participants; i++) {
     uint64_t src = reinterpret_cast<uint64_t>(allreduce_task->next_tasks[i]);

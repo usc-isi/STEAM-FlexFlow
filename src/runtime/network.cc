@@ -180,9 +180,14 @@ std::vector<std::pair<int, int>> WeightedShortestPathRoutingStragtegy::hop_count
   }
 
   std::vector<std::pair<int, int>> result;
-  for (int curr = 0; curr < total_devs; curr++) {
+  for (int i = 0; i < total_devs; i++) {
+    if (i == src_node) {
+      result.emplace_back(std::make_pair(-1, 0));
+      continue;
+    }
     int hop = -1;
     int narrowest = 0;
+    int curr = i;
     while (prev[curr] != -1) {
       if (!narrowest || (narrowest > conn[prev[curr] * total_devs + curr])) 
         narrowest = conn[prev[curr] * total_devs + curr];
@@ -1564,10 +1569,10 @@ bool DemandHeuristicNetworkOptimizerPlus::optimize(int mcmc_iter, float sim_iter
   std::unordered_map<size_t, size_t> node_if_allocated;
 
   connectivity_assign(conn, max_of_bidir, node_if_allocated);
-// #ifdef DEBUG_PRINT
+#ifdef DEBUG_PRINT
   std::cerr << "After connectivity_assign " << std::endl;
   NetworkTopologyGenerator::print_conn_matrix(conn, nnode, 0);
-// #endif
+#endif
   // connect_topology(conn, node_if_allocated);
   // std::cerr << "After conn_topo " << std::endl;
   // NetworkTopologyGenerator::print_conn_matrix(conn, nnode, 0);
@@ -1810,6 +1815,9 @@ std::vector<std::pair<uint64_t, int>> SpMulMat::generate_dp_topology(ConnectionM
       }
       // ConnectionMatrix hopm = construct_hop_matrix(conn);
       double mp_this = compute_mp_satified(proposed);
+#ifdef DEBUG_PRINT
+      std::cerr << "MP satisfied: " << mp_this << std::endl;
+#endif
       if (mp_this > mp_satisfied || (mp_this == mp_satisfied && unif(gen) > 0.5)) {
         mp_satisfied = mp_this;
         best = proposed;
@@ -1879,7 +1887,9 @@ std::vector<std::pair<uint64_t, int>> SpMulMat::generate_dp_topology(ConnectionM
     selected_jumps.emplace(entry, final_choice);
   }
 
-  // print_all_rings();
+#ifdef DEBUG_PRINT
+  print_all_rings();
+#endif
   return n_parallel_rings;
 }
 
@@ -1957,7 +1967,7 @@ double SpMulMat::compute_mp_satified(const ConnectionMatrix & conn)
   size_t nnode = machine->get_num_nodes();
   size_t ndevs = machine->get_total_devs();
   for (int i = 0; i < nnode; i++) {
-    auto hopcnts = s.hop_count(i);
+    // auto hopcnts = s.hop_count(i);
     // std::cerr << "from " << i << " to " << j << " discounted: " << discounted_hop 
     //   << "(hop cnt: " << hop_cnt << ", narrowest: " << narrowest << std::endl;
     for (int j = 0; j < nnode; j++) {
@@ -1968,8 +1978,8 @@ double SpMulMat::compute_mp_satified(const ConnectionMatrix & conn)
         if (conn[edge_id(i, j)] > 0) {
           result += mp_tm_logical.at(edge_id(i, j));
         } else {
-          if (hopcnts[j].first == -1) continue;
-          result += mp_tm_logical.at(edge_id(i, j)) / hopcnts[j].first;
+          // if (hopcnts[j].first == -1) continue;
+          // result += mp_tm_logical.at(edge_id(i, j)) / hopcnts[j].first;
         }
       }
     }
@@ -2050,15 +2060,17 @@ std::vector<int> SpMulMat::all_coin_change(const std::set<int> & coins)
   dists.emplace_back(init_dists);
   bool finished = std::find(dists.back().begin(), dists.back().end(), -1) == dists.back().end();
   while (!finished) {
-    // std::cerr << "iter coin change: " << std::endl;
-    // for (int i : backtraces.back()) {
-    //   std::cerr << i << ", ";
-    // }
-    // std::cerr << std::endl;
-    // for (int i : dists.back()) {
-    //   std::cerr << i << ", ";
-    // }
-    // std::cerr << std::endl;
+  #ifdef DEBUG_PRINT
+    std::cerr << "iter coin change: " << std::endl;
+    for (int i : backtraces.back()) {
+      std::cerr << i << ", ";
+    }
+    std::cerr << std::endl;
+    for (int i : dists.back()) {
+      std::cerr << i << ", ";
+    }
+    std::cerr << std::endl;
+  #endif
     finished = true;
     std::vector<int> curr_dists(machine->get_num_nodes(), -1);
     std::vector<int> curr_backtrace(machine->get_num_nodes(), -1);
@@ -2085,11 +2097,13 @@ std::vector<int> SpMulMat::all_coin_change(const std::set<int> & coins)
     backtraces.emplace_back(curr_backtrace);
     dists.emplace_back(curr_dists);
   }
-  // std::cerr << "solution to coin change: " << std::endl;
-  // for (int i : backtraces.back()) {
-  //   std::cerr << i << ", ";
-  // }
-  // std::cerr << std::endl;
+#ifdef DEBUG_PRINT 
+  std::cerr << "solution to coin change: " << std::endl;
+  for (int i : backtraces.back()) {
+    std::cerr << i << ", ";
+  }
+  std::cerr << std::endl;
+#endif
   return backtraces.back();
 }
 
@@ -2156,6 +2170,9 @@ bool SpMulMat::optimize(int mcmc_iter, float sim_iter_time, bool forced)
   // connect_topology(final, dp_rings, mp_degree);
   nm->set_topology(final);
   nm->update_route();
+#ifdef DEBUG_PRINT
+  NetworkTopologyGenerator::print_conn_matrix(final, ndevs, 0);
+#endif
   return true;
 }
 
@@ -2178,6 +2195,9 @@ void SpMulMat::construct_topology()
   // connect_topology(final, dp_rings, mp_degree);
   nm->set_topology(final);
   nm->update_route();
+#ifdef DEBUG_PRINT
+  NetworkTopologyGenerator::print_conn_matrix(final, ndevs, 0);
+#endif
 }
 
 ConnectionMatrix SpMulMat::connect_topology(const ConnectionMatrix & conn, 
