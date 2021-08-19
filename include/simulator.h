@@ -541,6 +541,12 @@ public:
 };
 #endif
 
+struct L1OptimizerInformation {};
+
+struct L1TopologyInformation: public L1OptimizerInformation {
+  L1TopologyInformation(const ConnectionMatrix & conn): conn(conn) {};
+  ConnectionMatrix conn;
+};
 
 /**
  * Interface for doing network topology optimization
@@ -555,9 +561,9 @@ public:
     virtual bool optimize(int mcmc_iter, float sim_iter_time, bool force_run = false) = 0;
     virtual void task_added(SimTask * task) { return; };
     virtual void reset() = 0;
-    virtual void* export_information() = 0;
-    virtual void import_information(void * information) = 0;
-    virtual void delete_information(void * information) = 0;
+    virtual std::unique_ptr<L1OptimizerInformation> export_information() = 0;
+    virtual void import_information(const std::unique_ptr<L1OptimizerInformation>& information) = 0;
+    virtual void delete_information(const std::unique_ptr<L1OptimizerInformation>& information) = 0;
     virtual void store_tm() const = 0;
 
 protected:
@@ -577,9 +583,9 @@ public:
   virtual bool optimize(int mcmc_iter, float sim_iter_time, bool force_run = false);
   virtual void task_added(SimTask * task);
   virtual void reset();
-  virtual void* export_information();
-  virtual void import_information(void * information);
-  virtual void delete_information(void * information);
+  virtual std::unique_ptr<L1OptimizerInformation> export_information();
+  virtual void import_information(const std::unique_ptr<L1OptimizerInformation>& information);
+  virtual void delete_information(const std::unique_ptr<L1OptimizerInformation>& information);
   size_t edge_id(int i, int j) const;
   size_t unordered_edge_id(int i, int j) const;
   void optimize_demand(
@@ -867,7 +873,7 @@ struct DPGroup {
   // std::set<int> jump_dists;
 };
 
-struct SpMulMatInformation {
+struct SpMulMatInformation : public L1OptimizerInformation {
   ConnectionMatrix conn;
   std::unordered_map<uint64_t, std::vector<std::vector<int>>> selected_jumps;
   // std::unordered_map<uint64_t, std::vector<NominalCommDevice*>> dp_ncomms;
@@ -882,9 +888,9 @@ public:
   virtual bool optimize(int mcmc_iter, float sim_iter_time, bool force_run = false);
   virtual void task_added(SimTask * task);
   virtual void reset();
-  virtual void* export_information();
-  virtual void import_information(void * information);
-  virtual void delete_information(void * information);
+  virtual std::unique_ptr<L1OptimizerInformation> export_information();
+  virtual void import_information(const std::unique_ptr<L1OptimizerInformation>& information);
+  virtual void delete_information(const std::unique_ptr<L1OptimizerInformation>& information);
   virtual void store_tm() const; 
 
   std::vector<std::pair<uint64_t, int>> generate_dp_topology(ConnectionMatrix & conn, int dp_degree);

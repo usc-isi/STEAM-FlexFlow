@@ -527,7 +527,7 @@ bool DemandHeuristicNetworkOptimizer::optimize(int mcmc_iter, float sim_iter_tim
   float diff = sim_iter_time - curr_sim_time;
   std::cerr << "sim_iter_time: " << sim_iter_time << ", curr_sim_time: " << curr_sim_time 
             << ", best_iter_time: " << best_sim_time << std::endl;
-  bool change = diff < 0 ? true :
+  bool change = diff > 0 ? true :
     static_cast<float>(std::rand()) / static_cast<float>(static_cast<float>(RAND_MAX)) < std::exp(-alpha * diff);
   if (change) {
     curr_sim_time = sim_iter_time;
@@ -969,22 +969,23 @@ void DemandHeuristicNetworkOptimizer::reset()
   
 }
 
-void* DemandHeuristicNetworkOptimizer::export_information()
+std::unique_ptr<L1OptimizerInformation> DemandHeuristicNetworkOptimizer::export_information()
 {
   NetworkedMachineModel * nm = static_cast<NetworkedMachineModel*>(this->machine);
-  return (void*)(new ConnectionMatrix{nm->conn_matrix});
+  return std::unique_ptr<L1OptimizerInformation>(new L1TopologyInformation{nm->conn_matrix});
 }
 
-void DemandHeuristicNetworkOptimizer::import_information(void * information) 
+void DemandHeuristicNetworkOptimizer::import_information(const std::unique_ptr<L1OptimizerInformation>& information) 
 {
   NetworkedMachineModel * nm = static_cast<NetworkedMachineModel*>(this->machine);
-  nm->set_topology(*(ConnectionMatrix*)information);
+  nm->set_topology(static_cast<L1TopologyInformation*>(information.get())->conn);
   nm->update_route();
 }
 
-void DemandHeuristicNetworkOptimizer::delete_information(void * information) 
+void DemandHeuristicNetworkOptimizer::delete_information(const std::unique_ptr<L1OptimizerInformation>& information) 
 {
-  delete (ConnectionMatrix*)information;
+  // information.res
+  // delete (ConnectionMatrix*)information;
 }
 
 void DemandHeuristicNetworkOptimizer::store_tm() const 
@@ -1546,7 +1547,7 @@ bool DemandHeuristicNetworkOptimizerPlus::optimize(int mcmc_iter, float sim_iter
   float diff = sim_iter_time - curr_sim_time;
   std::cerr << "sim_iter_time: " << sim_iter_time << ", curr_sim_time: " << curr_sim_time 
             << ", best_iter_time: " << best_sim_time << std::endl;
-  bool change = diff < 0 ? true :
+  bool change = diff > 0 ? true :
     static_cast<float>(std::rand()) / static_cast<float>(static_cast<float>(RAND_MAX)) < std::exp(-alpha * diff);
   if (change) {
     curr_sim_time = sim_iter_time;
@@ -1714,6 +1715,11 @@ void SpMulMat::construct_candidate_jumps() {
 
 void SpMulMat::get_dp_mp_degree(int & dp_degree, int & mp_degree)
 {
+
+  // mp_degree = if_cnt - 2;
+  // dp_degree = 2;
+  // return; 
+
   double total_dp_traffic = 0;
   double total_mp_traffic = 0; 
 
@@ -1895,9 +1901,10 @@ std::vector<std::pair<uint64_t, int>> SpMulMat::generate_dp_topology(ConnectionM
 
 void SpMulMat::generate_mp_matching(ConnectionMatrix & conn, int mp_degree) 
 {
+  // std::cerr << "MP degree: " << mp_degree << std::endl;
   assert(!bidir || mp_degree % 2 == 0);
   auto mp_tm = mp_tm_logical;
-  for (int i = 0; i < mp_degree; i += bidir ? 2 : 1) {
+  for (int i = 0; i < mp_degree; i++) {
     generate_one_match(conn, mp_tm);
   }
 }
@@ -1910,15 +1917,16 @@ void SpMulMat::generate_one_match(ConnectionMatrix & conn, std::unordered_map<ui
   for(auto it = solution.first.begin(); it != solution.first.end(); it++){
 		std::pair<int, int> e = converted.first.GetEdge( *it );
     conn[edge_id(e.first, e.second)] += 1;
+    // std::cerr << "adding " << e.first << ", " << e.second << std::endl;
     if (mp_tm.find(edge_id(e.first, e.second)) != mp_tm.end()) {
       mp_tm[edge_id(e.first, e.second)] *= (double)conn[edge_id(e.first, e.second)]/(conn[edge_id(e.first, e.second)] + 1);
     }
-    if (bidir) {
+    // if (bidir) {
       conn[edge_id(e.second, e.first)] += 1;
       if (mp_tm.find(edge_id(e.second, e.first)) != mp_tm.end()) {
         mp_tm[edge_id(e.second, e.first)] *= (double)conn[edge_id(e.second, e.first)]/(conn[edge_id(e.second, e.first)] + 1);
       }
-    }
+    // }
 	}
 }
 
@@ -2129,7 +2137,7 @@ bool SpMulMat::optimize(int mcmc_iter, float sim_iter_time, bool forced)
   float diff = sim_iter_time - curr_sim_time;
   std::cerr << "sim_iter_time: " << sim_iter_time << ", curr_sim_time: " << curr_sim_time 
             << ", best_iter_time: " << best_sim_time << std::endl;
-  bool change = diff < 0 ? true :
+  bool change = diff > 0 ? true :
     static_cast<float>(std::rand()) / static_cast<float>(static_cast<float>(RAND_MAX)) < std::exp(-alpha * diff);
   if (change) {
     curr_sim_time = sim_iter_time;
@@ -2165,6 +2173,7 @@ bool SpMulMat::optimize(int mcmc_iter, float sim_iter_time, bool forced)
   get_dp_mp_degree(dp_degree, mp_degree);
   auto dp_rings = generate_dp_topology(dpconn, dp_degree);
   generate_mp_matching(mpconn, mp_degree);
+  NetworkTopologyGenerator::print_conn_matrix(mpconn, ndevs, 0);
 
   ConnectionMatrix final = mpconn + dpconn;
   // connect_topology(final, dp_rings, mp_degree);
@@ -2190,6 +2199,8 @@ void SpMulMat::construct_topology()
   get_dp_mp_degree(dp_degree, mp_degree);
   auto dp_rings = generate_dp_topology(dpconn, dp_degree);
   generate_mp_matching(mpconn, mp_degree);
+
+  NetworkTopologyGenerator::print_conn_matrix(mpconn, ndevs, 0);
 
   ConnectionMatrix final = mpconn + dpconn;
   // connect_topology(final, dp_rings, mp_degree);
@@ -2375,21 +2386,21 @@ void SpMulMat::reset()
   // selected_jumps.clear();
 }
 
-void* SpMulMat::export_information() 
+std::unique_ptr<L1OptimizerInformation> SpMulMat::export_information() 
 {
   NetworkedMachineModel * nm = static_cast<NetworkedMachineModel*>(this->machine);
   SpMulMatInformation * info = new SpMulMatInformation();
   info->conn = nm->conn_matrix;
   // info->dp_ncomms = dp_ncomms;
   info->selected_jumps = selected_jumps;
-  return (void*)(info);
+  return std::unique_ptr<L1OptimizerInformation>(info);
 }
 
 
-void SpMulMat::import_information(void * information) 
+void SpMulMat::import_information(const std::unique_ptr<L1OptimizerInformation>& information) 
 {
   NetworkedMachineModel * nm = static_cast<NetworkedMachineModel*>(this->machine);
-  SpMulMatInformation * info = (SpMulMatInformation*)(information);
+  SpMulMatInformation * info = static_cast<SpMulMatInformation*>(information.get());
   // dp_ncomms = info->dp_ncomms;
   for (auto & entry: dp_ncomms) {
     for (auto & c: entry.second) {
@@ -2405,18 +2416,18 @@ void SpMulMat::import_information(void * information)
   nm->update_route();
 }
 
-void SpMulMat::delete_information(void * information)  
+void SpMulMat::delete_information(const std::unique_ptr<L1OptimizerInformation>& information)
 {
-  SpMulMatInformation * info = (SpMulMatInformation*)information;
-  // for (auto & entry: info->dp_ncomms) {
-  //   for (auto & c: entry.second) {
-  //     if (c != nullptr) {
-  //       delete c;
-  //       c = nullptr;
-  //     }
-  //   }
-  // }
-  delete info;
+  // SpMulMatInformation * info = (SpMulMatInformation*)information;
+  // // for (auto & entry: info->dp_ncomms) {
+  // //   for (auto & c: entry.second) {
+  // //     if (c != nullptr) {
+  // //       delete c;
+  // //       c = nullptr;
+  // //     }
+  // //   }
+  // // }
+  // delete info;
 }
 
 void SpMulMat::store_tm() const
