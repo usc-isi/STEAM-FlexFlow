@@ -23,7 +23,7 @@ static std::random_device rd;
 static std::mt19937 gen = std::mt19937(rd()); 
 static std::uniform_real_distribution<double> unif(0, 1);
 
-// all prime numbers below 2048. I know how to write a sieve but this is good enouggh.
+// all prime numbers below 2048. good enouggh.
 const static uint16_t PRIMES[] = {1, 2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271, 277, 281, 283, 293, 307, 311, 313, 317, 331, 337, 347, 349, 353, 359, 367, 373, 379, 383, 389, 397, 401, 409, 419, 421, 431, 433, 439, 443, 449, 457, 461, 463, 467, 479, 487, 491, 499, 503, 509, 521, 523, 541, 547, 557, 563, 569, 571, 577, 587, 593, 599, 601, 607, 613, 617, 619, 631, 641, 643, 647, 653, 659, 661, 673, 677, 683, 691, 701, 709, 719, 727, 733, 739, 743, 751, 757, 761, 769, 773, 787, 797, 809, 811, 821, 823, 827, 829, 839, 853, 857, 859, 863, 877, 881, 883, 887, 907, 911, 919, 929, 937, 941, 947, 953, 967, 971, 977, 983, 991, 997, 1009, 1013, 1019, 1021, 1031, 1033, 1039, 1049, 1051, 1061, 1063, 1069, 1087, 1091, 1093, 1097, 1103, 1109, 1117, 1123, 1129, 1151, 1153, 1163, 1171, 1181, 1187, 1193, 1201, 1213, 1217, 1223, 1229, 1231, 1237, 1249, 1259, 1277, 1279, 1283, 1289, 1291, 1297, 1301, 1303, 1307, 1319, 1321, 1327, 1361, 1367, 1373, 1381, 1399, 1409, 1423, 1427, 1429, 1433, 1439, 1447, 1451, 1453, 1459, 1471, 1481, 1483, 1487, 1489, 1493, 1499, 1511, 1523, 1531, 1543, 1549, 1553, 1559, 1567, 1571, 1579, 1583, 1597, 1601, 1607, 1609, 1613, 1619, 1621, 1627, 1637, 1657, 1663, 1667, 1669, 1693, 1697, 1699, 1709, 1721, 1723, 1733, 1741, 1747, 1753, 1759, 1777, 1783, 1787, 1789, 1801, 1811, 1823, 1831, 1847, 1861, 1867, 1871, 1873, 1877, 1879, 1889, 1901, 1907, 1913, 1931, 1933, 1949, 1951, 1973, 1979, 1987, 1993, 1997, 1999, 2003, 2011, 2017, 2027, 2029, 2039};
 
 // for summing connections...
@@ -52,7 +52,7 @@ EcmpRoutes WeightedShortestPathRoutingStragtegy::get_routes(int src_node, int ds
   int key = src_node * total_devs + dst_node;
 
   if (conn[key] > 0) {
-    return std::make_pair(std::vector<float>({1}), std::vector<Route>({Route({devmap.at(key)})}));
+    return std::make_pair(std::vector<double>({1}), std::vector<Route>({Route({devmap.at(key)})}));
   }
 
   // one-shortest path routing
@@ -98,7 +98,7 @@ EcmpRoutes WeightedShortestPathRoutingStragtegy::get_routes(int src_node, int ds
     curr = prev[curr];
   }
   assert(result.size() || src_node == dst_node);
-  return std::make_pair(std::vector<float>{1}, std::vector<Route>{result});
+  return std::make_pair(std::vector<double>{1}, std::vector<Route>{result});
 }
 
 void WeightedShortestPathRoutingStragtegy::hop_count(int src_node, int dst_node, int & hop, int & narrowest)
@@ -211,7 +211,7 @@ EcmpRoutes ShortestPathNetworkRoutingStrategy::get_routes(int src_node, int dst_
   int key = src_node * total_devs + dst_node;
 
   if (conn[key] > 0) {
-    return std::make_pair(std::vector<float>({1}), std::vector<Route>({Route({devmap.at(key)})}));
+    return std::make_pair(std::vector<double>({1}), std::vector<Route>({Route({devmap.at(key)})}));
   }
 
   // one-shortest path routing
@@ -252,7 +252,7 @@ EcmpRoutes ShortestPathNetworkRoutingStrategy::get_routes(int src_node, int dst_
     curr = prev[curr];
   }
   assert(result.size() || src_node == dst_node);
-  return std::make_pair(std::vector<float>{1}, std::vector<Route>{result});
+  return std::make_pair(std::vector<double>{1}, std::vector<Route>{result});
 }
 
 void ShortestPathNetworkRoutingStrategy::hop_count(int src_node, int dst_node, int & hop, int & narrowest)
@@ -468,8 +468,8 @@ DemandHeuristicNetworkOptimizer::DemandHeuristicNetworkOptimizer(MachineModel* m
 {
   alpha = 0.1;
   no_improvement_th = 100;
-  best_sim_time = std::numeric_limits<float>::max();
-  curr_sim_time = std::numeric_limits<float>::max();
+  best_sim_time = std::numeric_limits<double>::max();
+  curr_sim_time = std::numeric_limits<double>::max();
 }
 
 void DemandHeuristicNetworkOptimizer::task_added(SimTask * task) 
@@ -519,16 +519,16 @@ size_t DemandHeuristicNetworkOptimizer::unordered_edge_id(int i, int j) const
 
 typedef std::pair<uint64_t, uint64_t> DemandToIdMap;
 
-bool DemandHeuristicNetworkOptimizer::optimize(int mcmc_iter, float sim_iter_time, bool forced)
+bool DemandHeuristicNetworkOptimizer::optimize(int mcmc_iter, double sim_iter_time, bool forced)
 {
   if (sim_iter_time < best_sim_time) {
     best_sim_time = sim_iter_time;
   }
-  float diff = sim_iter_time - curr_sim_time;
+  double diff = sim_iter_time - curr_sim_time;
   std::cerr << "sim_iter_time: " << sim_iter_time << ", curr_sim_time: " << curr_sim_time 
             << ", best_iter_time: " << best_sim_time << std::endl;
   bool change = diff > 0 ? true :
-    static_cast<float>(std::rand()) / static_cast<float>(static_cast<float>(RAND_MAX)) < std::exp(-alpha * diff);
+    static_cast<double>(std::rand()) / static_cast<double>(static_cast<double>(RAND_MAX)) < std::exp(-alpha * diff);
   if (change) {
     curr_sim_time = sim_iter_time;
   }
@@ -963,8 +963,8 @@ void DemandHeuristicNetworkOptimizer::reset()
   physical_traffic_demand.clear();
   logical_traffic_demand.clear();
 
-  // best_sim_time = std::numeric_limits<float>::max();
-  // curr_sim_time = std::numeric_limits<float>::max();
+  // best_sim_time = std::numeric_limits<double>::max();
+  // curr_sim_time = std::numeric_limits<double>::max();
   // num_iter_nochange = 0;
   
 }
@@ -1539,16 +1539,16 @@ DemandHeuristicNetworkOptimizerPlus::construct_bidir_negative_util(const Connect
   return result;
 }
 
-bool DemandHeuristicNetworkOptimizerPlus::optimize(int mcmc_iter, float sim_iter_time, bool forced)
+bool DemandHeuristicNetworkOptimizerPlus::optimize(int mcmc_iter, double sim_iter_time, bool forced)
 {
   if (sim_iter_time < best_sim_time) {
     best_sim_time = sim_iter_time;
   }
-  float diff = sim_iter_time - curr_sim_time;
+  double diff = sim_iter_time - curr_sim_time;
   std::cerr << "sim_iter_time: " << sim_iter_time << ", curr_sim_time: " << curr_sim_time 
             << ", best_iter_time: " << best_sim_time << std::endl;
   bool change = diff > 0 ? true :
-    static_cast<float>(std::rand()) / static_cast<float>(static_cast<float>(RAND_MAX)) < std::exp(-alpha * diff);
+    static_cast<double>(std::rand()) / static_cast<double>(static_cast<double>(RAND_MAX)) < std::exp(-alpha * diff);
   if (change) {
     curr_sim_time = sim_iter_time;
   }
@@ -2129,16 +2129,16 @@ std::vector<int> SpMulMat::query_path(const std::vector<int>& candidates, int ju
   return result;
 }
 
-bool SpMulMat::optimize(int mcmc_iter, float sim_iter_time, bool forced) 
+bool SpMulMat::optimize(int mcmc_iter, double sim_iter_time, bool forced) 
 {
   if (sim_iter_time < best_sim_time) {
     best_sim_time = sim_iter_time;
   }
-  float diff = sim_iter_time - curr_sim_time;
+  double diff = sim_iter_time - curr_sim_time;
   std::cerr << "sim_iter_time: " << sim_iter_time << ", curr_sim_time: " << curr_sim_time 
             << ", best_iter_time: " << best_sim_time << std::endl;
   bool change = diff > 0 ? true :
-    static_cast<float>(std::rand()) / static_cast<float>(static_cast<float>(RAND_MAX)) < std::exp(-alpha * diff);
+    static_cast<double>(std::rand()) / static_cast<double>(static_cast<double>(RAND_MAX)) < std::exp(-alpha * diff);
   if (change) {
     curr_sim_time = sim_iter_time;
   }
@@ -2173,7 +2173,7 @@ bool SpMulMat::optimize(int mcmc_iter, float sim_iter_time, bool forced)
   get_dp_mp_degree(dp_degree, mp_degree);
   auto dp_rings = generate_dp_topology(dpconn, dp_degree);
   generate_mp_matching(mpconn, mp_degree);
-  NetworkTopologyGenerator::print_conn_matrix(mpconn, ndevs, 0);
+  // NetworkTopologyGenerator::print_conn_matrix(mpconn, ndevs, 0);
 
   ConnectionMatrix final = mpconn + dpconn;
   // connect_topology(final, dp_rings, mp_degree);
@@ -2200,7 +2200,7 @@ void SpMulMat::construct_topology()
   auto dp_rings = generate_dp_topology(dpconn, dp_degree);
   generate_mp_matching(mpconn, mp_degree);
 
-  NetworkTopologyGenerator::print_conn_matrix(mpconn, ndevs, 0);
+  // NetworkTopologyGenerator::print_conn_matrix(mpconn, ndevs, 0);
 
   ConnectionMatrix final = mpconn + dpconn;
   // connect_topology(final, dp_rings, mp_degree);
@@ -2460,7 +2460,7 @@ const std::vector<NominalCommDevice*>& SpMulMat::get_dp_ncomms(int src, int grp_
       r.push_back(nm->ids_to_nw_comm_device.at(curr * total_devs + next));
       curr = next;
     }
-    ncomm->set_physical_paths(std::make_pair(std::vector<float>{1}, std::vector<Route>{r}));
+    ncomm->set_physical_paths(std::make_pair(std::vector<double>{1}, std::vector<Route>{r}));
     dp_ncomms[key].push_back(ncomm);
   }
   return dp_ncomms[key];

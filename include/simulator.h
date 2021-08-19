@@ -45,7 +45,7 @@ namespace flatbuffers {
 }
 
 struct CostMetrics {
-  float forward_time, backward_time;
+  double forward_time, backward_time;
   size_t memory_requirement;
 };
 
@@ -102,14 +102,14 @@ public:
     NW_NOMINAL,
   };
   CommDevType comm_type;
-  float latency;
-  float bandwidth;
-  CommDevice(std::string const &name, CommDevType comm_type, int node_id, int socket_id, int device_id, float latency, float bandwidth);
+  double latency;
+  double bandwidth;
+  CommDevice(std::string const &name, CommDevType comm_type, int node_id, int socket_id, int device_id, double latency, double bandwidth);
 };
 
 typedef std::vector<CommDevice *> Route;
 /* first is an array of cumulative distribution */
-typedef std::pair<std::vector<float>, std::vector<Route> > EcmpRoutes;
+typedef std::pair<std::vector<double>, std::vector<Route> > EcmpRoutes;
 typedef std::vector<int> ConnectionMatrix;
 class NetworkRoutingStrategy;
 /**
@@ -145,10 +145,10 @@ public:
   virtual int get_num_gpus() const = 0;
   virtual int get_total_devs() const {return get_num_gpus();}
   virtual int get_num_nodes() const = 0;
-  virtual float get_intra_node_gpu_bandwidth() const = 0;
-  virtual float get_inter_node_gpu_bandwidth() const = 0;
-  virtual float get_intra_node_gpu_latency() const = 0;
-  virtual float get_inter_node_gpu_latency() const = 0;
+  virtual double get_intra_node_gpu_bandwidth() const = 0;
+  virtual double get_inter_node_gpu_bandwidth() const = 0;
+  virtual double get_intra_node_gpu_latency() const = 0;
+  virtual double get_inter_node_gpu_latency() const = 0;
   virtual std::vector<CommDevice *> get_comm_path(MemDevice *src_mem, MemDevice *tar_mem) const = 0;
   virtual std::string to_string() const = 0;
   int version;
@@ -163,19 +163,19 @@ public:
   MemDevice *get_gpu_fb_mem(int devicd_id) const;
   int get_num_gpus() const;
   int get_num_nodes() const {return num_nodes;}
-  float get_intra_node_gpu_bandwidth() const;
-  float get_inter_node_gpu_bandwidth() const;
-  float get_intra_node_gpu_latency() const {return 0;}
-  float get_inter_node_gpu_latency() const {return 0;}
+  double get_intra_node_gpu_bandwidth() const;
+  double get_inter_node_gpu_bandwidth() const;
+  double get_intra_node_gpu_latency() const {return 0;}
+  double get_inter_node_gpu_latency() const {return 0;}
   std::vector<CommDevice *> get_comm_path(MemDevice *src_mem, MemDevice *tar_mem) const;
   std::string to_string() const;
 public:
   int num_nodes;
   int num_gpus_per_node;
   int num_gpus;
-  float inter_gpu_bandwidth;
-  float inter_node_bandwidth;
-  float gpu_dram_bandwidth;
+  double inter_gpu_bandwidth;
+  double inter_node_bandwidth;
+  double gpu_dram_bandwidth;
   std::map<int, CompDevice*> id_to_gpu;
   std::map<int, MemDevice*> id_to_gpu_fb_mem;
   std::map<int, CommDevice*> id_to_gputodram_comm_device;
@@ -217,10 +217,10 @@ public:
     CommDevice *get_nvlink(MemDevice *src_mem, MemDevice *tar_mem) const;
     int get_num_gpus() const;
     int get_num_nodes() const {return num_nodes;}
-    float get_intra_node_gpu_bandwidth() const;
-    float get_inter_node_gpu_bandwidth() const;
-    float get_intra_node_gpu_latency() const {return membus_latency;}
-    float get_inter_node_gpu_latency() const {return nic_latency;}
+    double get_intra_node_gpu_bandwidth() const;
+    double get_inter_node_gpu_bandwidth() const;
+    double get_intra_node_gpu_latency() const {return membus_latency;}
+    double get_inter_node_gpu_latency() const {return nic_latency;}
     std::vector<CommDevice *> get_comm_path(MemDevice *src_mem, MemDevice *tar_mem) const;
     std::string to_string() const;
 public:
@@ -232,17 +232,17 @@ public:
     int num_cpus;
     int num_gpus;
     int num_nvlinks_per_node;
-    float membus_latency;
-    float membus_bandwidth;
-    float upi_latency;
-    float upi_bandwidth;
-    float nic_latency;
-    float nic_bandwidth;
+    double membus_latency;
+    double membus_bandwidth;
+    double upi_latency;
+    double upi_bandwidth;
+    double nic_latency;
+    double nic_bandwidth;
     NicDistribution nic_distribution;
-    float pci_latency;
-    float pci_bandwidth;
-    float nvlink_latency;
-    float nvlink_bandwidth;
+    double pci_latency;
+    double pci_bandwidth;
+    double nvlink_latency;
+    double nvlink_bandwidth;
     size_t gpu_fb_mem_capacity;
     std::vector<CommDevice::CommDevType> intra_socket_sys_mem_to_sys_mem;
     std::vector<CommDevice::CommDevType> inter_socket_sys_mem_to_sys_mem;
@@ -274,11 +274,11 @@ public:
     void set_comm_path(std::vector<CommDevice::CommDevType> &comm_path, std::string device_str);
     void add_cpus();
     void add_gpus();
-    void add_membuses(float latency, float bandwidth);
-    void add_upis(float latency, float bandwidth);
-    void add_nics(float latency, float bandwidth, NicDistribution nic_distribution);
-    void add_pcis(float latency, float bandwidth);
-    void add_nvlinks(float latency, float bandwidth);
+    void add_membuses(double latency, double bandwidth);
+    void add_upis(double latency, double bandwidth);
+    void add_nics(double latency, double bandwidth, NicDistribution nic_distribution);
+    void add_pcis(double latency, double bandwidth);
+    void add_nvlinks(double latency, double bandwidth);
     // attach a nvlink communication device to a pair of GPU framebuffer memories
     void attach_nvlink(MemDevice *src_mem, MemDevice *tar_mem, CommDevice *comm);
     // return a list of specific communication devices based on the descriptions of a communication path
@@ -357,10 +357,10 @@ public:
   NetworkedMachineModel(int num_nodes, 
       int num_gpus_per_node, 
       int num_switches, 
-      float network_latency,
+      double network_latency,
       const std::vector<int>& topology, 
       size_t capacity, 
-      float link_bandwidth);
+      double link_bandwidth);
   ~NetworkedMachineModel();
   int get_version() const;
   CompDevice *get_gpu(int device_id) const;
@@ -369,12 +369,12 @@ public:
   int get_num_nodes() const {return num_nodes;}
   int get_total_devs() const {return num_nodes + num_switches;}
   int get_num_switches() const {return num_switches;}
-  float get_intra_node_gpu_bandwidth() const;
-  float get_inter_node_gpu_bandwidth() const;
-  float get_link_bandwidth() const;
-  float get_link_bandwidth(int src, int dst) const;
-  float get_intra_node_gpu_latency() const {return 0;}
-  float get_inter_node_gpu_latency() const {return network_latency;}
+  double get_intra_node_gpu_bandwidth() const;
+  double get_inter_node_gpu_bandwidth() const;
+  double get_link_bandwidth() const;
+  double get_link_bandwidth(int src, int dst) const;
+  double get_intra_node_gpu_latency() const {return 0;}
+  double get_inter_node_gpu_latency() const {return network_latency;}
   void set_routing_strategy(NetworkRoutingStrategy* rs);
   std::vector<CommDevice *> get_comm_path(MemDevice *src_mem, MemDevice *tar_mem) const;
   std::string to_string() const;
@@ -396,15 +396,15 @@ public:
   int num_gpus;
   int num_switches;
   int total_devs;
-  float inter_gpu_bandwidth;
-  float link_bandwidth;
-  float network_latency;
-  float gpu_dram_bandwidth;
+  double inter_gpu_bandwidth;
+  double link_bandwidth;
+  double network_latency;
+  double gpu_dram_bandwidth;
 
   bool pipelined;
   bool pcie_on;
 
-  // float gpu_dram_bandwidth;
+  // double gpu_dram_bandwidth;
   /* Note that every non-zero entry corrsepond to a device in in_to_nw_comm_device */
   ConnectionMatrix conn_matrix;
   NetworkRoutingStrategy* routing_strategy;
@@ -500,13 +500,13 @@ public:
   SimTask();
   void add_next_task(SimTask* task);
 public:
-  float ready_time, run_time;
+  double ready_time, run_time;
   SimTaskType type;
   Device* device;
   MemDevice *mem;
   int counter;
-  int from_dev, to_dev; // use device id
   size_t xfer_size;
+  size_t xfer_left;
   std::vector<SimTask*> next_tasks;
 #if 0
   /* This stores only high-level information: computation and communication
@@ -558,7 +558,7 @@ class L1Optimizer {
 public:
     L1Optimizer(MachineModel* machine)
         : machine(machine) {}
-    virtual bool optimize(int mcmc_iter, float sim_iter_time, bool force_run = false) = 0;
+    virtual bool optimize(int mcmc_iter, double sim_iter_time, bool force_run = false) = 0;
     virtual void task_added(SimTask * task) { return; };
     virtual void reset() = 0;
     virtual std::unique_ptr<L1OptimizerInformation> export_information() = 0;
@@ -580,7 +580,7 @@ class DemandHeuristicNetworkOptimizer : public L1Optimizer {
 public:
   DemandHeuristicNetworkOptimizer(MachineModel* machine);
   ~DemandHeuristicNetworkOptimizer() = default;
-  virtual bool optimize(int mcmc_iter, float sim_iter_time, bool force_run = false);
+  virtual bool optimize(int mcmc_iter, double sim_iter_time, bool force_run = false);
   virtual void task_added(SimTask * task);
   virtual void reset();
   virtual std::unique_ptr<L1OptimizerInformation> export_information();
@@ -641,8 +641,8 @@ public:
   std::unordered_map<size_t, uint64_t> logical_traffic_demand;
 
   size_t if_cnt;
-  float best_sim_time, curr_sim_time;
-  float alpha;
+  double best_sim_time, curr_sim_time;
+  double alpha;
   int num_iter_nochange;
   int no_improvement_th;
 
@@ -676,7 +676,7 @@ public:
     construct_indir_traffic_list(const ConnectionMatrix &conn); 
   std::unordered_map<size_t, uint64_t> 
     construct_bidir_negative_util(const ConnectionMatrix &conn);
-  virtual bool optimize(int mcmc_iter, float sim_iter_time, bool force_run = false);
+  virtual bool optimize(int mcmc_iter, double sim_iter_time, bool force_run = false);
 };
 
 template <typename T>
@@ -777,10 +777,10 @@ public:
   virtual void add_task_dependencies_with_xfer(
       SimTask* src_task, SimTask* dst_task, size_t message_size);
   CostMetrics measure_operator_cost(Op* op, const ParallelConfig& config);
-  virtual float simulate_runtime(const FFModel* model,
+  virtual double simulate_runtime(const FFModel* model,
       const std::map<Op*, ParallelConfig>& global,
       CompMode comp_mode);
-  virtual float simulate_runtime(const FFModel* model,
+  virtual double simulate_runtime(const FFModel* model,
       const std::map<Op*, ParallelConfig>& global,
       CompMode comp_mode,
       std::string const &export_file_name);
@@ -844,17 +844,21 @@ public:
   
   SimTask *new_comm_task_unrecorded();
   SimTask *new_update_task_unrecorded();
-  virtual float simulate_runtime(const FFModel* model,
+  virtual double simulate_runtime(const FFModel* model,
       const std::map<Op*, ParallelConfig>& global,
       CompMode comp_mode);
-  virtual float simulate_runtime(const FFModel* model,
+  virtual double simulate_runtime(const FFModel* model,
       const std::map<Op*, ParallelConfig>& global,
       CompMode comp_mode,
       std::string const &export_file_name);
-  virtual float route_transfer(SimTask * transfer_task, 
-                              float start_time,
-                              std::map<Device*, float> &device_times);
-  virtual void expand_allreduce(SimTask * allreduce_task, float start_time,std::priority_queue<SimTask*, std::vector<SimTask*>, SimTaskCompare>& ready_queue);
+  virtual double route_transfer(SimTask * transfer_task, 
+                              double start_time,
+                              std::map<Device*, double> &device_times);
+  virtual double route_transfer_seg(SimTask * transfer_task, 
+                            double start_time,
+                            std::map<Device*, double> &device_times,
+                            bool & finished);
+  virtual void expand_allreduce(SimTask * allreduce_task, double start_time,std::priority_queue<SimTask*, std::vector<SimTask*>, SimTaskCompare>& ready_queue);
   void add_task_dependencies_with_xfer(
       SimTask* src_task, SimTask* dst_task, size_t message_size);
   bool searlize_logical_taskgraph(const FFModel* model, std::string const &export_file_name);
@@ -862,6 +866,9 @@ public:
                                   const std::vector<PhysicalRegion> &regions,
                                   Context ctx, Runtime *runtime);
   void get_taskgraph_flatbuf(const FFModel* model, flatbuffers::FlatBufferBuilder &builder);
+
+  bool segment_transfer;
+  size_t segment_size;
 
   // flatbuffers::FlatBufferBuilder builder;
 };
@@ -885,7 +892,7 @@ public:
   SpMulMat(MachineModel * machine, int degree, bool bidir);
   ~SpMulMat() = default;
 
-  virtual bool optimize(int mcmc_iter, float sim_iter_time, bool force_run = false);
+  virtual bool optimize(int mcmc_iter, double sim_iter_time, bool force_run = false);
   virtual void task_added(SimTask * task);
   virtual void reset();
   virtual std::unique_ptr<L1OptimizerInformation> export_information();
@@ -936,9 +943,9 @@ public:
   // int degree;
   bool bidir;
   bool constructed;
-  // float best_sim_time;
-  // float curr_sim_time;
-  // float alpha;
+  // double best_sim_time;
+  // double curr_sim_time;
+  // double alpha;
   // int num_iter_nochange;
   // int no_improvement_th;
 };
@@ -949,14 +956,14 @@ public:
             FFHandler handler,
             Memory memory,
             MachineModel *machine);
-  virtual float simulate_runtime(const FFModel* model,
+  virtual double simulate_runtime(const FFModel* model,
       const std::map<Op*, ParallelConfig>& global,
       CompMode comp_mode);
-  virtual float simulate_runtime(const FFModel* model,
+  virtual double simulate_runtime(const FFModel* model,
       const std::map<Op*, ParallelConfig>& global,
       CompMode comp_mode,
       std::string const &export_file_name);
-  void expand_allreduce(SimTask * allreduce_task, float start_time,std::priority_queue<SimTask*, std::vector<SimTask*>, SimTaskCompare>& ready_queue);
+  void expand_allreduce(SimTask * allreduce_task, double start_time,std::priority_queue<SimTask*, std::vector<SimTask*>, SimTaskCompare>& ready_queue);
   static void simulation_task(const Task *task,
                                   const std::vector<PhysicalRegion> &regions,
                                   Context ctx, Runtime *runtime);

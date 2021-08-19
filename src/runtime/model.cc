@@ -2330,9 +2330,9 @@ void FFModel::optimize(Simulator* simulator,
   // Start from data parallel
   std::map<Op*, ParallelConfig> current, next;
   std::unique_ptr<L1OptimizerInformation> l1bestinfo, l1currinfo;
-  float best_runtime = simulator->simulate_runtime(this, best, comp_mode);
+  double best_runtime = simulator->simulate_runtime(this, best, comp_mode);
   current = best;
-  float current_runtime = best_runtime;
+  double current_runtime = best_runtime;
   if (simulator->l1optimizer) {
     simulator->l1optimizer->optimize(0, best_runtime);
     l1bestinfo = simulator->l1optimizer->export_information();
@@ -2358,7 +2358,7 @@ void FFModel::optimize(Simulator* simulator,
       }
     }
     rewrite(current, next, use_propagation);
-    float next_runtime = simulator->simulate_runtime(this, next, comp_mode);
+    double next_runtime = simulator->simulate_runtime(this, next, comp_mode);
     // printf("=========== next Discovered Strategy ==========: %f\n", next_runtime);
     // std::map<Op*, ParallelConfig>::const_iterator it;
     // for (it = next.begin(); it != next.end(); it++) {
@@ -2381,9 +2381,9 @@ void FFModel::optimize(Simulator* simulator,
       printf("iteration(%zu) current_strategy(%.4lf) next_strategy(%.4lf) best_strategy(%.4lf)\n", iter,
              current_runtime, next_runtime, best_runtime);
     }
-    float rn = static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX);
-    //float ratio = (next_runtime - current_runtime) / current_runtime;
-    float diff = (next_runtime - current_runtime);
+    double rn = static_cast<double>(std::rand()) / static_cast<double>(RAND_MAX);
+    //double ratio = (next_runtime - current_runtime) / current_runtime;
+    double diff = (next_runtime - current_runtime);
     if (next_runtime < best_runtime) {
       best_runtime = next_runtime;
       best = next;

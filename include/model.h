@@ -216,8 +216,8 @@ public:
 struct OpMeasurement {
   std::string name;
   std::string pc_str;
-  float fwtime;
-  float bwtime;
+  double fwtime;
+  double bwtime;
   size_t mem_req; 
 };
 

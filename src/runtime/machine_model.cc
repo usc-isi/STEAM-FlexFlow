@@ -81,12 +81,12 @@ int SimpleMachineModel::get_num_gpus() const
   return num_gpus;
 }
 
-float SimpleMachineModel::get_intra_node_gpu_bandwidth() const
+double SimpleMachineModel::get_intra_node_gpu_bandwidth() const
 {
   return inter_gpu_bandwidth;
 }
 
-float SimpleMachineModel::get_inter_node_gpu_bandwidth() const
+double SimpleMachineModel::get_inter_node_gpu_bandwidth() const
 {
   return inter_node_bandwidth;
 }
@@ -436,7 +436,7 @@ void EnhancedMachineModel::add_gpus()
   }
 }
 
-void EnhancedMachineModel::add_membuses(float latency, float bandwidth)
+void EnhancedMachineModel::add_membuses(double latency, double bandwidth)
 {
   for (int i = 0; i < num_nodes; i++) {
     int node_id = i;
@@ -450,7 +450,7 @@ void EnhancedMachineModel::add_membuses(float latency, float bandwidth)
   }
 }
 
-void EnhancedMachineModel::add_upis(float latency, float bandwidth)
+void EnhancedMachineModel::add_upis(double latency, double bandwidth)
 {
   for (int i = 0; i < num_nodes; i++) {
     int node_id = i;
@@ -467,7 +467,7 @@ void EnhancedMachineModel::add_upis(float latency, float bandwidth)
   }
 }
 
-void EnhancedMachineModel::add_nics(float latency, float bandwidth, NicDistribution nic_distribution)
+void EnhancedMachineModel::add_nics(double latency, double bandwidth, NicDistribution nic_distribution)
 {
   if (nic_distribution == PER_NODE) {
     for (int i = 0; i < num_nodes; i++) {
@@ -512,7 +512,7 @@ void EnhancedMachineModel::add_nics(float latency, float bandwidth, NicDistribut
   }
 }
 
-void EnhancedMachineModel::add_pcis(float latency, float bandwidth)
+void EnhancedMachineModel::add_pcis(double latency, double bandwidth)
 {
   for (int i = 0; i < num_nodes; i++) {
     int node_id = i;
@@ -530,7 +530,7 @@ void EnhancedMachineModel::add_pcis(float latency, float bandwidth)
 }
 
 // assume each GPU has nvlinks to the other GPUs on the same node and the nvlinks have the same latency and bandwidth
-void EnhancedMachineModel::add_nvlinks(float latency, float bandwidth)
+void EnhancedMachineModel::add_nvlinks(double latency, double bandwidth)
 {
   int num_gpus_per_node = num_gpus_per_socket * num_sockets_per_node;
   num_nvlinks_per_node = num_gpus_per_node * (num_gpus_per_node - 1) / 2;
@@ -749,13 +749,13 @@ std::vector<CommDevice *> EnhancedMachineModel::get_comm_path(MemDevice *src_mem
   return ret;
 }
 
-float EnhancedMachineModel::get_intra_node_gpu_bandwidth() const
+double EnhancedMachineModel::get_intra_node_gpu_bandwidth() const
 {
   return nvlink_bandwidth;
 }
 
 // Use inter-node cpu bandwidth for now 
-float EnhancedMachineModel::get_inter_node_gpu_bandwidth() const
+double EnhancedMachineModel::get_inter_node_gpu_bandwidth() const
 {
   return nic_bandwidth;
 }
@@ -805,8 +805,8 @@ std::string EnhancedMachineModel::to_string() const
 
 /* Networked machine model */
 NetworkedMachineModel::NetworkedMachineModel(int num_nodes, 
-        int num_gpus_per_node, int num_switches, float network_latency,
-        const std::vector<int>& topology, size_t capacity, float link_bandwidth)
+        int num_gpus_per_node, int num_switches, double network_latency,
+        const std::vector<int>& topology, size_t capacity, double link_bandwidth)
   : num_nodes(num_nodes), num_gpus_per_node(num_gpus_per_node), network_latency(network_latency),
     num_switches(num_switches), link_bandwidth(link_bandwidth), conn_matrix(topology)
 {
@@ -911,22 +911,22 @@ int NetworkedMachineModel::get_num_gpus() const
   return num_gpus;
 }
 
-float NetworkedMachineModel::get_intra_node_gpu_bandwidth() const
+double NetworkedMachineModel::get_intra_node_gpu_bandwidth() const
 {
   return inter_gpu_bandwidth;
 }
 
-float NetworkedMachineModel::get_link_bandwidth() const
+double NetworkedMachineModel::get_link_bandwidth() const
 {
   return link_bandwidth;
 }
 
-float NetworkedMachineModel::get_link_bandwidth(int src, int dst) const
+double NetworkedMachineModel::get_link_bandwidth(int src, int dst) const
 {
   return link_bandwidth * conn_matrix[src * total_devs + dst];
 }
 
-float NetworkedMachineModel::get_inter_node_gpu_bandwidth() const  
+double NetworkedMachineModel::get_inter_node_gpu_bandwidth() const  
 {
   return link_bandwidth;
 }

@@ -299,7 +299,8 @@ LogicalTaskgraphBasedSimulator::LogicalTaskgraphBasedSimulator(const FFModel* mo
   FFHandler handler, Memory memory, MachineModel *machine)
 : Simulator(model, handler, memory, machine)
 {
-
+  segment_transfer = true; 
+  segment_size = 64 * 1024 * 1024; 
 }
 
 __host__
@@ -498,9 +499,9 @@ void SpMulMatSimulator::simulation_task(const Task *task,
       //   }
       // }
       // if (opsz * model->config.numNodes * model->config.workersPerNode < gpu_mem.capacity())
-      // if (model->layers[l]->op_type != OperatorType::OP_EMBEDDING)
-      //   strategies[model->layers[l]] = model->layers[l]->get_data_parallel_config(*model);
-      // else
+      if (model->layers[l]->op_type != OperatorType::OP_EMBEDDING)
+        strategies[model->layers[l]] = model->layers[l]->get_data_parallel_config(*model);
+      else
         strategies[model->layers[l]] = model->layers[l]->get_random_parallel_config(*model);
     }
   }
