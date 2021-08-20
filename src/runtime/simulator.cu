@@ -499,9 +499,9 @@ void SpMulMatSimulator::simulation_task(const Task *task,
       //   }
       // }
       // if (opsz * model->config.numNodes * model->config.workersPerNode < gpu_mem.capacity())
-      if (model->layers[l]->op_type != OperatorType::OP_EMBEDDING)
-        strategies[model->layers[l]] = model->layers[l]->get_data_parallel_config(*model);
-      else
+      // if (model->layers[l]->op_type != OperatorType::OP_EMBEDDING)
+      //   strategies[model->layers[l]] = model->layers[l]->get_data_parallel_config(*model);
+      // else
         strategies[model->layers[l]] = model->layers[l]->get_random_parallel_config(*model);
     }
   }

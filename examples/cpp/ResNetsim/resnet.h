@@ -24,6 +24,7 @@ struct ResNetConfig {
     // Set default configurations here
   }
   std::string dataset_path;
+  int nsimnode = 1, nsimgpu = 1;
 };
 
 class DataLoader {

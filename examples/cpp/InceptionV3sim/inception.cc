@@ -114,6 +114,14 @@ void parse_input_args(char **argv, int argc, InceptionConfig& config)
       config.dataset_path = std::string(argv[++i]);
       continue;
     }
+    if (!strcmp(argv[i], "--nsimnode")) {
+      config.nsimnode = std::atoi(argv[++i]);
+      continue;
+    }
+    if (!strcmp(argv[i], "--nsimgpu")) {
+      config.nsimgpu = std::atoi(argv[++i]);
+      continue;
+    }
   }
 }
 
@@ -131,7 +139,8 @@ void top_level_task(const Task* task,
     log_app.print("batchSize(%d) workersPerNodes(%d) numNodes(%d)",
         ffConfig.batchSize, ffConfig.workersPerNode, ffConfig.numNodes);
   }
-  FFModel ff(ffConfig);
+  ffConfig.numNodes = inceptionConfig.nsimnode; 
+  FFModel ff(ffConfig, true);
 
   Tensor input;
   {
@@ -169,6 +178,14 @@ void top_level_task(const Task* task,
   t = ff.dense(t, 10);
   t = ff.softmax(t);
 //-----------------------------------------------------------------
+
+  if (ffConfig.measurement_only) {
+    ff.run_measurement();
+  }
+  else {
+    ff.simulate_new();
+  }
+#if 0
   Optimizer* optimizer = new SGDOptimizer(&ff, 0.001f);
   std::vector<MetricsType> metrics;
   metrics.push_back(METRICS_ACCURACY);
@@ -220,6 +237,7 @@ void top_level_task(const Task* task,
   double run_time = 1e-6 * (ts_end - ts_start);
   printf("ELAPSED TIME = %.4fs, THROUGHPUT = %.2f samples/s\n", run_time,
          8192 * ffConfig.epochs / run_time);
+#endif
 }
 
 size_t get_file_size(const std::string& filename)

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 
-project(FlexFlowExample_ResNet)
-set(project_target resnet)
+project(FlexFlowExample_ResNetsim)
+set(project_target resnetsim)
 
 set(CPU_SRC
   ${FLEXFLOW_CPP_DRV_SRC}

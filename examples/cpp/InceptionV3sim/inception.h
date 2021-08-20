@@ -24,6 +24,7 @@ struct InceptionConfig {
     // Set default configurations here
   }
   std::string dataset_path;
+  int nsimnode = 1, nsimgpu = 1;
 };
 
 

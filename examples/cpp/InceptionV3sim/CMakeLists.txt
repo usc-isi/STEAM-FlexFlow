@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 
-project(FlexFlowExample_Inception)
-set(project_target inception)
+project(FlexFlowExample_Inceptionsim)
+set(project_target inceptionsim)
 
 set(CPU_SRC
   ${FLEXFLOW_CPP_DRV_SRC}

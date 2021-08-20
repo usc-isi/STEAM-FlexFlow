@@ -193,6 +193,7 @@ endif()
 
 if(FF_BUILD_RESNET OR FF_BUILD_ALL_EXAMPLES)
   add_subdirectory(examples/cpp/ResNet)
+  add_subdirectory(examples/cpp/ResNetsim)
 endif()
 
 if(FF_BUILD_ALEXNET OR FF_BUILD_ALL_EXAMPLES)
@@ -202,6 +203,7 @@ endif()
 
 if(FF_BUILD_INCEPTION OR FF_BUILD_ALL_EXAMPLES)
   add_subdirectory(examples/cpp/InceptionV3)
+  add_subdirectory(examples/cpp/InceptionV3sim)
 endif()
 
 #TODO: Once functional add to BUILD_ALL_EXAMPLES
@@ -224,6 +226,11 @@ endif()
 if(FF_BUILD_TRANSFORMER OR FF_BUILD_ALL_EXAMPLES)
   add_subdirectory(examples/cpp/Transformer)
   add_subdirectory(examples/cpp/Transformersim)
+endif()
+
+if(FF_BUILD_ALL_EXAMPLES)
+  add_subdirectory(examples/cpp/mixture_of_experts)
+  add_subdirectory(examples/cpp/mixture_of_expertssim)
 endif()
 
 # installation
