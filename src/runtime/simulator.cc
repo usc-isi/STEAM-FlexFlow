@@ -1500,6 +1500,7 @@ void LogicalTaskgraphBasedSimulator::get_taskgraph_flatbuf(const FFModel* model,
       paths
     ));
   }
+  auto routes = builder.CreateVector(route_v);
 
   FlatBufTaskGraph::TaskGraphBuilder tg_builder = FlatBufTaskGraph::TaskGraphBuilder(builder);
 
@@ -1513,6 +1514,7 @@ void LogicalTaskgraphBasedSimulator::get_taskgraph_flatbuf(const FFModel* model,
   tg_builder.add_ops(ops);
   tg_builder.add_tasks(tasks);
   tg_builder.add_devices(devs);
+  tg_builder.add_routes(routes);
 
   auto ftg = tg_builder.Finish();
   builder.Finish(ftg);
@@ -1783,4 +1785,218 @@ void SpMulMatSimulator::expand_allreduce(SimTask * allreduce_task, double start_
 //   assert("SpMulMat requires ring allreduce." && false);
 // #endif
 
+}
+
+void SpMulMatSimulator::get_taskgraph_flatbuf(const FFModel* model, flatbuffers::FlatBufferBuilder &builder) 
+{
+  builder.Clear();
+
+  // Store topology
+  // flatbuffers::FlatBufferBuilder builder = flatbuffers::FlatBufferBuilder();
+  NetworkedMachineModel *nm = static_cast<NetworkedMachineModel*>(machine);
+  size_t total_devs = nm->get_total_devs();
+  std::vector<flatbuffers::Offset<FlatBufTaskGraph::Connection>> conns_v = 
+    std::vector<flatbuffers::Offset<FlatBufTaskGraph::Connection>>();
+  for (size_t i = 0; i < nm->get_total_devs(); i++) {
+    for (size_t j = 0; j < i; j++) {
+      size_t nlink;
+      if ((nlink = nm->get_conn_matrix()[i * total_devs + j]) > 0) {
+        conns_v.emplace_back(FlatBufTaskGraph::CreateConnection(builder, i, j, nlink));
+      }
+    }
+  }
+  auto conns = builder.CreateVector(conns_v);
+
+  // store operators
+  // builder.Clear();
+  std::vector<flatbuffers::Offset<FlatBufTaskGraph::Operator>> op_v = 
+    std::vector<flatbuffers::Offset<FlatBufTaskGraph::Operator>>();
+  for (size_t l = 0; l < model->layers.size(); l++) {
+    Op* op = model->layers[l];
+    auto opname = builder.CreateString(op->name);
+    op_v.emplace_back(FlatBufTaskGraph::CreateOperator(builder, 
+      reinterpret_cast<uint64_t>(op), (int)op->op_type, opname));
+  }
+  auto ops = builder.CreateVector(op_v);
+
+  // store tasks
+  // builder.Clear();
+  std::vector<flatbuffers::Offset<FlatBufTaskGraph::Task>> task_v = 
+    std::vector<flatbuffers::Offset<FlatBufTaskGraph::Task>>();
+  // change: since there is no universal storage of device, creat a set of
+  // all devices for the next entry
+  std::unordered_set<Device *> devices;
+  for (size_t i = 0; i < task_manager->global_task_id; i++) {
+    SimTask * curr = task_manager->tasks[i];
+    if (curr->store) {
+      FlatBufTaskGraph::SimTaskType tasktype;
+      uint64_t taskid = reinterpret_cast<uint64_t>(curr);
+      std::vector<uint64_t> nexttasks = std::vector<uint64_t>();
+      for (SimTask *t: curr->next_tasks) {
+        nexttasks.push_back(reinterpret_cast<uint64_t>(t));
+      }
+      auto ntv = builder.CreateVector(nexttasks);
+      switch (curr->type) {
+      case SimTask::TASK_FORWARD:
+        tasktype = FlatBufTaskGraph::SimTaskType_TASK_FORWARD;
+      break;
+      case SimTask::TASK_BACKWARD:
+        tasktype = FlatBufTaskGraph::SimTaskType_TASK_BACKWARD;
+      break;
+      case SimTask::TASK_UPDATE:
+        tasktype = FlatBufTaskGraph::SimTaskType_TASK_UPDATE;
+      break;
+      case SimTask::TASK_BARRIER:
+        tasktype = FlatBufTaskGraph::SimTaskType_TASK_BARRIER;
+      break;
+      case SimTask::TASK_COMM:
+        assert("Logical task graph shouldn't contain TASK_COMM!" && false);
+      break;
+      case SimTask::TASK_NOMINAL_COMM:
+        tasktype = FlatBufTaskGraph::SimTaskType_TASK_NOMINAL_COMM;
+      break;
+      case SimTask::TASK_ALLREDUCE:
+        tasktype = FlatBufTaskGraph::SimTaskType_TASK_ALLREDUCE;
+      break;
+      }
+      task_v.emplace_back(FlatBufTaskGraph::CreateTask(
+        builder,
+        tasktype,
+        taskid, 
+        reinterpret_cast<uint64_t>(curr->device),
+        curr->run_time,
+        curr->xfer_size,
+        ntv
+      ));
+    }
+    if (curr->device)
+      devices.insert(curr->device);
+  }
+  auto tasks = builder.CreateVector(task_v);
+
+  // devices
+  // builder.Clear();
+  std::vector<flatbuffers::Offset<FlatBufTaskGraph::Device>> dev_v = 
+    std::vector<flatbuffers::Offset<FlatBufTaskGraph::Device>>();
+  for (Device *curr: devices) {
+    FlatBufTaskGraph::DeviceType type;
+    uint64_t deviceid = reinterpret_cast<uint64_t>(curr);
+    CommDevice * comm_dev;
+    switch (curr->type) {
+    case Device::DEVICE_COMP: 
+      dev_v.emplace_back(FlatBufTaskGraph::CreateDevice(
+        builder, 
+        reinterpret_cast<CompDevice*>(curr)->comp_type == CompDevice::LOC_PROC 
+          ? FlatBufTaskGraph::DeviceType_DEVICE_COMP_CPU
+          : FlatBufTaskGraph::DeviceType_DEVICE_COMP_GPU,
+        deviceid, curr->node_id, curr->device_id, 0
+      ));
+    break;
+    case Device::DEVICE_COMM: 
+      comm_dev = reinterpret_cast<CommDevice*>(curr);
+      switch (comm_dev->comm_type) {
+      case CommDevice::MEMBUS_COMM:
+        type = FlatBufTaskGraph::DeviceType_DEVICE_COMM_MEMBUS_COMM;
+      break;
+      case CommDevice::UPI_IN_COMM:
+        type = FlatBufTaskGraph::DeviceType_DEVICE_COMM_UPI_IN_COMM;
+      break;
+      case CommDevice::UPI_OUT_COMM:
+        type = FlatBufTaskGraph::DeviceType_DEVICE_COMM_UPI_OUT_COMM;
+      break;
+      case CommDevice::NIC_IN_COMM:
+        type = FlatBufTaskGraph::DeviceType_DEVICE_COMM_NIC_IN_COMM;
+      break;
+      case CommDevice::NIC_OUT_COMM:
+        type = FlatBufTaskGraph::DeviceType_DEVICE_COMM_NIC_OUT_COMM;
+      break;
+      case CommDevice::PCI_TO_HOST_COMM:
+        type = FlatBufTaskGraph::DeviceType_DEVICE_COMM_PCI_TO_HOST_COMM;
+      break;
+      case CommDevice::PCI_TO_DEV_COMM:
+        type = FlatBufTaskGraph::DeviceType_DEVICE_COMM_PCI_TO_DEV_COMM;
+      break;
+      case CommDevice::NVLINK_COMM:
+        type = FlatBufTaskGraph::DeviceType_DEVICE_COMM_NVLINK_COMM;
+      break;
+      case CommDevice::NW_COMM:
+        type = FlatBufTaskGraph::DeviceType_DEVICE_COMM_NW_COMM;
+      break;
+      case CommDevice::NW_NOMINAL:
+        type = FlatBufTaskGraph::DeviceType_DEVICE_COMM_NW_NOMINAL;
+      break;
+      }
+      dev_v.emplace_back(FlatBufTaskGraph::CreateDevice(
+        builder, 
+        type,
+        deviceid, curr->node_id, curr->device_id, comm_dev->bandwidth
+      ));
+    break;
+    case Device::DEVICE_MEM: 
+      assert("Shouldn't store a memory device to taskgraph!" && false);
+    }
+  }
+  auto devs = builder.CreateVector(dev_v);
+
+  // routes
+  // builder.Clear();
+  std::vector<flatbuffers::Offset<FlatBufTaskGraph::Route>> route_v = 
+    std::vector<flatbuffers::Offset<FlatBufTaskGraph::Route>>();
+  for (auto ncd: nm->get_nomm_comm_devs()) {
+    std::vector<flatbuffers::Offset<FlatBufTaskGraph::Path>> path_v = 
+      std::vector<flatbuffers::Offset<FlatBufTaskGraph::Path>>();
+    const EcmpRoutes& physical_routes = ncd.second->get_all_routes();
+    for (size_t i = 0; i < physical_routes.first.size(); i++) {
+      std::vector<uint32_t> hops_v = std::vector<uint32_t>();
+      for (CommDevice * c: physical_routes.second[i]) {
+        hops_v.push_back(c->node_id);
+      }
+      auto hops = builder.CreateVector(hops_v);
+      auto path = FlatBufTaskGraph::CreatePath(builder, hops, physical_routes.first[i]);
+      path_v.push_back(path);
+    }
+    auto paths = builder.CreateVector(path_v);
+    route_v.push_back(FlatBufTaskGraph::CreateRoute(
+      builder, 
+      ncd.second->device_id / nm->get_total_devs(),
+      ncd.second->device_id % nm->get_total_devs(),
+      paths
+    ));
+  }
+  auto routes = builder.CreateVector(route_v);
+
+  SpMulMat * smmOpt = reinterpret_cast<SpMulMat*>(l1optimizer); 
+  std::vector<flatbuffers::Offset<FlatBufTaskGraph::Rings>> ring_v = 
+    std::vector<flatbuffers::Offset<FlatBufTaskGraph::Rings>>{};
+  for (auto entry: smmOpt->selected_jumps) {
+    std::vector<flatbuffers::Offset<FlatBufTaskGraph::RingDescriptor>> rd_v = 
+      std::vector<flatbuffers::Offset<FlatBufTaskGraph::RingDescriptor>>{}; 
+    for (size_t i = 0; i < entry.second.size(); i++) {
+      auto hops = builder.CreateVector(entry.second[i]);
+      auto rd = FlatBufTaskGraph::CreateRingDescriptor(builder, hops);
+      rd_v.push_back(rd);
+    }
+    auto rds = builder.CreateVector(rd_v);
+    auto ring = FlatBufTaskGraph::CreateRings(builder, entry.first, rds);
+    ring_v.push_back(ring);
+  }
+  auto rings = builder.CreateVector(ring_v);
+  
+  FlatBufTaskGraph::TaskGraphBuilder tg_builder = FlatBufTaskGraph::TaskGraphBuilder(builder);
+
+  tg_builder.add_ngpupernode(machine->get_num_gpus()/ machine->get_num_nodes());
+  tg_builder.add_nnode(machine->get_num_nodes());
+  tg_builder.add_nswitch(nm->get_num_switches());
+  tg_builder.add_intergpubw(machine->get_intra_node_gpu_bandwidth());
+  tg_builder.add_drambw(32 * 1024 * 1024.0f); // PCIE gen 4
+  tg_builder.add_netbw(machine->get_inter_node_gpu_bandwidth());
+  tg_builder.add_conn(conns);
+  tg_builder.add_ops(ops);
+  tg_builder.add_tasks(tasks);
+  tg_builder.add_devices(devs);
+  tg_builder.add_routes(routes);
+  tg_builder.add_rings(rings);
+
+  auto ftg = tg_builder.Finish();
+  builder.Finish(ftg);
 }

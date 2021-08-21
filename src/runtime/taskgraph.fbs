@@ -68,6 +68,15 @@ table Operator {
   name: string;
 }
 
+table RingDescriptor {
+  jumps: [int];
+}
+
+table Rings {
+  ringsz: ulong;
+  ringpaths: [RingDescriptor];
+}
+
 table TaskGraph {
   ngpupernode: uint;
   nnode: uint;
@@ -80,6 +89,7 @@ table TaskGraph {
   tasks: [Task];
   devices: [Device];
   routes: [Route];
+  rings: [Rings];
 }
 
 table Topology {

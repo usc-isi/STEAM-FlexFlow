@@ -865,7 +865,7 @@ public:
   static void simulation_task(const Task *task,
                                   const std::vector<PhysicalRegion> &regions,
                                   Context ctx, Runtime *runtime);
-  void get_taskgraph_flatbuf(const FFModel* model, flatbuffers::FlatBufferBuilder &builder);
+  virtual void get_taskgraph_flatbuf(const FFModel* model, flatbuffers::FlatBufferBuilder &builder);
 
   bool segment_transfer;
   size_t segment_size;
@@ -963,7 +963,8 @@ public:
       const std::map<Op*, ParallelConfig>& global,
       CompMode comp_mode,
       std::string const &export_file_name);
-  void expand_allreduce(SimTask * allreduce_task, double start_time,std::priority_queue<SimTask*, std::vector<SimTask*>, SimTaskCompare>& ready_queue);
+  virtual void expand_allreduce(SimTask * allreduce_task, double start_time,std::priority_queue<SimTask*, std::vector<SimTask*>, SimTaskCompare>& ready_queue);
+  virtual void get_taskgraph_flatbuf(const FFModel* model, flatbuffers::FlatBufferBuilder &builder);
   static void simulation_task(const Task *task,
                                   const std::vector<PhysicalRegion> &regions,
                                   Context ctx, Runtime *runtime);
