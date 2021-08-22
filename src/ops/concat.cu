@@ -503,7 +503,7 @@ bool Concat::measure_operator_cost(Simulator* sim,
       if (input_grad_ptrs[i] == NULL) {
         cost_metrics.forward_time = -1;
         cost_metrics.backward_time = -1;
-        return true;
+        return false;
       }
       assert (input_grad_ptrs[i] != NULL);
     }
@@ -511,7 +511,7 @@ bool Concat::measure_operator_cost(Simulator* sim,
     if (output_grad_ptr == NULL) {
       cost_metrics.forward_time = -1;
       cost_metrics.backward_time = -1;
-      return true;
+      return false;
     }
     assert (output_grad_ptr != NULL);
     forward = [] {};

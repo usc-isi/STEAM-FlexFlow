@@ -973,6 +973,16 @@ bool Conv2D::measure_operator_cost(Simulator* sim,
 
   Conv2DMeta* m = sim->conv2d_meta;
   m->relu = activation == AC_MODE_RELU;
+  // printf("[Measureing Conv2D] name(%s) input(%d %d %d %d) weight(%d %d %d %d) output(%d %d %d %d) stride(%d %d) padding(%d %d)\n",
+  //   name,
+  //   input_n, input_c, input_h, input_w,
+  //   output_c, input_c / groups, kernel_h, kernel_w,
+  //   output_n, output_c, output_h, output_w,
+  //   stride_h, stride_w,
+  //   padding_h, padding_w);
+  if ((size_t)input_n * input_c * input_h * input_w * sizeof(float) > 2ULL * 1024 * 1024 * 1024 - 1) {
+    return false;
+  }
   checkCUDNN(cudnnSetTensor4dDescriptor(m->inputTensor, CUDNN_TENSOR_NCHW,
       CUDNN_DATA_FLOAT, input_n, input_c, input_h, input_w));
   checkCUDNN(cudnnSetTensor4dDescriptor(m->biasTensor, CUDNN_TENSOR_NCHW,

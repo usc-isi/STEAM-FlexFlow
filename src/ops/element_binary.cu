@@ -820,6 +820,94 @@ bool ElementBinary::measure_operator_cost(Simulator* sim,
       CUDNN_DATA_FLOAT, CUDNN_PROPAGATE_NAN));
   Domain input_domain = sub_input0.get_domain();
   Domain output_domain = sub_output.get_domain();
+  int dims[MAX_TENSOR_DIM];
+  size_t input_domain_size = 0;
+  size_t output_domain_size = 0;
+  // std::cerr << input_domain.get_dim() << std::endl;
+  switch (input_domain.get_dim()) {
+    case 1:
+    {
+      Rect<1> rect = input_domain;
+      dims[0] = rect.hi[0] - rect.lo[0] + 1;
+      input_domain_size = (size_t)dims[0] * sizeof(float);
+      break;
+    }
+    case 2:
+    {
+      Rect<2> rect = input_domain;
+      dims[0] = rect.hi[0] - rect.lo[0] + 1;
+      dims[1] = rect.hi[1] - rect.lo[1] + 1;
+      input_domain_size = (size_t)dims[0] * dims[1] * sizeof(float);
+      break;
+    }
+    case 3:
+    {
+      Rect<3> rect = input_domain;
+      dims[0] = rect.hi[0] - rect.lo[0] + 1;
+      dims[1] = rect.hi[1] - rect.lo[1] + 1;
+      dims[2] = rect.hi[2] - rect.lo[2] + 1;
+      input_domain_size = (size_t)dims[0] * dims[1] * dims[2] * sizeof(float);
+      break;
+    }
+    case 4:
+    {
+      Rect<4> rect = input_domain;
+      dims[0] = rect.hi[0] - rect.lo[0] + 1;
+      dims[1] = rect.hi[1] - rect.lo[1] + 1;
+      dims[2] = rect.hi[2] - rect.lo[2] + 1;
+      dims[3] = rect.hi[3] - rect.lo[3] + 1;
+      input_domain_size = (size_t)dims[0] * dims[1] * dims[2] * dims[3] * sizeof(float);
+      break;
+    }
+    default:
+      assert(false && "Unsupported dim number");
+  }
+  if (input_domain_size > 1ULL << 31 - 1) {
+    return false;
+  }
+  // std::cerr << output_domain.get_dim() << std::endl;
+  switch (output_domain.get_dim()) {
+    case 1:
+    {
+      Rect<1> rect = output_domain;
+      dims[0] = rect.hi[0] - rect.lo[0] + 1;
+      output_domain_size = (size_t)dims[0] * sizeof(float);
+      break;
+    }
+    case 2:
+    {
+      Rect<2> rect = output_domain;
+      dims[0] = rect.hi[0] - rect.lo[0] + 1;
+      dims[1] = rect.hi[1] - rect.lo[1] + 1;
+      output_domain_size = (size_t)dims[0] * dims[1] * sizeof(float);
+      break;
+    }
+    case 3:
+    {
+      Rect<3> rect = output_domain;
+      dims[0] = rect.hi[0] - rect.lo[0] + 1;
+      dims[1] = rect.hi[1] - rect.lo[1] + 1;
+      dims[2] = rect.hi[2] - rect.lo[2] + 1;
+      output_domain_size = (size_t)dims[0] * dims[1] * dims[2] * sizeof(float);
+      break;
+    }
+    case 4:
+    {
+      Rect<4> rect = output_domain;
+      dims[0] = rect.hi[0] - rect.lo[0] + 1;
+      dims[1] = rect.hi[1] - rect.lo[1] + 1;
+      dims[2] = rect.hi[2] - rect.lo[2] + 1;
+      dims[3] = rect.hi[3] - rect.lo[3] + 1;
+      output_domain_size = (size_t)dims[0] * dims[1] * dims[2] * dims[3] * sizeof(float);
+      break;
+    }
+    default:
+      assert(false && "Unsupported dim number");
+  }
+  if (output_domain_size > 1ULL << 31 - 1) {
+    return false;
+  }
+
   checkCUDNN(cudnnSetTensorDescriptorFromDomain(m->inputTensor, input_domain));
   checkCUDNN(cudnnSetTensorDescriptorFromDomain(m->outputTensor, output_domain));
   sim->free_all();

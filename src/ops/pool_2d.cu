@@ -422,6 +422,9 @@ bool Pool2D::measure_operator_cost(Simulator* sim,
   int pad_h = ((output_h - 1) * stride_h + kernel_h - input_h + 1) / 2;
   int pad_w = ((output_w - 1) * stride_w + kernel_w - input_w + 1) / 2;
   Pool2DMeta* m = sim->pool2d_meta;
+  if ((size_t)input_n * input_c * input_h * input_w * sizeof(float) > 2ULL * 1024 * 1024 * 1024 - 1) {
+    return false;
+  }  
   checkCUDNN(cudnnSetTensor4dDescriptor(m->inputTensor,
                                         CUDNN_TENSOR_NCHW,
                                         CUDNN_DATA_FLOAT,

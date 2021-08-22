@@ -2305,19 +2305,34 @@ void Op::measure_all(Simulator * sim, FFModel& ff, std::vector<OpMeasurement>& o
     for (int i = 0; i < pc.nDims; i++)
       pc.dim[i] = i == pc.nDims - 1 ? num_parts : 1;
 
-    CostMetrics cost;
-    measure_operator_cost(sim, pc, cost);
-
-    opm.emplace_back(
-      OpMeasurement {
-        .name = get_name_structure(),
-        .pc_str = pc.get_pc_str(),
-        .fwtime = cost.forward_time,
-        .bwtime = cost.backward_time,
-        .mem_req = cost.memory_requirement
-      }
-    );
-    std::cout << "Measured " << get_name_structure() << " " << pc.get_pc_str() << " fw: " << cost.forward_time << " bw: " << cost.backward_time << std::endl;
+    CostMetrics cost {
+      .forward_time = -1,
+      .backward_time = -1, 
+      .memory_requirement = 0
+    };
+    
+    if (measure_operator_cost(sim, pc, cost)) {
+      opm.emplace_back(
+        OpMeasurement {
+          .name = get_name_structure(),
+          .pc_str = pc.get_pc_str(),
+          .fwtime = cost.forward_time,
+          .bwtime = cost.backward_time,
+          .mem_req = cost.memory_requirement
+        }
+      );
+      std::cout << "Measured " << get_name_structure() << " " << pc.get_pc_str() << " fw: " << cost.forward_time << " bw: " << cost.backward_time << std::endl;
+    } else {
+      // opm.emplace_back(
+      //   OpMeasurement {
+      //     .name = get_name_structure(),
+      //     .pc_str = pc.get_pc_str(),
+      //     .fwtime = -1,
+      //     .bwtime = -1,
+      //     .mem_req = 0 
+      //   }
+      // );
+    }
   }
 }
 
