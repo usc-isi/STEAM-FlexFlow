@@ -92,10 +92,14 @@ void top_level_task(const Task* task,
   // metrics.push_back(METRICS_ACCURACY);
   // metrics.push_back(METRICS_SPARSE_CATEGORICAL_CROSSENTROPY);
 
-  if (ffConfig.measurement_only)
+  if (ffConfig.measurement_only) {
     ff.run_measurement();
+  }
   else {
-    ff.simulate_new();
+    if (ffConfig.node_degree == 1)
+      ff.simulate();
+    else 
+      ff.simulate_new();
   }
 #if 0
   // Data Loader

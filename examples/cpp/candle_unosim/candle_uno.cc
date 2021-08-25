@@ -132,7 +132,10 @@ void top_level_task(const Task* task,
     ff.run_measurement();
   }
   else {
-    ff.simulate();
+    if (ff_config.node_degree == 1)
+      ff.simulate();
+    else 
+      ff.simulate_new();
   }
   //ff.mse_loss("mse_loss", output, label, "average"/*reduction*/);
   // Use SGD Optimizer

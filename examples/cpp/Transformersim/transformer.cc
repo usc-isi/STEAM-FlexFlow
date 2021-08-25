@@ -137,14 +137,15 @@ void top_level_task(const Task* task,
     input2 = t2;
   }
   t2 = ff.dense(t2, 1);
-
   if (ffConfig.measurement_only) {
     ff.run_measurement();
   }
   else {
-    ff.simulate();
+    if (ffConfig.node_degree == 1)
+      ff.simulate();
+    else 
+      ff.simulate_new();
   }
-
 #if 0
   Optimizer* optimizer = new SGDOptimizer(&ff, 0.01f);
   std::vector<MetricsType> metrics;
