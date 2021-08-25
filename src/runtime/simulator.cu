@@ -316,12 +316,12 @@ void LogicalTaskgraphBasedSimulator::simulation_task(const Task *task,
   // Realm::Cuda::GPUFBMemory* memFBImpl = (Realm::Cuda::GPUFBMemory*) memImpl;
   // off_t offset = memFBImpl->alloc_bytes_local(model->config.simulator_work_space_size);
   // void* base_ptr = memFBImpl->get_direct_ptr(offset, 0);
-  FlatDegConstraintNetworkTopologyGenerator topo_gen = FlatDegConstraintNetworkTopologyGenerator(model->config.numNodes, model->config.node_degree);
-  // BigSwitchNetworkTopologyGenerator topo_gen = BigSwitchNetworkTopologyGenerator(model->config.numNodes);
+  // FlatDegConstraintNetworkTopologyGenerator topo_gen = FlatDegConstraintNetworkTopologyGenerator(model->config.numNodes, model->config.node_degree);
+  BigSwitchNetworkTopologyGenerator topo_gen = BigSwitchNetworkTopologyGenerator(model->config.numNodes);
   
   NetworkedMachineModel *nmachine = new NetworkedMachineModel(model->config.numNodes, 
     model->config.workersPerNode,  
-    0,
+    1,
     model->config.network_latency,
     topo_gen.generate_topology(),
     gpu_mem.capacity(),
