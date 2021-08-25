@@ -93,7 +93,8 @@
     "variant": "cpp",
     "regex": "cpp",
     "strstream": "cpp",
-    "hash_map": "cpp"
+    "hash_map": "cpp",
+    "future": "cpp"
   },
   "cmake.configureOnOpen": true,
   "cmake.configureSettings": {

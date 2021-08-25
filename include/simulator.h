@@ -298,16 +298,18 @@ public:
      * <possible route, chance>
      */
     virtual EcmpRoutes get_routes(int src_node, int dst_node) = 0;
+    virtual std::vector<EcmpRoutes> get_routes_from_src(int src_node) = 0;
 };
 
 /**
  * Single shortest path routing based on hop count
  */
-class WeightedShortestPathRoutingStragtegy : public NetworkRoutingStrategy {
+class WeightedShortestPathRoutingStrategy : public NetworkRoutingStrategy {
 public:
-    WeightedShortestPathRoutingStragtegy(const ConnectionMatrix & c, 
+    WeightedShortestPathRoutingStrategy(const ConnectionMatrix & c, 
         const std::map<size_t, CommDevice*>& devmap, int total_devs);
     virtual EcmpRoutes get_routes(int src_node, int dst_node);
+    virtual std::vector<EcmpRoutes> get_routes_from_src(int src_node);
     void hop_count(int src_node, int dst_node, int & hop, int & narrowest);
     std::vector<std::pair<int, int>> hop_count(int src_node);
     void clear();
@@ -322,6 +324,7 @@ public:
     ShortestPathNetworkRoutingStrategy(const ConnectionMatrix & c, 
         const std::map<size_t, CommDevice*>& devmap, int total_devs);
     virtual EcmpRoutes get_routes(int src_node, int dst_node);
+    virtual std::vector<EcmpRoutes> get_routes_from_src(int src_node);
     void hop_count(int src_node, int dst_node, int & hop, int & narrowest);
     std::vector<std::pair<int, int>> hop_count(int src_node);
     void clear();

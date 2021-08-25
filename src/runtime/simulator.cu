@@ -470,10 +470,12 @@ void SpMulMatSimulator::simulation_task(const Task *task,
 
   // Set cublas/cudnn streams to allow Realm catch the events
 
-  cudaStream_t stream;
-  checkCUDA(get_legion_stream(&stream));
-  checkCUDA(cublasSetStream(simulator->handler.blas, stream));
-  checkCUDNN(cudnnSetStream(simulator->handler.dnn, stream));
+  if (!model->config.nogpu) {
+    cudaStream_t stream;
+    checkCUDA(get_legion_stream(&stream));
+    checkCUDA(cublasSetStream(simulator->handler.blas, stream));
+    checkCUDNN(cudnnSetStream(simulator->handler.dnn, stream));
+  }
 
   std::map<Op*, ParallelConfig> strategies;
   if (model->config.import_strategy_file.length() > 0) {
@@ -499,9 +501,9 @@ void SpMulMatSimulator::simulation_task(const Task *task,
       //   }
       // }
       // if (opsz * model->config.numNodes * model->config.workersPerNode < gpu_mem.capacity())
-      // if (model->layers[l]->op_type != OperatorType::OP_EMBEDDING)
-      //   strategies[model->layers[l]] = model->layers[l]->get_data_parallel_config(*model);
-      // else
+      if (model->layers[l]->op_type != OperatorType::OP_EMBEDDING)
+        strategies[model->layers[l]] = model->layers[l]->get_data_parallel_config(*model);
+      else
         strategies[model->layers[l]] = model->layers[l]->get_random_parallel_config(*model);
     }
   }

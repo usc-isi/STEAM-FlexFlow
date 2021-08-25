@@ -1008,6 +1008,9 @@ bool Conv2D::measure_operator_cost(Simulator* sim,
   assert(c == output_c);
   assert(h == output_h);
   assert(w == output_w);
+  if ((size_t)n * c * h * w * sizeof(float) > 2ULL * 1024 * 1024 * 1024 - 1) {
+    return false;
+  }
   checkCUDNN(cudnnSetActivationDescriptor(m->actiDesc, CUDNN_ACTIVATION_RELU,
       CUDNN_NOT_PROPAGATE_NAN, 0.0));
   checkCUDNN(cudnnSetTensor4dDescriptor(m->outputTensor, CUDNN_TENSOR_NCHW,
@@ -1085,5 +1088,5 @@ bool Conv2D::measure_operator_cost(Simulator* sim,
 }
 
 std::string Conv2D::get_name_structure() const {
-  return "Conv2D_"+std::to_string(kernel_h)+"_"+std::to_string(kernel_w);
+  return "Conv2D_"+std::to_string(kernel_h)+"_"+std::to_string(kernel_w)+"_"+std::to_string(out_channels);
 }

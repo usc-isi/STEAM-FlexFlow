@@ -984,6 +984,7 @@ FFModel::FFModel(FFConfig& _config , bool simonly)
     info.workSpaceSize = config.workSpaceSize;
     info.allowTensorOpMathConversion = config.allow_tensor_op_math_conversion;
     info.simonly = simonly;
+    // info.nogpu = _config.nogpu;
     argmap.set_point(*it, TaskArgument(&info, sizeof(FFInitInfo)));
   }
 
@@ -2839,6 +2840,11 @@ void FFConfig::parse_args(char **argv, int argc)
     if (!strcmp(argv[i], "--nodes"))
     {
       numNodes = atoi(argv[++i]);
+      continue;
+    }
+    if (!strcmp(argv[i], "--no-gpu"))
+    {
+      nogpu = true;
       continue;
     }
     if (!strcmp(argv[i], "-ll:cpu"))

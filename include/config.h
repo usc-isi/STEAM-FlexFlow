@@ -117,6 +117,7 @@ struct FFInitInfo {
   size_t workSpaceSize;
   bool allowTensorOpMathConversion;
   bool simonly;
+  bool nogpu = false;
   //int myRank, allRanks;
 };
 
@@ -194,6 +195,7 @@ public:
   std::string mfile;
   size_t local_batch_sz_upperlimit;
   bool enable_control_replication;
+  bool nogpu = false;
   int python_data_loader_type;
 };
 

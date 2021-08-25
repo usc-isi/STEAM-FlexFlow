@@ -40,14 +40,14 @@ static std::vector<T> operator+(const std::vector<T>& a, const std::vector<T>& b
   return result;
 }
 
-WeightedShortestPathRoutingStragtegy::WeightedShortestPathRoutingStragtegy(
+WeightedShortestPathRoutingStrategy::WeightedShortestPathRoutingStrategy(
     const ConnectionMatrix & c, 
     const std::map<size_t, CommDevice*>& devmap,
     int total_devs) 
 : conn(c), devmap(devmap), total_devs(total_devs)
 {} 
 
-EcmpRoutes WeightedShortestPathRoutingStragtegy::get_routes(int src_node, int dst_node) 
+EcmpRoutes WeightedShortestPathRoutingStrategy::get_routes(int src_node, int dst_node) 
 {
   int key = src_node * total_devs + dst_node;
 
@@ -101,7 +101,7 @@ EcmpRoutes WeightedShortestPathRoutingStragtegy::get_routes(int src_node, int ds
   return std::make_pair(std::vector<double>{1}, std::vector<Route>{result});
 }
 
-void WeightedShortestPathRoutingStragtegy::hop_count(int src_node, int dst_node, int & hop, int & narrowest)
+void WeightedShortestPathRoutingStrategy::hop_count(int src_node, int dst_node, int & hop, int & narrowest)
 {
   int key = src_node * total_devs + dst_node;
 
@@ -150,7 +150,53 @@ void WeightedShortestPathRoutingStragtegy::hop_count(int src_node, int dst_node,
 }
 
 
-std::vector<std::pair<int, int>> WeightedShortestPathRoutingStragtegy::hop_count(int src_node) 
+std::vector<EcmpRoutes> WeightedShortestPathRoutingStrategy::get_routes_from_src(int src_node) 
+{
+  std::vector<uint64_t> dist(total_devs, std::numeric_limits<uint64_t>::max());
+  std::vector<int> prev(total_devs, -1);
+  std::vector<bool> visited(total_devs, false);
+
+  std::priority_queue<std::pair<uint64_t, uint64_t>, 
+                      std::vector<std::pair<uint64_t, uint64_t> >,
+                      std::greater<std::pair<uint64_t, uint64_t> > > pq;
+  pq.push(std::make_pair(dist[src_node], src_node));
+  dist[src_node] = 0;
+  while (!pq.empty()) {
+    int min_node = pq.top().second;
+    pq.pop();
+    visited[min_node] = true;
+
+    for (int i = 0; i < total_devs; i++) {
+      if (visited[i] || conn[min_node * total_devs + i] == 0) {
+        continue;
+      }
+      double new_dist = dist[min_node] + 1; // numeric_limits<uint64_t>::max() / get_bandwidth_bps(min_node, i);
+      if (new_dist < dist[i]) {
+        dist[i] = new_dist;
+        prev[i] = min_node;
+        pq.push(std::make_pair(new_dist, i));
+      }
+    }
+  }
+  std::vector<EcmpRoutes> final_result;
+  for (int i = 0; i < total_devs; i++) {
+    if (i == src_node) {
+      final_result.emplace_back(std::make_pair(std::vector<double>{}, std::vector<Route>{}));
+      continue;
+    }
+    Route result = Route();
+    int curr = i;
+    while (prev[curr] != -1) {
+      result.insert(result.begin(), devmap.at(prev[curr] * total_devs + curr));
+      curr = prev[curr];
+    }
+    assert(result.size() > 0);
+    final_result.emplace_back(std::make_pair(std::vector<double>{1}, std::vector<Route>{result}));
+  }
+  return final_result; 
+}
+
+std::vector<std::pair<int, int>> WeightedShortestPathRoutingStrategy::hop_count(int src_node) 
 {
   std::vector<uint64_t> dist(total_devs, std::numeric_limits<uint64_t>::max());
   std::vector<int> prev(total_devs, -1);
@@ -209,6 +255,7 @@ ShortestPathNetworkRoutingStrategy::ShortestPathNetworkRoutingStrategy(
 EcmpRoutes ShortestPathNetworkRoutingStrategy::get_routes(int src_node, int dst_node) 
 {
   int key = src_node * total_devs + dst_node;
+  // std::cerr << "routing " << src_node << ", " << dst_node << std::endl;
 
   if (conn[key] > 0) {
     return std::make_pair(std::vector<double>({1}), std::vector<Route>({Route({devmap.at(key)})}));
@@ -253,6 +300,53 @@ EcmpRoutes ShortestPathNetworkRoutingStrategy::get_routes(int src_node, int dst_
   }
   assert(result.size() || src_node == dst_node);
   return std::make_pair(std::vector<double>{1}, std::vector<Route>{result});
+}
+
+std::vector<EcmpRoutes> ShortestPathNetworkRoutingStrategy::get_routes_from_src(int src_node) 
+{
+  std::vector<uint64_t> dist(total_devs, std::numeric_limits<uint64_t>::max());
+  std::vector<int> prev(total_devs, -1);
+  std::vector<bool> visited(total_devs, false);
+
+  std::queue<uint64_t> q;
+  q.push(src_node);
+  dist[src_node] = 0;
+
+  // BFS
+  while (!q.empty()) {
+    int min_node = q.front();
+    q.pop();
+    visited[min_node] = true;
+
+    for (int i = 0; i < total_devs; i++) {
+      if (visited[i] || conn[min_node * total_devs + i] == 0) {
+        continue;
+      }
+      double new_dist = dist[min_node] + 1; 
+      if (new_dist < dist[i] || (new_dist == dist[i] && unif(gen) < 0.5)) {
+        dist[i] = new_dist;
+        prev[i] = min_node;
+        q.push(i);
+      }
+    }
+  }
+
+  std::vector<EcmpRoutes> final_result;
+  for (int i = 0; i < total_devs; i++) {
+    if (i == src_node) {
+      final_result.emplace_back(std::make_pair(std::vector<double>{}, std::vector<Route>{}));
+      continue;
+    }
+    Route result = Route();
+    int curr = i;
+    while (prev[curr] != -1) {
+      result.insert(result.begin(), devmap.at(prev[curr] * total_devs + curr));
+      curr = prev[curr];
+    }
+    // assert(result.size() > 0);
+    final_result.emplace_back(std::make_pair(std::vector<double>{1}, std::vector<Route>{result}));
+  }
+  return final_result; 
 }
 
 void ShortestPathNetworkRoutingStrategy::hop_count(int src_node, int dst_node, int & hop, int & narrowest)
@@ -466,8 +560,8 @@ ConnectionMatrix BigSwitchNetworkTopologyGenerator::generate_topology() const
 DemandHeuristicNetworkOptimizer::DemandHeuristicNetworkOptimizer(MachineModel* machine) 
 : L1Optimizer(machine)
 {
-  alpha = 0.1;
-  no_improvement_th = 100;
+  alpha = 0.5;
+  no_improvement_th = 50;
   best_sim_time = std::numeric_limits<double>::max();
   curr_sim_time = std::numeric_limits<double>::max();
 }
@@ -521,14 +615,14 @@ typedef std::pair<uint64_t, uint64_t> DemandToIdMap;
 
 bool DemandHeuristicNetworkOptimizer::optimize(int mcmc_iter, double sim_iter_time, bool forced)
 {
-  if (sim_iter_time < best_sim_time) {
-    best_sim_time = sim_iter_time;
-  }
   double diff = sim_iter_time - curr_sim_time;
   std::cerr << "sim_iter_time: " << sim_iter_time << ", curr_sim_time: " << curr_sim_time 
             << ", best_iter_time: " << best_sim_time << std::endl;
-  bool change = diff > 0 ? true :
-    static_cast<double>(std::rand()) / static_cast<double>(static_cast<double>(RAND_MAX)) < std::exp(-alpha * diff);
+  bool change = diff < 0 ? true : diff != 0 && unif(gen) < std::exp(-alpha * diff);
+  if (sim_iter_time < best_sim_time) {
+    best_sim_time = sim_iter_time;
+    change = true;
+  }
   if (change) {
     curr_sim_time = sim_iter_time;
   }
@@ -536,7 +630,7 @@ bool DemandHeuristicNetworkOptimizer::optimize(int mcmc_iter, double sim_iter_ti
     num_iter_nochange++; 
   }
 
-  if (forced || !change && num_iter_nochange < no_improvement_th)
+  if (!forced && !change && num_iter_nochange < no_improvement_th)
     return false;
   
   num_iter_nochange = 0;
@@ -1541,14 +1635,14 @@ DemandHeuristicNetworkOptimizerPlus::construct_bidir_negative_util(const Connect
 
 bool DemandHeuristicNetworkOptimizerPlus::optimize(int mcmc_iter, double sim_iter_time, bool forced)
 {
-  if (sim_iter_time < best_sim_time) {
-    best_sim_time = sim_iter_time;
-  }
   double diff = sim_iter_time - curr_sim_time;
   std::cerr << "sim_iter_time: " << sim_iter_time << ", curr_sim_time: " << curr_sim_time 
             << ", best_iter_time: " << best_sim_time << std::endl;
-  bool change = diff > 0 ? true :
-    static_cast<double>(std::rand()) / static_cast<double>(static_cast<double>(RAND_MAX)) < std::exp(-alpha * diff);
+  bool change = diff < 0 ? true : diff != 0 && unif(gen) < std::exp(-alpha * diff);
+  if (sim_iter_time < best_sim_time) {
+    best_sim_time = sim_iter_time;
+    change = true;
+  }
   if (change) {
     curr_sim_time = sim_iter_time;
   }
@@ -1556,7 +1650,7 @@ bool DemandHeuristicNetworkOptimizerPlus::optimize(int mcmc_iter, double sim_ite
     num_iter_nochange++; 
   }
 
-  if (forced || !change && num_iter_nochange < no_improvement_th)
+  if (!forced && !change && num_iter_nochange < no_improvement_th)
     return false;
   
   num_iter_nochange = 0;
@@ -2131,14 +2225,14 @@ std::vector<int> SpMulMat::query_path(const std::vector<int>& candidates, int ju
 
 bool SpMulMat::optimize(int mcmc_iter, double sim_iter_time, bool forced) 
 {
+  double diff = sim_iter_time - curr_sim_time;
+  bool change = diff < 0 ? true : diff != 0 && unif(gen) < std::exp(-alpha * diff);
   if (sim_iter_time < best_sim_time) {
     best_sim_time = sim_iter_time;
+    change = true;
   }
-  double diff = sim_iter_time - curr_sim_time;
   std::cerr << "sim_iter_time: " << sim_iter_time << ", curr_sim_time: " << curr_sim_time 
-            << ", best_iter_time: " << best_sim_time << std::endl;
-  bool change = diff > 0 ? true :
-    static_cast<double>(std::rand()) / static_cast<double>(static_cast<double>(RAND_MAX)) < std::exp(-alpha * diff);
+          << ", best_iter_time: " << best_sim_time << ", change: " << change << std::endl;
   if (change) {
     curr_sim_time = sim_iter_time;
   }
@@ -2146,9 +2240,10 @@ bool SpMulMat::optimize(int mcmc_iter, double sim_iter_time, bool forced)
     num_iter_nochange++; 
   }
 
-  if (forced || !change && num_iter_nochange < no_improvement_th)
+  if (!forced && !change && num_iter_nochange < no_improvement_th)
     return false;
 
+  std::cerr << "Changing... " << std::endl;
   selected_jumps.clear();
   for (auto & entry: dp_ncomms) {
     for (auto & c: entry.second) {

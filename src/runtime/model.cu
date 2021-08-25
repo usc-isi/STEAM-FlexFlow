@@ -74,7 +74,10 @@ FFHandler UtilityTasks::init_cuda_task(
   //assert(task->arglen == sizeof(size_t));
   //size_t workSpaceSize = *(const size_t*) task->args;
   printf("workSpaceSize (%zu MB)\n", info->workSpaceSize / 1024 / 1024);
-  FFHandler handle;
+  FFHandler handle = {0};
+  // if (info->nogpu) {
+  //   return handle; 
+  // }
   handle.workSpaceSize = info->workSpaceSize;
   handle.allowTensorOpMathConversion = info->allowTensorOpMathConversion;
   checkCUDA(cublasCreate(&handle.blas));

@@ -91,6 +91,7 @@ Route NominalCommDevice::expand_to_physical() const
     *const_cast<bool*>(&dirty) = false;
   }
 
+  assert(routes.first.size() > 0 || device_id / nnode == device_id % nnode);
   int pick = 0;
   double choice = std_uniform(gen);
   for (int i = 0; i < routes.first.size(); i++) {
@@ -109,6 +110,13 @@ void NominalCommDevice::set_physical_paths(const EcmpRoutes &rs)
 
 const EcmpRoutes & NominalCommDevice::get_all_routes() 
 {
+  if (dirty) {
+    if (routing_strategy == nullptr)
+      assert("don't know how to route!" && false);
+    // std::cerr << name << " dirty... " << std::endl;
+    *const_cast<EcmpRoutes*>(&routes) = routing_strategy->get_routes(device_id / nnode, device_id % nnode);
+    *const_cast<bool*>(&dirty) = false;
+  }
   return routes;
 }
 
@@ -997,7 +1005,9 @@ double LogicalTaskgraphBasedSimulator::simulate_runtime(
   // }
   //if (memory_penalty > 0.0f)
   //  printf("Memory penalty = %.4lf ms\n", memory_penalty);
-  searlize_logical_taskgraph(model, "exp");
+  if (export_file_name != "") {
+    searlize_logical_taskgraph(model, export_file_name);
+  }
 #ifdef WRITE_NETWORK_TRANSFER
   network_transfer_log.close();
 #endif
@@ -1486,7 +1496,10 @@ void LogicalTaskgraphBasedSimulator::get_taskgraph_flatbuf(const FFModel* model,
     for (size_t i = 0; i < physical_routes.first.size(); i++) {
       std::vector<uint32_t> hops_v = std::vector<uint32_t>();
       for (CommDevice * c: physical_routes.second[i]) {
-        hops_v.push_back(c->node_id);
+        hops_v.push_back(c->device_id / nm->get_total_devs());
+      }
+      if (physical_routes.second[i].size() > 0) {
+        hops_v.push_back(physical_routes.second[i].back()->device_id%nm->get_total_devs());
       }
       auto hops = builder.CreateVector(hops_v);
       auto path = FlatBufTaskGraph::CreatePath(builder, hops, physical_routes.first[i]);
@@ -1731,7 +1744,9 @@ double SpMulMatSimulator::simulate_runtime(
   // }
   //if (memory_penalty > 0.0f)
   //  printf("Memory penalty = %.4lf ms\n", memory_penalty);
-  searlize_logical_taskgraph(model, "exp");
+  if (export_file_name != "") {  
+    searlize_logical_taskgraph(model, export_file_name);
+  }
 #ifdef WRITE_NETWORK_TRANSFER
   network_transfer_log.close();
 #endif
@@ -1949,7 +1964,10 @@ void SpMulMatSimulator::get_taskgraph_flatbuf(const FFModel* model, flatbuffers:
     for (size_t i = 0; i < physical_routes.first.size(); i++) {
       std::vector<uint32_t> hops_v = std::vector<uint32_t>();
       for (CommDevice * c: physical_routes.second[i]) {
-        hops_v.push_back(c->node_id);
+        hops_v.push_back(c->device_id / nm->get_total_devs());
+      }
+      if (physical_routes.second[i].size() > 0) {
+        hops_v.push_back(physical_routes.second[i].back()->device_id%nm->get_total_devs());
       }
       auto hops = builder.CreateVector(hops_v);
       auto path = FlatBufTaskGraph::CreatePath(builder, hops, physical_routes.first[i]);
@@ -1971,8 +1989,13 @@ void SpMulMatSimulator::get_taskgraph_flatbuf(const FFModel* model, flatbuffers:
   for (auto entry: smmOpt->selected_jumps) {
     std::vector<flatbuffers::Offset<FlatBufTaskGraph::RingDescriptor>> rd_v = 
       std::vector<flatbuffers::Offset<FlatBufTaskGraph::RingDescriptor>>{}; 
+    // std::cerr << entry.first << ": " << entry.second.size() << std::endl;
     for (size_t i = 0; i < entry.second.size(); i++) {
       auto hops = builder.CreateVector(entry.second[i]);
+      // for (size_t k = 0; k < entry.second[i].size(); k++) {
+      //   std::cerr << entry.second[i][k] << ", ";
+      // }
+      // std::cerr << std::endl;
       auto rd = FlatBufTaskGraph::CreateRingDescriptor(builder, hops);
       rd_v.push_back(rd);
     }
