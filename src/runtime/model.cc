@@ -568,13 +568,13 @@ void FFModel::load_measurement(Simulator * sim, const std::string & fname) {
     std::string name = meas["name"].get<std::string>();
     std::string pc_str = meas["pc_str"].get<std::string>();
     std::string key = name + ":" + pc_str;
-    printf("name: %s, pc_str:%s ", name.c_str(), pc_str.c_str());
+    // printf("name: %s, pc_str:%s ", name.c_str(), pc_str.c_str());
     CostMetrics cost = {
       .forward_time = meas["fw_time"].get<float>(),
       .backward_time = meas["bw_time"].get<float>(),
       .memory_requirement = meas["mem_req"].get<size_t>()
     };
-    printf("fw: %f, bw: %f, mem: %zu\n", cost.forward_time, cost.backward_time, cost.memory_requirement);
+    // printf("fw: %f, bw: %f, mem: %zu\n", cost.forward_time, cost.backward_time, cost.memory_requirement);
     (*sim->measurements)[key] = cost;
     if (opcandidates.find(name) != opcandidates.end())
       opcandidates[name].push_back(ParallelConfig::restore_pc_from_str(pc_str));
