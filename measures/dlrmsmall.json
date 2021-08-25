@@ -1,0 +1,713 @@
+{
+	"batch_size": 55296, 
+	"ngpus": 432, 
+	"measurements": [
+		{
+			"name": "Dense_2048_2048",
+			"pc_str": "2-1-432",
+			"fw_time": 0.172442,
+			"bw_time": 0.297779,
+			"mem_req": 37765120
+		}, 
+		{
+			"name": "Dense_2048_2048",
+			"pc_str": "2-1-216",
+			"fw_time": 0.271258,
+			"bw_time": 0.508314,
+			"mem_req": 41959424
+		}, 
+		{
+			"name": "Dense_2048_2048",
+			"pc_str": "2-1-144",
+			"fw_time": 0.373146,
+			"bw_time": 0.71721,
+			"mem_req": 46153728
+		}, 
+		{
+			"name": "Dense_2048_2048",
+			"pc_str": "2-1-108",
+			"fw_time": 0.476058,
+			"bw_time": 0.957542,
+			"mem_req": 50348032
+		}, 
+		{
+			"name": "Dense_2048_2048",
+			"pc_str": "2-1-6",
+			"fw_time": 7.96846,
+			"bw_time": 8.52521,
+			"mem_req": 335560704
+		}, 
+		{
+			"name": "Dense_2048_2048",
+			"pc_str": "2-1-4",
+			"fw_time": 6.47168,
+			"bw_time": 12.8147,
+			"mem_req": 486555648
+		}, 
+		{
+			"name": "Dense_2048_2048",
+			"pc_str": "2-1-72",
+			"fw_time": 0.382362,
+			"bw_time": 0.785306,
+			"mem_req": 58736640
+		}, 
+		{
+			"name": "Dense_2048_2048",
+			"pc_str": "2-1-3",
+			"fw_time": 8.6402,
+			"bw_time": 16.985,
+			"mem_req": 637550592
+		}, 
+		{
+			"name": "Dense_2048_2048",
+			"pc_str": "2-1-54",
+			"fw_time": 0.502886,
+			"bw_time": 1.00925,
+			"mem_req": 67125248
+		}, 
+		{
+			"name": "Dense_2048_2048",
+			"pc_str": "2-1-8",
+			"fw_time": 3.24618,
+			"bw_time": 6.31061,
+			"mem_req": 260063232
+		}, 
+		{
+			"name": "Dense_2048_2048",
+			"pc_str": "2-1-1",
+			"fw_time": 25.7763,
+			"bw_time": 50.4492,
+			"mem_req": 1845510144
+		}, 
+		{
+			"name": "Dense_2048_2048",
+			"pc_str": "2-1-18",
+			"fw_time": 1.4932,
+			"bw_time": 2.96325,
+			"mem_req": 134234112
+		}, 
+		{
+			"name": "Dense_2048_2048",
+			"pc_str": "2-1-2",
+			"fw_time": 12.924,
+			"bw_time": 25.5432,
+			"mem_req": 939540480
+		}, 
+		{
+			"name": "Dense_2048_2048",
+			"pc_str": "2-1-36",
+			"fw_time": 0.751514,
+			"bw_time": 1.55566,
+			"mem_req": 83902464
+		}, 
+		{
+			"name": "Dense_2048_2048",
+			"pc_str": "2-1-9",
+			"fw_time": 3.10641,
+			"bw_time": 5.69743,
+			"mem_req": 234897408
+		}, 
+		{
+			"name": "Dense_2048_2048",
+			"pc_str": "2-1-12",
+			"fw_time": 2.19617,
+			"bw_time": 4.28872,
+			"mem_req": 184565760
+		}, 
+		{
+			"name": "Dense_2048_2048",
+			"pc_str": "2-1-16",
+			"fw_time": 1.62028,
+			"bw_time": 3.21946,
+			"mem_req": 146817024
+		}, 
+		{
+			"name": "Dense_2048_2048",
+			"pc_str": "2-1-24",
+			"fw_time": 1.09025,
+			"bw_time": 2.21614,
+			"mem_req": 109068288
+		}, 
+		{
+			"name": "Dense_2048_2048",
+			"pc_str": "2-1-27",
+			"fw_time": 1.01202,
+			"bw_time": 1.97601,
+			"mem_req": 100679680
+		}, 
+		{
+			"name": "Dense_2048_2048",
+			"pc_str": "2-1-48",
+			"fw_time": 0.555725,
+			"bw_time": 1.11862,
+			"mem_req": 71319552
+		}, 
+		{
+			"name": "Embed_10000000x128",
+			"pc_str": "2-1-1",
+			"bw_time": 7.36706,
+			"fw_time": 3.68353,
+			"mem_req": 10385096704
+		}, 
+		{
+			"name": "Concat_1",
+			"pc_str": "2-1-432",
+			"fw_time": 0.192512,
+			"bw_time": 0.210534,
+			"mem_req": 20971520
+		}, 
+		{
+			"name": "Concat_1",
+			"pc_str": "2-1-216",
+			"fw_time": 0.198349,
+			"bw_time": 0.21207,
+			"mem_req": 41943040
+		}, 
+		{
+			"name": "Concat_1",
+			"pc_str": "2-1-144",
+			"fw_time": 0.238694,
+			"bw_time": 0.246784,
+			"mem_req": 62914560
+		}, 
+		{
+			"name": "Concat_1",
+			"pc_str": "2-1-108",
+			"fw_time": 0.251187,
+			"bw_time": 0.260403,
+			"mem_req": 83886080
+		}, 
+		{
+			"name": "Concat_1",
+			"pc_str": "2-1-6",
+			"fw_time": 0.855859,
+			"bw_time": 1.08462,
+			"mem_req": 1509949440
+		}, 
+		{
+			"name": "Concat_1",
+			"pc_str": "2-1-4",
+			"fw_time": 1.17535,
+			"bw_time": 1.51634,
+			"mem_req": 2264924160
+		}, 
+		{
+			"name": "Concat_1",
+			"pc_str": "2-1-72",
+			"fw_time": 0.257331,
+			"bw_time": 0.286925,
+			"mem_req": 125829120
+		}, 
+		{
+			"name": "Concat_1",
+			"pc_str": "2-1-3",
+			"fw_time": 1.48838,
+			"bw_time": 1.93966,
+			"mem_req": 3019898880
+		}, 
+		{
+			"name": "Concat_1",
+			"pc_str": "2-1-54",
+			"fw_time": 0.284467,
+			"bw_time": 0.312832,
+			"mem_req": 167772160
+		}, 
+		{
+			"name": "Concat_1",
+			"pc_str": "2-1-8",
+			"fw_time": 0.69632,
+			"bw_time": 0.869786,
+			"mem_req": 1132462080
+		}, 
+		{
+			"name": "Concat_1",
+			"pc_str": "2-1-1",
+			"fw_time": 3.97804,
+			"bw_time": 5.33361,
+			"mem_req": 9059696640
+		}, 
+		{
+			"name": "Concat_1",
+			"pc_str": "2-1-18",
+			"fw_time": 0.430899,
+			"bw_time": 0.512614,
+			"mem_req": 503316480
+		}, 
+		{
+			"name": "Concat_1",
+			"pc_str": "2-1-2",
+			"fw_time": 2.11067,
+			"bw_time": 2.78866,
+			"mem_req": 4529848320
+		}, 
+		{
+			"name": "Concat_1",
+			"pc_str": "2-1-36",
+			"fw_time": 0.305254,
+			"bw_time": 0.364544,
+			"mem_req": 251658240
+		}, 
+		{
+			"name": "Concat_1",
+			"pc_str": "2-1-9",
+			"fw_time": 0.645427,
+			"bw_time": 0.79575,
+			"mem_req": 1006632960
+		}, 
+		{
+			"name": "Concat_1",
+			"pc_str": "2-1-12",
+			"fw_time": 0.540979,
+			"bw_time": 0.654234,
+			"mem_req": 754974720
+		}, 
+		{
+			"name": "Concat_1",
+			"pc_str": "2-1-16",
+			"fw_time": 0.45609,
+			"bw_time": 0.548659,
+			"mem_req": 566231040
+		}, 
+		{
+			"name": "Concat_1",
+			"pc_str": "2-1-24",
+			"fw_time": 0.384307,
+			"bw_time": 0.44247,
+			"mem_req": 377487360
+		}, 
+		{
+			"name": "Concat_1",
+			"pc_str": "2-1-27",
+			"fw_time": 0.362906,
+			"bw_time": 0.412365,
+			"mem_req": 335544320
+		}, 
+		{
+			"name": "Concat_1",
+			"pc_str": "2-1-48",
+			"fw_time": 0.290816,
+			"bw_time": 0.324915,
+			"mem_req": 188743680
+		}, 
+		{
+			"name": "Dense_10240_4096",
+			"pc_str": "2-1-432",
+			"fw_time": 0.652493,
+			"bw_time": 1.20955,
+			"mem_req": 350257152
+		}, 
+		{
+			"name": "Dense_10240_4096",
+			"pc_str": "2-1-216",
+			"fw_time": 1.19112,
+			"bw_time": 2.37711,
+			"mem_req": 364937216
+		}, 
+		{
+			"name": "Dense_10240_4096",
+			"pc_str": "2-1-144",
+			"fw_time": 1.76517,
+			"bw_time": 3.50986,
+			"mem_req": 379617280
+		}, 
+		{
+			"name": "Dense_10240_4096",
+			"pc_str": "2-1-108",
+			"fw_time": 2.38131,
+			"bw_time": 4.73825,
+			"mem_req": 394297344
+		}, 
+		{
+			"name": "Dense_10240_4096",
+			"pc_str": "2-1-6",
+			"fw_time": 42.446,
+			"bw_time": 81.7269,
+			"mem_req": 1392541696
+		}, 
+		{
+			"name": "Dense_10240_4096",
+			"pc_str": "2-1-4",
+			"fw_time": 62.1526,
+			"bw_time": 122.991,
+			"mem_req": 1921024000
+		}, 
+		{
+			"name": "Dense_10240_4096",
+			"pc_str": "2-1-72",
+			"fw_time": 3.56014,
+			"bw_time": 7.21715,
+			"mem_req": 423657472
+		}, 
+		{
+			"name": "Dense_10240_4096",
+			"pc_str": "2-1-3",
+			"fw_time": 83.1139,
+			"bw_time": 163.681,
+			"mem_req": 2449506304
+		}, 
+		{
+			"name": "Dense_10240_4096",
+			"pc_str": "2-1-54",
+			"fw_time": 4.72187,
+			"bw_time": 9.39571,
+			"mem_req": 453017600
+		}, 
+		{
+			"name": "Dense_10240_4096",
+			"pc_str": "2-1-8",
+			"fw_time": 31.0089,
+			"bw_time": 61.8537,
+			"mem_req": 1128300544
+		}, 
+		{
+			"name": "Dense_10240_4096",
+			"pc_str": "2-1-1",
+			"fw_time": 248.042,
+			"bw_time": 487.788,
+			"mem_req": 6677364736
+		}, 
+		{
+			"name": "Dense_10240_4096",
+			"pc_str": "2-1-18",
+			"fw_time": 14.3181,
+			"bw_time": 27.3417,
+			"mem_req": 687898624
+		}, 
+		{
+			"name": "Dense_10240_4096",
+			"pc_str": "2-1-2",
+			"fw_time": 123.774,
+			"bw_time": 245.49,
+			"mem_req": 3506470912
+		}, 
+		{
+			"name": "Dense_10240_4096",
+			"pc_str": "2-1-36",
+			"fw_time": 7.22811,
+			"bw_time": 13.9429,
+			"mem_req": 511737856
+		}, 
+		{
+			"name": "Dense_10240_4096",
+			"pc_str": "2-1-9",
+			"fw_time": 27.8547,
+			"bw_time": 55.1433,
+			"mem_req": 1040220160
+		}, 
+		{
+			"name": "Dense_10240_4096",
+			"pc_str": "2-1-12",
+			"fw_time": 20.7998,
+			"bw_time": 41.2873,
+			"mem_req": 864059392
+		}, 
+		{
+			"name": "Dense_10240_4096",
+			"pc_str": "2-1-16",
+			"fw_time": 16.158,
+			"bw_time": 30.4944,
+			"mem_req": 731938816
+		}, 
+		{
+			"name": "Dense_10240_4096",
+			"pc_str": "2-1-24",
+			"fw_time": 10.5894,
+			"bw_time": 20.5452,
+			"mem_req": 599818240
+		}, 
+		{
+			"name": "Dense_10240_4096",
+			"pc_str": "2-1-27",
+			"fw_time": 9.13152,
+			"bw_time": 18.2827,
+			"mem_req": 570458112
+		}, 
+		{
+			"name": "Dense_10240_4096",
+			"pc_str": "2-1-48",
+			"fw_time": 5.20704,
+			"bw_time": 10.4632,
+			"mem_req": 467697664
+		}, 
+		{
+			"name": "Dense_4096_4096",
+			"pc_str": "2-1-432",
+			"fw_time": 0.286618,
+			"bw_time": 0.536371,
+			"mem_req": 142639104
+		}, 
+		{
+			"name": "Dense_4096_4096",
+			"pc_str": "2-1-216",
+			"fw_time": 0.500326,
+			"bw_time": 0.973722,
+			"mem_req": 151027712
+		}, 
+		{
+			"name": "Dense_4096_4096",
+			"pc_str": "2-1-144",
+			"fw_time": 0.717619,
+			"bw_time": 1.44456,
+			"mem_req": 159416320
+		}, 
+		{
+			"name": "Dense_4096_4096",
+			"pc_str": "2-1-108",
+			"fw_time": 1.12169,
+			"bw_time": 1.95287,
+			"mem_req": 167804928
+		}, 
+		{
+			"name": "Dense_4096_4096",
+			"pc_str": "2-1-6",
+			"fw_time": 16.7848,
+			"bw_time": 33.2133,
+			"mem_req": 738230272
+		}, 
+		{
+			"name": "Dense_4096_4096",
+			"pc_str": "2-1-4",
+			"fw_time": 25.1603,
+			"bw_time": 49.5029,
+			"mem_req": 1040220160
+		}, 
+		{
+			"name": "Dense_4096_4096",
+			"pc_str": "2-1-72",
+			"fw_time": 1.56805,
+			"bw_time": 2.89485,
+			"mem_req": 184582144
+		}, 
+		{
+			"name": "Dense_4096_4096",
+			"pc_str": "2-1-3",
+			"fw_time": 33.6006,
+			"bw_time": 65.6145,
+			"mem_req": 1342210048
+		}, 
+		{
+			"name": "Dense_4096_4096",
+			"pc_str": "2-1-54",
+			"fw_time": 1.96055,
+			"bw_time": 3.73914,
+			"mem_req": 201359360
+		}, 
+		{
+			"name": "Dense_4096_4096",
+			"pc_str": "2-1-8",
+			"fw_time": 12.5018,
+			"bw_time": 24.6847,
+			"mem_req": 587235328
+		}, 
+		{
+			"name": "Dense_4096_4096",
+			"pc_str": "2-1-1",
+			"fw_time": 103.343,
+			"bw_time": 199.358,
+			"mem_req": 3758129152
+		}, 
+		{
+			"name": "Dense_4096_4096",
+			"pc_str": "2-1-18",
+			"fw_time": 6.45806,
+			"bw_time": 11.3076,
+			"mem_req": 335577088
+		}, 
+		{
+			"name": "Dense_4096_4096",
+			"pc_str": "2-1-2",
+			"fw_time": 51.0652,
+			"bw_time": 99.0279,
+			"mem_req": 1946189824
+		}, 
+		{
+			"name": "Dense_4096_4096",
+			"pc_str": "2-1-36",
+			"fw_time": 3.298,
+			"bw_time": 5.87407,
+			"mem_req": 234913792
+		}, 
+		{
+			"name": "Dense_4096_4096",
+			"pc_str": "2-1-9",
+			"fw_time": 11.3505,
+			"bw_time": 22.25,
+			"mem_req": 536903680
+		}, 
+		{
+			"name": "Dense_4096_4096",
+			"pc_str": "2-1-12",
+			"fw_time": 8.5973,
+			"bw_time": 16.7685,
+			"mem_req": 436240384
+		}, 
+		{
+			"name": "Dense_4096_4096",
+			"pc_str": "2-1-16",
+			"fw_time": 6.30006,
+			"bw_time": 12.3687,
+			"mem_req": 360742912
+		}, 
+		{
+			"name": "Dense_4096_4096",
+			"pc_str": "2-1-24",
+			"fw_time": 4.33193,
+			"bw_time": 8.37642,
+			"mem_req": 285245440
+		}, 
+		{
+			"name": "Dense_4096_4096",
+			"pc_str": "2-1-27",
+			"fw_time": 4.19512,
+			"bw_time": 7.5178,
+			"mem_req": 268468224
+		}, 
+		{
+			"name": "Dense_4096_4096",
+			"pc_str": "2-1-48",
+			"fw_time": 2.42565,
+			"bw_time": 4.30008,
+			"mem_req": 209747968
+		}, 
+		{
+			"name": "Dense_4096_1",
+			"pc_str": "2-1-432",
+			"fw_time": 0.0183296,
+			"bw_time": 0.0434176,
+			"mem_req": 4228104
+		}, 
+		{
+			"name": "Dense_4096_1",
+			"pc_str": "2-1-216",
+			"fw_time": 0.0186368,
+			"bw_time": 0.0431104,
+			"mem_req": 8423432
+		}, 
+		{
+			"name": "Dense_4096_1",
+			"pc_str": "2-1-144",
+			"fw_time": 0.018944,
+			"bw_time": 0.043008,
+			"mem_req": 12618760
+		}, 
+		{
+			"name": "Dense_4096_1",
+			"pc_str": "2-1-108",
+			"fw_time": 0.0219136,
+			"bw_time": 0.0466944,
+			"mem_req": 16814088
+		}, 
+		{
+			"name": "Dense_4096_1",
+			"pc_str": "2-1-6",
+			"fw_time": 0.128102,
+			"bw_time": 0.367309,
+			"mem_req": 302096392
+		}, 
+		{
+			"name": "Dense_4096_1",
+			"pc_str": "2-1-4",
+			"fw_time": 0.179712,
+			"bw_time": 0.538522,
+			"mem_req": 453128200
+		}, 
+		{
+			"name": "Dense_4096_1",
+			"pc_str": "2-1-72",
+			"fw_time": 0.0214016,
+			"bw_time": 0.046592,
+			"mem_req": 25204744
+		}, 
+		{
+			"name": "Dense_4096_1",
+			"pc_str": "2-1-3",
+			"fw_time": 0.232858,
+			"bw_time": 0.705536,
+			"mem_req": 604160008
+		}, 
+		{
+			"name": "Dense_4096_1",
+			"pc_str": "2-1-54",
+			"fw_time": 0.0197632,
+			"bw_time": 0.0468992,
+			"mem_req": 33595400
+		}, 
+		{
+			"name": "Dense_4096_1",
+			"pc_str": "2-1-8",
+			"fw_time": 0.0978944,
+			"bw_time": 0.290816,
+			"mem_req": 226580488
+		}, 
+		{
+			"name": "Dense_4096_1",
+			"pc_str": "2-1-1",
+			"fw_time": 0.662938,
+			"bw_time": 2.05179,
+			"mem_req": 1812414472
+		}, 
+		{
+			"name": "Dense_4096_1",
+			"pc_str": "2-1-18",
+			"fw_time": 0.0499712,
+			"bw_time": 0.143872,
+			"mem_req": 100720648
+		}, 
+		{
+			"name": "Dense_4096_1",
+			"pc_str": "2-1-2",
+			"fw_time": 0.339968,
+			"bw_time": 1.04131,
+			"mem_req": 906223624
+		}, 
+		{
+			"name": "Dense_4096_1",
+			"pc_str": "2-1-36",
+			"fw_time": 0.0218112,
+			"bw_time": 0.080896,
+			"mem_req": 50376712
+		}, 
+		{
+			"name": "Dense_4096_1",
+			"pc_str": "2-1-9",
+			"fw_time": 0.0871424,
+			"bw_time": 0.262451,
+			"mem_req": 201408520
+		}, 
+		{
+			"name": "Dense_4096_1",
+			"pc_str": "2-1-12",
+			"fw_time": 0.0698368,
+			"bw_time": 0.200397,
+			"mem_req": 151064584
+		}, 
+		{
+			"name": "Dense_4096_1",
+			"pc_str": "2-1-16",
+			"fw_time": 0.055808,
+			"bw_time": 0.157696,
+			"mem_req": 113306632
+		}, 
+		{
+			"name": "Dense_4096_1",
+			"pc_str": "2-1-24",
+			"fw_time": 0.0402432,
+			"bw_time": 0.114381,
+			"mem_req": 75548680
+		}, 
+		{
+			"name": "Dense_4096_1",
+			"pc_str": "2-1-27",
+			"fw_time": 0.0319488,
+			"bw_time": 0.105165,
+			"mem_req": 67158024
+		}, 
+		{
+			"name": "Dense_4096_1",
+			"pc_str": "2-1-48",
+			"fw_time": 0.0200704,
+			"bw_time": 0.0531456,
+			"mem_req": 37790728
+		}
+	]
+}

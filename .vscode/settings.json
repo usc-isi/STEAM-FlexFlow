@@ -92,7 +92,19 @@
     "valarray": "cpp",
     "variant": "cpp",
     "regex": "cpp",
-    "strstream": "cpp"
+    "strstream": "cpp",
+    "hash_map": "cpp",
+    "future": "cpp"
   },
-  "cmake.configureOnOpen": true
+  "cmake.configureOnOpen": true,
+  "cmake.configureSettings": {
+    "FF_CUDA_ARCH": 80,
+    "FF_USE_PYTHON": "OFF",
+    "FF_USE_NCCL": "ON",
+    "FF_USE_GASNET": "OFF",
+    "FF_BUILD_ALL_EXAMPLES": "ON",
+    "FF_USE_AVX2": "OFF",
+    "FF_MAX_DIM":4
+  },
+  "cmake.buildDirectory" : "${workspaceRoot}/build/${buildType}"
 }

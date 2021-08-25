@@ -1088,6 +1088,9 @@ bool Linear::measure_operator_cost(Simulator* sim,
         // Unsupported activation mode
         assert(false);
     }
+    if ((size_t)output_n * output_c * sizeof(float) > 2ULL * 1024 * 1024 * 1024 - 1) {
+      return false;
+    }
     checkCUDNN(cudnnSetActivationDescriptor(m->actiDesc, mode,
                                             CUDNN_PROPAGATE_NAN, 0.0));
     checkCUDNN(cudnnSetTensor4dDescriptor(m->outputTensor,

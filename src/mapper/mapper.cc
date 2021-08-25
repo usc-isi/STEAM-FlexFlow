@@ -148,6 +148,7 @@ void FFMapper::register_sharding_functor(int argc, char** argv)
   std::string strategyFile = "";
   std::map<MappingTagID, ParallelConfig> all_strategies;
   int gpus_per_node = 0, cpus_per_node = 1, num_nodes = 1;
+  bool nogpu = false;
   for (int i = 1; i < argc; i++) {
     if ((!strcmp(argv[i], "--import")) || (!strcmp(argv[i], "--import-strategy"))) {
       strategyFile = std::string(argv[++i]);
@@ -168,6 +169,11 @@ void FFMapper::register_sharding_functor(int argc, char** argv)
       num_nodes = atoi(argv[++i]);
       continue;
     }
+    // if (!strcmp(argv[i], "--no-gpu"))
+    // {
+    //   nogpu = true;
+    //   continue;
+    // }
   }
   if (strategyFile != "") {
     load_strategies_from_file(strategyFile, all_strategies);
@@ -176,17 +182,21 @@ void FFMapper::register_sharding_functor(int argc, char** argv)
 #if MAX_TENSOR_DIM >= 5
   end_dim = 5;
 #endif
-  for (int i = start_dim; i <= end_dim; i++) {
-    ParallelConfig pc;
-    pc.device_type = ParallelConfig::GPU;
-    pc.nDims = i;
-    for (int j = 0; j < pc.nDims; j++)
-      pc.dim[j] = 1;
-    pc.dim[pc.nDims-1] = num_nodes * gpus_per_node;
-    for (int j = 0; j < num_nodes * gpus_per_node; j++)
-      pc.device_ids[j] = j;
-    all_strategies[FFConfig::DataParallelism_GPU_1D+i-1] = pc;
-  }
+  // if (!nogpu) {
+    for (int i = start_dim; i <= end_dim; i++) {
+      ParallelConfig pc;
+      pc.device_type = ParallelConfig::GPU;
+      pc.nDims = i;
+      for (int j = 0; j < pc.nDims; j++)
+        pc.dim[j] = 1;
+      pc.dim[pc.nDims-1] = num_nodes * gpus_per_node;
+      for (int j = 0; j < num_nodes * gpus_per_node; j++)
+        pc.device_ids[j] = j;
+      all_strategies[FFConfig::DataParallelism_GPU_1D+i-1] = pc;
+    }
+    assert(gpus_per_node > 0);
+  // }
+
   for (int i = start_dim; i <= end_dim; i++) {
     ParallelConfig pc;
     pc.device_type = ParallelConfig::CPU;
@@ -198,7 +208,6 @@ void FFMapper::register_sharding_functor(int argc, char** argv)
       pc.device_ids[j] = j;
     all_strategies[FFConfig::DataParallelism_CPU_1D+i-1] = pc;
   }
-  assert(gpus_per_node > 0);
   assert(cpus_per_node > 0);
   std::map<MappingTagID, ParallelConfig>::const_iterator it;
   for (it = all_strategies.begin(); it != all_strategies.end(); it++) {
@@ -265,6 +274,14 @@ void FFMapper::select_task_options(const MapperContext ctx,
     return;
   }
   if (task.task_id == CUSTOM_SIMULATION_TASK_ID_3) {
+    output.initial_proc = all_gpus[0];
+    return;
+  }
+  if (task.task_id == CUSTOM_SIMULATION_TASK_ID_4) {
+    output.initial_proc = all_gpus[0];
+    return;
+  }
+  if (task.task_id == CUSTOM_SIMULATION_TASK_ID_5) {
     output.initial_proc = all_gpus[0];
     return;
   }

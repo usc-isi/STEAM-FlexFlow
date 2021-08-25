@@ -17,6 +17,7 @@
 
 #include "ffconst.h"
 #include "config.h"
+#include "blossom_match.h"
 #include <memory>
 #include <queue>
 #include <fstream>
@@ -37,12 +38,14 @@ class TransposeMeta;
 class Op;
 class FFModel;
 
+#define MOD(a, b) ((a) % (b)) < 0 ? ((a) % (b)) + (b) : ((a) % (b))
+
 namespace flatbuffers {
   class FlatBufferBuilder;
 }
 
 struct CostMetrics {
-  float forward_time, backward_time;
+  double forward_time, backward_time;
   size_t memory_requirement;
 };
 
@@ -99,16 +102,16 @@ public:
     NW_NOMINAL,
   };
   CommDevType comm_type;
-  float latency;
-  float bandwidth;
-  CommDevice(std::string const &name, CommDevType comm_type, int node_id, int socket_id, int device_id, float latency, float bandwidth);
+  double latency;
+  double bandwidth;
+  CommDevice(std::string const &name, CommDevType comm_type, int node_id, int socket_id, int device_id, double latency, double bandwidth);
 };
 
 typedef std::vector<CommDevice *> Route;
 /* first is an array of cumulative distribution */
-typedef std::pair<std::vector<float>, std::vector<Route> > EcmpRoutes;
+typedef std::pair<std::vector<double>, std::vector<Route> > EcmpRoutes;
 typedef std::vector<int> ConnectionMatrix;
-
+class NetworkRoutingStrategy;
 /**
  * Nomincal communication device. 
  * This is an communication device that allows "path expansion"
@@ -117,16 +120,20 @@ typedef std::vector<int> ConnectionMatrix;
  */
 class NominalCommDevice : public CommDevice {
 public:
-  NominalCommDevice(std::string const &name, int device_id, const EcmpRoutes& routes);
-  NominalCommDevice(std::string const &name, int device_id);
+  // NominalCommDevice(std::string const &name, int device_id, const EcmpRoutes& routes);
+  NominalCommDevice(std::string const &name, int device_id, int nnode, NetworkRoutingStrategy * routing);
   /* pick one of the weighted ECMP path */
   Route expand_to_physical() const;
   const EcmpRoutes & get_all_routes();
   void set_physical_paths(const EcmpRoutes& rs);
+  void reset();
   // static inline int get_from_dev(int devid, int total) {return devid / total;}
   // static inline int get_to_dev(int devid, int total) {return devid % total;}
-private:
+public:
+  NetworkRoutingStrategy * routing_strategy;
   EcmpRoutes routes;
+  int nnode;
+  bool dirty = true;
 };
 
 class MachineModel {
@@ -138,10 +145,10 @@ public:
   virtual int get_num_gpus() const = 0;
   virtual int get_total_devs() const {return get_num_gpus();}
   virtual int get_num_nodes() const = 0;
-  virtual float get_intra_node_gpu_bandwidth() const = 0;
-  virtual float get_inter_node_gpu_bandwidth() const = 0;
-  virtual float get_intra_node_gpu_latency() const = 0;
-  virtual float get_inter_node_gpu_latency() const = 0;
+  virtual double get_intra_node_gpu_bandwidth() const = 0;
+  virtual double get_inter_node_gpu_bandwidth() const = 0;
+  virtual double get_intra_node_gpu_latency() const = 0;
+  virtual double get_inter_node_gpu_latency() const = 0;
   virtual std::vector<CommDevice *> get_comm_path(MemDevice *src_mem, MemDevice *tar_mem) const = 0;
   virtual std::string to_string() const = 0;
   int version;
@@ -156,19 +163,19 @@ public:
   MemDevice *get_gpu_fb_mem(int devicd_id) const;
   int get_num_gpus() const;
   int get_num_nodes() const {return num_nodes;}
-  float get_intra_node_gpu_bandwidth() const;
-  float get_inter_node_gpu_bandwidth() const;
-  float get_intra_node_gpu_latency() const {return 0;}
-  float get_inter_node_gpu_latency() const {return 0;}
+  double get_intra_node_gpu_bandwidth() const;
+  double get_inter_node_gpu_bandwidth() const;
+  double get_intra_node_gpu_latency() const {return 0;}
+  double get_inter_node_gpu_latency() const {return 0;}
   std::vector<CommDevice *> get_comm_path(MemDevice *src_mem, MemDevice *tar_mem) const;
   std::string to_string() const;
-private:
+public:
   int num_nodes;
   int num_gpus_per_node;
   int num_gpus;
-  float inter_gpu_bandwidth;
-  float inter_node_bandwidth;
-  float gpu_dram_bandwidth;
+  double inter_gpu_bandwidth;
+  double inter_node_bandwidth;
+  double gpu_dram_bandwidth;
   std::map<int, CompDevice*> id_to_gpu;
   std::map<int, MemDevice*> id_to_gpu_fb_mem;
   std::map<int, CommDevice*> id_to_gputodram_comm_device;
@@ -210,13 +217,13 @@ public:
     CommDevice *get_nvlink(MemDevice *src_mem, MemDevice *tar_mem) const;
     int get_num_gpus() const;
     int get_num_nodes() const {return num_nodes;}
-    float get_intra_node_gpu_bandwidth() const;
-    float get_inter_node_gpu_bandwidth() const;
-    float get_intra_node_gpu_latency() const {return membus_latency;}
-    float get_inter_node_gpu_latency() const {return nic_latency;}
+    double get_intra_node_gpu_bandwidth() const;
+    double get_inter_node_gpu_bandwidth() const;
+    double get_intra_node_gpu_latency() const {return membus_latency;}
+    double get_inter_node_gpu_latency() const {return nic_latency;}
     std::vector<CommDevice *> get_comm_path(MemDevice *src_mem, MemDevice *tar_mem) const;
     std::string to_string() const;
-private:
+public:
     int num_nodes;
     int num_sockets_per_node;
     int num_cpus_per_socket;
@@ -225,17 +232,17 @@ private:
     int num_cpus;
     int num_gpus;
     int num_nvlinks_per_node;
-    float membus_latency;
-    float membus_bandwidth;
-    float upi_latency;
-    float upi_bandwidth;
-    float nic_latency;
-    float nic_bandwidth;
+    double membus_latency;
+    double membus_bandwidth;
+    double upi_latency;
+    double upi_bandwidth;
+    double nic_latency;
+    double nic_bandwidth;
     NicDistribution nic_distribution;
-    float pci_latency;
-    float pci_bandwidth;
-    float nvlink_latency;
-    float nvlink_bandwidth;
+    double pci_latency;
+    double pci_bandwidth;
+    double nvlink_latency;
+    double nvlink_bandwidth;
     size_t gpu_fb_mem_capacity;
     std::vector<CommDevice::CommDevType> intra_socket_sys_mem_to_sys_mem;
     std::vector<CommDevice::CommDevType> inter_socket_sys_mem_to_sys_mem;
@@ -267,11 +274,11 @@ private:
     void set_comm_path(std::vector<CommDevice::CommDevType> &comm_path, std::string device_str);
     void add_cpus();
     void add_gpus();
-    void add_membuses(float latency, float bandwidth);
-    void add_upis(float latency, float bandwidth);
-    void add_nics(float latency, float bandwidth, NicDistribution nic_distribution);
-    void add_pcis(float latency, float bandwidth);
-    void add_nvlinks(float latency, float bandwidth);
+    void add_membuses(double latency, double bandwidth);
+    void add_upis(double latency, double bandwidth);
+    void add_nics(double latency, double bandwidth, NicDistribution nic_distribution);
+    void add_pcis(double latency, double bandwidth);
+    void add_nvlinks(double latency, double bandwidth);
     // attach a nvlink communication device to a pair of GPU framebuffer memories
     void attach_nvlink(MemDevice *src_mem, MemDevice *tar_mem, CommDevice *comm);
     // return a list of specific communication devices based on the descriptions of a communication path
@@ -291,18 +298,37 @@ public:
      * <possible route, chance>
      */
     virtual EcmpRoutes get_routes(int src_node, int dst_node) = 0;
+    virtual std::vector<EcmpRoutes> get_routes_from_src(int src_node) = 0;
 };
 
 /**
  * Single shortest path routing based on hop count
  */
+class WeightedShortestPathRoutingStrategy : public NetworkRoutingStrategy {
+public:
+    WeightedShortestPathRoutingStrategy(const ConnectionMatrix & c, 
+        const std::map<size_t, CommDevice*>& devmap, int total_devs);
+    virtual EcmpRoutes get_routes(int src_node, int dst_node);
+    virtual std::vector<EcmpRoutes> get_routes_from_src(int src_node);
+    void hop_count(int src_node, int dst_node, int & hop, int & narrowest);
+    std::vector<std::pair<int, int>> hop_count(int src_node);
+    void clear();
+public:
+    const ConnectionMatrix& conn;
+    const std::map<size_t, CommDevice*>& devmap;
+    int total_devs;
+};
+
 class ShortestPathNetworkRoutingStrategy : public NetworkRoutingStrategy {
 public:
     ShortestPathNetworkRoutingStrategy(const ConnectionMatrix & c, 
         const std::map<size_t, CommDevice*>& devmap, int total_devs);
     virtual EcmpRoutes get_routes(int src_node, int dst_node);
+    virtual std::vector<EcmpRoutes> get_routes_from_src(int src_node);
+    void hop_count(int src_node, int dst_node, int & hop, int & narrowest);
+    std::vector<std::pair<int, int>> hop_count(int src_node);
     void clear();
-private:
+public:
     const ConnectionMatrix& conn;
     const std::map<size_t, CommDevice*>& devmap;
     int total_devs;
@@ -325,6 +351,7 @@ private:
  */
 class NetworkedMachineModel : public MachineModel  {
   friend class DemandHeuristicNetworkOptimizer;
+  friend class DemandHeuristicNetworkOptimizerPlus;
 public:
   /**
    * Constructor. A network topology specified as above needs to be provided
@@ -333,9 +360,10 @@ public:
   NetworkedMachineModel(int num_nodes, 
       int num_gpus_per_node, 
       int num_switches, 
+      double network_latency,
       const std::vector<int>& topology, 
       size_t capacity, 
-      float link_bandwidth);
+      double link_bandwidth);
   ~NetworkedMachineModel();
   int get_version() const;
   CompDevice *get_gpu(int device_id) const;
@@ -344,12 +372,12 @@ public:
   int get_num_nodes() const {return num_nodes;}
   int get_total_devs() const {return num_nodes + num_switches;}
   int get_num_switches() const {return num_switches;}
-  float get_intra_node_gpu_bandwidth() const;
-  float get_inter_node_gpu_bandwidth() const;
-  float get_link_bandwidth() const;
-  float get_link_bandwidth(int src, int dst) const;
-  float get_intra_node_gpu_latency() const {return 0;}
-  float get_inter_node_gpu_latency() const {return network_latency;}
+  double get_intra_node_gpu_bandwidth() const;
+  double get_inter_node_gpu_bandwidth() const;
+  double get_link_bandwidth() const;
+  double get_link_bandwidth(int src, int dst) const;
+  double get_intra_node_gpu_latency() const {return 0;}
+  double get_inter_node_gpu_latency() const {return network_latency;}
   void set_routing_strategy(NetworkRoutingStrategy* rs);
   std::vector<CommDevice *> get_comm_path(MemDevice *src_mem, MemDevice *tar_mem) const;
   std::string to_string() const;
@@ -365,21 +393,21 @@ public:
 
   void set_pcie(bool state);
   void set_pipeline(bool state);
-private:
+  
   int num_nodes;
   int num_gpus_per_node;
   int num_gpus;
   int num_switches;
   int total_devs;
-  float inter_gpu_bandwidth;
-  float link_bandwidth;
-  float network_latency;
-  float gpu_dram_bandwidth;
+  double inter_gpu_bandwidth;
+  double link_bandwidth;
+  double network_latency;
+  double gpu_dram_bandwidth;
 
   bool pipelined;
   bool pcie_on;
 
-  // float gpu_dram_bandwidth;
+  // double gpu_dram_bandwidth;
   /* Note that every non-zero entry corrsepond to a device in in_to_nw_comm_device */
   ConnectionMatrix conn_matrix;
   NetworkRoutingStrategy* routing_strategy;
@@ -398,7 +426,7 @@ private:
     */
   std::map<size_t, NominalCommDevice*> ids_to_nw_nominal_device;
 
-private:
+public:
   std::map<size_t, uint64_t> logical_traffic_demand;
   std::map<size_t, uint64_t> physical_traffic_matrix;
 };
@@ -431,7 +459,7 @@ class FlatDegConstraintNetworkTopologyGenerator {
 public:
     FlatDegConstraintNetworkTopologyGenerator(int num_nodes, int degree);
     virtual ConnectionMatrix generate_topology() const;
-private:
+public:
     inline int get_id(int i, int j) const;
     inline int get_if_in_use(int node, const ConnectionMatrix & conn) const;
     int num_nodes;
@@ -446,7 +474,18 @@ class BigSwitchNetworkTopologyGenerator {
 public:
     BigSwitchNetworkTopologyGenerator(int num_nodes);
     virtual ConnectionMatrix generate_topology() const;
-private: 
+public: 
+    int num_nodes;
+};
+
+/**
+ * Generate a zero matrix
+ */
+class FlatEmptyNetworkTopologyGenerator {
+public:
+    FlatEmptyNetworkTopologyGenerator(int num_nodes): num_nodes(num_nodes){}
+    virtual ConnectionMatrix generate_topology() const {return ConnectionMatrix(num_nodes*num_nodes, 0);} 
+public:
     int num_nodes;
 };
 
@@ -464,13 +503,13 @@ public:
   SimTask();
   void add_next_task(SimTask* task);
 public:
-  float ready_time, run_time;
+  double ready_time, run_time;
   SimTaskType type;
   Device* device;
   MemDevice *mem;
   int counter;
-  int from_dev, to_dev; // use device id
   size_t xfer_size;
+  size_t xfer_left;
   std::vector<SimTask*> next_tasks;
 #if 0
   /* This stores only high-level information: computation and communication
@@ -505,6 +544,12 @@ public:
 };
 #endif
 
+struct L1OptimizerInformation {};
+
+struct L1TopologyInformation: public L1OptimizerInformation {
+  L1TopologyInformation(const ConnectionMatrix & conn): conn(conn) {};
+  ConnectionMatrix conn;
+};
 
 /**
  * Interface for doing network topology optimization
@@ -516,10 +561,13 @@ class L1Optimizer {
 public:
     L1Optimizer(MachineModel* machine)
         : machine(machine) {}
-    virtual void optimize(int mcmc_iter, float sim_iter_time) = 0;
+    virtual bool optimize(int mcmc_iter, double sim_iter_time, bool force_run = false) = 0;
     virtual void task_added(SimTask * task) { return; };
     virtual void reset() = 0;
-    virtual void* export_information() = 0;
+    virtual std::unique_ptr<L1OptimizerInformation> export_information() = 0;
+    virtual void import_information(const std::unique_ptr<L1OptimizerInformation>& information) = 0;
+    virtual void delete_information(const std::unique_ptr<L1OptimizerInformation>& information) = 0;
+    virtual void store_tm() const = 0;
 
 protected:
     MachineModel *machine; // Would really like to do a T extends MachineModel...
@@ -535,19 +583,27 @@ class DemandHeuristicNetworkOptimizer : public L1Optimizer {
 public:
   DemandHeuristicNetworkOptimizer(MachineModel* machine);
   ~DemandHeuristicNetworkOptimizer() = default;
-  virtual void optimize(int mcmc_iter, float sim_iter_time);
+  virtual bool optimize(int mcmc_iter, double sim_iter_time, bool force_run = false);
   virtual void task_added(SimTask * task);
   virtual void reset();
-  virtual void* export_information();
-  size_t edge_id(int i, int j);
-  size_t unordered_edge_id(int i, int j);
+  virtual std::unique_ptr<L1OptimizerInformation> export_information();
+  virtual void import_information(const std::unique_ptr<L1OptimizerInformation>& information);
+  virtual void delete_information(const std::unique_ptr<L1OptimizerInformation>& information);
+  size_t edge_id(int i, int j) const;
+  size_t unordered_edge_id(int i, int j) const;
+  void optimize_demand(
+      ConnectionMatrix &conn,
+      std::unordered_map<size_t, uint64_t> &max_of_bidir,
+      std::unordered_map<size_t, size_t> &node_if_allocated); 
+  void connect_unused_node(ConnectionMatrix &conn, std::unordered_map<size_t, size_t> &node_if_allocated);
+  void connect_cc(std::unordered_map<uint64_t, uint64_t> &logical_id_to_demand, 
+                  ConnectionMatrix &conn);
 
   size_t get_if_in_use(size_t node, const ConnectionMatrix & conn);
   bool add_link(size_t i, size_t j, ConnectionMatrix & conn);
   void remove_link(size_t i, size_t j, ConnectionMatrix & conn);
 
-  void connect_cc(std::unordered_map<uint64_t, uint64_t> &logical_id_to_demand, 
-                  ConnectionMatrix &conn);
+  virtual void store_tm() const;
 
   inline static bool has_endpoint(uint64_t e, size_t v, size_t n) {
     return e / n == v || e % n == v;
@@ -588,17 +644,47 @@ public:
   std::unordered_map<size_t, uint64_t> logical_traffic_demand;
 
   size_t if_cnt;
-  float best_sim_time, curr_sim_time;
-  float alpha;
+  double best_sim_time, curr_sim_time;
+  double alpha;
   int num_iter_nochange;
   int no_improvement_th;
 
 };
 // #endif
 
+class DemandHeuristicNetworkOptimizerPlus : public DemandHeuristicNetworkOptimizer 
+{
+public:
+  DemandHeuristicNetworkOptimizerPlus(MachineModel* machine);
+
+  void connectivity_assign(ConnectionMatrix &conn,
+    std::unordered_map<size_t, uint64_t> &max_of_bidir,
+    std::unordered_map<size_t, size_t> &node_if_allocated);
+  void connect_topology(
+    // const std::unordered_map<uint64_t, uint64_t> & logical_id_to_demand, 
+    ConnectionMatrix &conn, 
+    std::unordered_map<size_t, size_t> & node_if_allocated);
+  void utility_max_assign(
+    ConnectionMatrix &conn,
+    // const std::unordered_map<size_t, uint64_t> &max_of_bidir,
+    std::unordered_map<size_t, size_t> &node_if_allocated);
+  double compute_utility(
+    const std::unordered_map<size_t, std::pair<uint64_t, double>> &indirect_traffic,
+    const ConnectionMatrix & conn);
+  double compute_utility(
+    const std::unordered_map<size_t,uint64_t> &sum_of_bidir,
+    const std::unordered_map<size_t,uint64_t> &indirect_traffic,
+    const ConnectionMatrix & conn);
+  std::unordered_map<size_t, std::pair<uint64_t, double>>
+    construct_indir_traffic_list(const ConnectionMatrix &conn); 
+  std::unordered_map<size_t, uint64_t> 
+    construct_bidir_negative_util(const ConnectionMatrix &conn);
+  virtual bool optimize(int mcmc_iter, double sim_iter_time, bool force_run = false);
+};
+
 template <typename T>
 class DotFile {
-private:
+public:
   size_t node_id;
   std::map<T,size_t> node_ids;
   std::unique_ptr<std::ostream> out;
@@ -694,10 +780,10 @@ public:
   virtual void add_task_dependencies_with_xfer(
       SimTask* src_task, SimTask* dst_task, size_t message_size);
   CostMetrics measure_operator_cost(Op* op, const ParallelConfig& config);
-  virtual float simulate_runtime(const FFModel* model,
+  virtual double simulate_runtime(const FFModel* model,
       const std::map<Op*, ParallelConfig>& global,
       CompMode comp_mode);
-  virtual float simulate_runtime(const FFModel* model,
+  virtual double simulate_runtime(const FFModel* model,
       const std::map<Op*, ParallelConfig>& global,
       CompMode comp_mode,
       std::string const &export_file_name);
@@ -761,25 +847,130 @@ public:
   
   SimTask *new_comm_task_unrecorded();
   SimTask *new_update_task_unrecorded();
-  virtual float simulate_runtime(const FFModel* model,
+  virtual double simulate_runtime(const FFModel* model,
       const std::map<Op*, ParallelConfig>& global,
       CompMode comp_mode);
-  virtual float simulate_runtime(const FFModel* model,
+  virtual double simulate_runtime(const FFModel* model,
       const std::map<Op*, ParallelConfig>& global,
       CompMode comp_mode,
       std::string const &export_file_name);
-  float route_transfer(SimTask * transfer_task, 
-                              float start_time,
-                              std::map<Device*, float> &device_times);
-  void expand_allreduce(SimTask * allreduce_task, float start_time,std::priority_queue<SimTask*, std::vector<SimTask*>, SimTaskCompare>& ready_queue);
+  virtual double route_transfer(SimTask * transfer_task, 
+                              double start_time,
+                              std::map<Device*, double> &device_times);
+  virtual double route_transfer_seg(SimTask * transfer_task, 
+                            double start_time,
+                            std::map<Device*, double> &device_times,
+                            bool & finished);
+  virtual void expand_allreduce(SimTask * allreduce_task, double start_time,std::priority_queue<SimTask*, std::vector<SimTask*>, SimTaskCompare>& ready_queue);
   void add_task_dependencies_with_xfer(
       SimTask* src_task, SimTask* dst_task, size_t message_size);
   bool searlize_logical_taskgraph(const FFModel* model, std::string const &export_file_name);
   static void simulation_task(const Task *task,
                                   const std::vector<PhysicalRegion> &regions,
                                   Context ctx, Runtime *runtime);
-  void get_taskgraph_flatbuf(const FFModel* model, flatbuffers::FlatBufferBuilder &builder);
+  virtual void get_taskgraph_flatbuf(const FFModel* model, flatbuffers::FlatBufferBuilder &builder);
+
+  bool segment_transfer;
+  size_t segment_size;
 
   // flatbuffers::FlatBufferBuilder builder;
 };
+
+struct DPGroup {
+  int starting_node;
+  int group_size;
+  size_t xfer_size;
+  // std::set<int> jump_dists;
+};
+
+struct SpMulMatInformation : public L1OptimizerInformation {
+  ConnectionMatrix conn;
+  std::unordered_map<uint64_t, std::vector<std::vector<int>>> selected_jumps;
+  // std::unordered_map<uint64_t, std::vector<NominalCommDevice*>> dp_ncomms;
+};
+
+// Space-multiplexed matching?...
+class SpMulMat : public DemandHeuristicNetworkOptimizer {
+public: 
+  SpMulMat(MachineModel * machine, int degree, bool bidir);
+  ~SpMulMat() = default;
+
+  virtual bool optimize(int mcmc_iter, double sim_iter_time, bool force_run = false);
+  virtual void task_added(SimTask * task);
+  virtual void reset();
+  virtual std::unique_ptr<L1OptimizerInformation> export_information();
+  virtual void import_information(const std::unique_ptr<L1OptimizerInformation>& information);
+  virtual void delete_information(const std::unique_ptr<L1OptimizerInformation>& information);
+  virtual void store_tm() const; 
+
+  std::vector<std::pair<uint64_t, int>> generate_dp_topology(ConnectionMatrix & conn, int dp_degree);
+  void generate_mp_matching(ConnectionMatrix & conn, int dp_degree);
+  void generate_one_match(ConnectionMatrix & conn, std::unordered_map<uint64_t, uint64_t> & mp_tm);
+  ConnectionMatrix add_ring(const ConnectionMatrix & conn, int start, int dist);
+  // ConnectionMatrix construct_hop_matrix(const ConnectionMatrix & conn);
+  double compute_mp_satified(const ConnectionMatrix & hop_matrix);
+  void construct_candidate_jumps();
+  std::vector<int> all_coin_change(const std::set<int> & coins);
+  std::vector<int> query_path(const std::vector<int>& candidates, int jump);
+  std::pair<blossom_match::Graph, std::vector<double>>
+    convert_to_blsm_match_graph(std::unordered_map<uint64_t, uint64_t> & mp_tm);
+  // std::vector<std::vector<int>> get_selected_jumps(int group_sz); 
+  ConnectionMatrix connect_topology(const ConnectionMatrix & conn, 
+    ConnectionMatrix & mp_conn, ConnectionMatrix & dp_conn, 
+    const std::vector<std::pair<uint64_t, int>> & dp_rings, int mp_degree);
+  void construct_topology();
+  const std::vector<NominalCommDevice*>& get_dp_ncomms(int src, int grp_sz);
+
+  // uint64_t get_mp_bandwidth_tax(const ConnectionMatrix & conn);
+
+  inline void get_dp_mp_degree(int & dp_degree, int & mp_degree);
+  // inline size_t edge_id(int i, int j) const;
+  // inline size_t unordered_edge_id(int i, int j) const;
+  // inline int get_start_node(uint64_t id) const;
+  // inline int get_group_size(uint64_t id) const;
+  // inline uint64_t dpgrp_unique_key(const DPGroup & dpg) const;
+  inline bool segment_overlap(const std::vector<int>& a, const std::vector<int>& b);
+  inline std::vector<int> negative(const std::vector<int>& v);
+  inline std::vector<int> choose_n(const std::vector<int>& cjs, int init_jmp, int n);
+
+  void print_all_rings() const;
+
+  std::unordered_map<uint64_t, std::vector<int>> candidate_jumps;
+  std::unordered_map<uint64_t, std::vector<std::vector<int>>> selected_jumps;
+  std::unordered_map<uint64_t, uint64_t> dpgrpsz_xfersize;
+  std::vector<DPGroup> dpgrps;
+  std::unordered_map<uint64_t, uint64_t> mp_tm_logical;
+
+  std::unordered_map<uint64_t, std::vector<NominalCommDevice*>> dp_ncomms;
+
+  // int degree;
+  bool bidir;
+  bool constructed;
+  // double best_sim_time;
+  // double curr_sim_time;
+  // double alpha;
+  // int num_iter_nochange;
+  // int no_improvement_th;
+};
+
+class SpMulMatSimulator: public LogicalTaskgraphBasedSimulator {
+public: 
+  SpMulMatSimulator(const FFModel* model,
+            FFHandler handler,
+            Memory memory,
+            MachineModel *machine);
+  virtual double simulate_runtime(const FFModel* model,
+      const std::map<Op*, ParallelConfig>& global,
+      CompMode comp_mode);
+  virtual double simulate_runtime(const FFModel* model,
+      const std::map<Op*, ParallelConfig>& global,
+      CompMode comp_mode,
+      std::string const &export_file_name);
+  virtual void expand_allreduce(SimTask * allreduce_task, double start_time,std::priority_queue<SimTask*, std::vector<SimTask*>, SimTaskCompare>& ready_queue);
+  virtual void get_taskgraph_flatbuf(const FFModel* model, flatbuffers::FlatBufferBuilder &builder);
+  static void simulation_task(const Task *task,
+                                  const std::vector<PhysicalRegion> &regions,
+                                  Context ctx, Runtime *runtime);
+};
+
 #endif

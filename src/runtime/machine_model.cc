@@ -1,4 +1,65 @@
+// #include <algorithm>
+// #include <execution>
+// #include <future>
 #include "simulator.h"
+
+#include <algorithm>
+#include <thread>
+#include <functional>
+#include <vector>
+
+/// @param[in] nb_elements : size of your for loop
+/// @param[in] functor(start, end) :
+/// your function processing a sub chunk of the for loop.
+/// "start" is the first index to process (included) until the index "end"
+/// (excluded)
+/// @code
+///     for(int i = start; i < end; ++i)
+///         computation(i);
+/// @endcode
+/// @param use_threads : enable / disable threads.
+///
+///
+static
+void parallel_for(unsigned nb_elements,
+                  std::function<void (int start, int end)> functor,
+                  bool use_threads = true)
+{
+    // -------
+    unsigned nb_threads_hint = std::thread::hardware_concurrency();
+    unsigned nb_threads = nb_threads_hint == 0 ? 8 : (nb_threads_hint);
+
+    unsigned batch_size = nb_elements / nb_threads;
+    unsigned batch_remainder = nb_elements % nb_threads;
+
+    std::vector< std::thread > my_threads(nb_threads);
+
+    if( use_threads )
+    {
+        // Multithread execution
+        for(unsigned i = 0; i < nb_threads; ++i)
+        {
+            int start = i * batch_size;
+            my_threads[i] = std::thread(functor, start, start+batch_size);
+        }
+    }
+    else
+    {
+        // Single thread execution (for easy debugging)
+        for(unsigned i = 0; i < nb_threads; ++i){
+            int start = i * batch_size;
+            functor( start, start+batch_size );
+        }
+    }
+
+    // Deform the elements left
+    int start = nb_threads * batch_size;
+    functor( start, start+batch_remainder);
+
+    // Wait for the other thread to finish their task
+    if( use_threads )
+        std::for_each(my_threads.begin(), my_threads.end(), std::mem_fn(&std::thread::join));
+}
 
 SimpleMachineModel::SimpleMachineModel(int num_nodes, int num_gpus_per_node, size_t capacity)
 {
@@ -81,12 +142,12 @@ int SimpleMachineModel::get_num_gpus() const
   return num_gpus;
 }
 
-float SimpleMachineModel::get_intra_node_gpu_bandwidth() const
+double SimpleMachineModel::get_intra_node_gpu_bandwidth() const
 {
   return inter_gpu_bandwidth;
 }
 
-float SimpleMachineModel::get_inter_node_gpu_bandwidth() const
+double SimpleMachineModel::get_inter_node_gpu_bandwidth() const
 {
   return inter_node_bandwidth;
 }
@@ -417,7 +478,7 @@ void EnhancedMachineModel::add_gpus()
     for (int j = 0; j < num_sockets_per_node; j++) {
       int socket_id = i * num_sockets_per_node + j;
       int device_id = socket_id;
-      // add zero copy memory
+      // adpy memory
       std::string z_copy_mem_name = "Z_COPY_MEM " + std::to_string(device_id);
       MemDevice *z_copy_mem = new MemDevice(z_copy_mem_name, MemDevice::Z_COPY_MEM, node_id, socket_id, device_id, -1);
       z_copy_mems.push_back(z_copy_mem);
@@ -436,7 +497,7 @@ void EnhancedMachineModel::add_gpus()
   }
 }
 
-void EnhancedMachineModel::add_membuses(float latency, float bandwidth)
+void EnhancedMachineModel::add_membuses(double latency, double bandwidth)
 {
   for (int i = 0; i < num_nodes; i++) {
     int node_id = i;
@@ -450,7 +511,7 @@ void EnhancedMachineModel::add_membuses(float latency, float bandwidth)
   }
 }
 
-void EnhancedMachineModel::add_upis(float latency, float bandwidth)
+void EnhancedMachineModel::add_upis(double latency, double bandwidth)
 {
   for (int i = 0; i < num_nodes; i++) {
     int node_id = i;
@@ -467,7 +528,7 @@ void EnhancedMachineModel::add_upis(float latency, float bandwidth)
   }
 }
 
-void EnhancedMachineModel::add_nics(float latency, float bandwidth, NicDistribution nic_distribution)
+void EnhancedMachineModel::add_nics(double latency, double bandwidth, NicDistribution nic_distribution)
 {
   if (nic_distribution == PER_NODE) {
     for (int i = 0; i < num_nodes; i++) {
@@ -512,7 +573,7 @@ void EnhancedMachineModel::add_nics(float latency, float bandwidth, NicDistribut
   }
 }
 
-void EnhancedMachineModel::add_pcis(float latency, float bandwidth)
+void EnhancedMachineModel::add_pcis(double latency, double bandwidth)
 {
   for (int i = 0; i < num_nodes; i++) {
     int node_id = i;
@@ -530,7 +591,7 @@ void EnhancedMachineModel::add_pcis(float latency, float bandwidth)
 }
 
 // assume each GPU has nvlinks to the other GPUs on the same node and the nvlinks have the same latency and bandwidth
-void EnhancedMachineModel::add_nvlinks(float latency, float bandwidth)
+void EnhancedMachineModel::add_nvlinks(double latency, double bandwidth)
 {
   int num_gpus_per_node = num_gpus_per_socket * num_sockets_per_node;
   num_nvlinks_per_node = num_gpus_per_node * (num_gpus_per_node - 1) / 2;
@@ -749,13 +810,13 @@ std::vector<CommDevice *> EnhancedMachineModel::get_comm_path(MemDevice *src_mem
   return ret;
 }
 
-float EnhancedMachineModel::get_intra_node_gpu_bandwidth() const
+double EnhancedMachineModel::get_intra_node_gpu_bandwidth() const
 {
   return nvlink_bandwidth;
 }
 
 // Use inter-node cpu bandwidth for now 
-float EnhancedMachineModel::get_inter_node_gpu_bandwidth() const
+double EnhancedMachineModel::get_inter_node_gpu_bandwidth() const
 {
   return nic_bandwidth;
 }
@@ -805,9 +866,9 @@ std::string EnhancedMachineModel::to_string() const
 
 /* Networked machine model */
 NetworkedMachineModel::NetworkedMachineModel(int num_nodes, 
-        int num_gpus_per_node, int num_switches, 
-        const std::vector<int>& topology, size_t capacity, float link_bandwidth)
-  : num_nodes(num_nodes), num_gpus_per_node(num_gpus_per_node), 
+        int num_gpus_per_node, int num_switches, double network_latency,
+        const std::vector<int>& topology, size_t capacity, double link_bandwidth)
+  : num_nodes(num_nodes), num_gpus_per_node(num_gpus_per_node), network_latency(network_latency),
     num_switches(num_switches), link_bandwidth(link_bandwidth), conn_matrix(topology)
 {
   version = 0;
@@ -885,13 +946,26 @@ void NetworkedMachineModel::update_route() {
     for (int j = 0; j < num_nodes; j++) {
       int device_id = i * total_devs + j;
       std::string link_name = "NOMINAL " + std::to_string(i) + "-" + std::to_string(j);
-      if (ids_to_nw_nominal_device.find(device_id) != ids_to_nw_nominal_device.end()) {
-        delete ids_to_nw_nominal_device[device_id];
+      if (ids_to_nw_nominal_device.find(device_id) == ids_to_nw_nominal_device.end()) {
+        ids_to_nw_nominal_device[device_id] = new NominalCommDevice(link_name, device_id, total_devs, routing_strategy);
       }
-      ids_to_nw_nominal_device[device_id] = new NominalCommDevice(link_name, device_id);
-      ids_to_nw_nominal_device[device_id]->set_physical_paths(routing_strategy->get_routes(i, j));
+      ids_to_nw_nominal_device[device_id]->reset();
+      // ids_to_nw_nominal_device[device_id]->set_physical_paths(routing_strategy->get_routes(i, j));
     }
   }
+
+  // std::vector<int> indicies(num_nodes);
+  // std::iota(ivec.begin(), ivec.end(), 0);
+
+  // for (int i = 0; i < num_nodes; i++) {
+  parallel_for(num_nodes, [&](int start, int end){  
+    for(int i = start; i < end; i++) {
+      auto all_routes = routing_strategy->get_routes_from_src(i);
+      for (int j = 0; j < num_nodes; j++) {
+        ids_to_nw_nominal_device[i * total_devs + j]->set_physical_paths(all_routes[j]);
+      }
+    }
+  });
 }
 
 CompDevice* NetworkedMachineModel::get_gpu(int device_id) const
@@ -911,22 +985,22 @@ int NetworkedMachineModel::get_num_gpus() const
   return num_gpus;
 }
 
-float NetworkedMachineModel::get_intra_node_gpu_bandwidth() const
+double NetworkedMachineModel::get_intra_node_gpu_bandwidth() const
 {
   return inter_gpu_bandwidth;
 }
 
-float NetworkedMachineModel::get_link_bandwidth() const
+double NetworkedMachineModel::get_link_bandwidth() const
 {
   return link_bandwidth;
 }
 
-float NetworkedMachineModel::get_link_bandwidth(int src, int dst) const
+double NetworkedMachineModel::get_link_bandwidth(int src, int dst) const
 {
   return link_bandwidth * conn_matrix[src * total_devs + dst];
 }
 
-float NetworkedMachineModel::get_inter_node_gpu_bandwidth() const  
+double NetworkedMachineModel::get_inter_node_gpu_bandwidth() const  
 {
   return link_bandwidth;
 }
@@ -1060,7 +1134,7 @@ void NetworkedMachineModel::set_topology(const ConnectionMatrix &conn)
       }
     // }
   }
-  // update_route();
+  update_route();
 }
 
 const ConnectionMatrix & NetworkedMachineModel::get_conn_matrix() 

@@ -329,6 +329,7 @@ protected:
   std::map<MappingTagID, ParallelConfig> strategies;
   std::map<std::pair<Memory::Kind,FieldSpace>, LayoutConstraintID> layout_constraint_cache;
   std::vector<InstanceCreationLog> created_instances;
+  static bool nogpu;
 };
 
 #ifdef DEADCODE

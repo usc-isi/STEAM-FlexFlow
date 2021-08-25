@@ -568,13 +568,13 @@ void FFModel::load_measurement(Simulator * sim, const std::string & fname) {
     std::string name = meas["name"].get<std::string>();
     std::string pc_str = meas["pc_str"].get<std::string>();
     std::string key = name + ":" + pc_str;
-    printf("name: %s, pc_str:%s ", name.c_str(), pc_str.c_str());
+    // printf("name: %s, pc_str:%s ", name.c_str(), pc_str.c_str());
     CostMetrics cost = {
       .forward_time = meas["fw_time"].get<float>(),
       .backward_time = meas["bw_time"].get<float>(),
       .memory_requirement = meas["mem_req"].get<size_t>()
     };
-    printf("fw: %f, bw: %f, mem: %zu\n", cost.forward_time, cost.backward_time, cost.memory_requirement);
+    // printf("fw: %f, bw: %f, mem: %zu\n", cost.forward_time, cost.backward_time, cost.memory_requirement);
     (*sim->measurements)[key] = cost;
     if (opcandidates.find(name) != opcandidates.end())
       opcandidates[name].push_back(ParallelConfig::restore_pc_from_str(pc_str));
@@ -984,6 +984,7 @@ FFModel::FFModel(FFConfig& _config , bool simonly)
     info.workSpaceSize = config.workSpaceSize;
     info.allowTensorOpMathConversion = config.allow_tensor_op_math_conversion;
     info.simonly = simonly;
+    // info.nogpu = _config.nogpu;
     argmap.set_point(*it, TaskArgument(&info, sizeof(FFInitInfo)));
   }
 
@@ -1809,6 +1810,19 @@ void FFModel::simulate2(CompMode comp_mode)
   future.get_void_result();
 }
 
+void FFModel::simulate_new(CompMode comp_mode) 
+{
+  Context ctx = config.lg_ctx;
+  Runtime* runtime = config.lg_hlr;
+  config.computationMode = comp_mode;
+  // Launch the simulation task
+  FFModel* model = this;
+  TaskLauncher launcher(CUSTOM_SIMULATION_TASK_ID_3,
+      TaskArgument(&model, sizeof(FFModel*)));
+  Future future = runtime->execute_task(ctx, launcher);
+  future.get_void_result();
+}
+
 void FFModel::run_measurement() 
 {
   Context ctx = config.lg_ctx;
@@ -2286,8 +2300,8 @@ void Op::measure_all(Simulator * sim, FFModel& ff, std::vector<OpMeasurement>& o
     
   int batch_size = outputs[0].adim[outputs[0].numDim-1];
   size_t local_bup = ff.config.local_batch_sz_upperlimit;
-  // if (op_type == OperatorType::OP_MULTIHEAD_ATTENTION)
-  //   local_bup = 432;
+  if (op_type == OperatorType::OP_MULTIHEAD_ATTENTION)
+    local_bup = 432;
   printf("batch_size: %d, local_batch_sz_upperlimit: %zu\n", batch_size, local_bup);
   for (int i = 1; i <= ff.config.workersPerNode; i++) {
     if (ff.config.workersPerNode % i == 0) {
@@ -2317,19 +2331,34 @@ void Op::measure_all(Simulator * sim, FFModel& ff, std::vector<OpMeasurement>& o
     for (int i = 0; i < pc.nDims; i++)
       pc.dim[i] = i == pc.nDims - 1 ? num_parts : 1;
 
-    CostMetrics cost;
-    measure_operator_cost(sim, pc, cost);
-
-    opm.emplace_back(
-      OpMeasurement {
-        .name = get_name_structure(),
-        .pc_str = pc.get_pc_str(),
-        .fwtime = cost.forward_time,
-        .bwtime = cost.backward_time,
-        .mem_req = cost.memory_requirement
-      }
-    );
-    std::cout << "Measured " << get_name_structure() << " " << pc.get_pc_str() << " fw: " << cost.forward_time << " bw: " << cost.backward_time << std::endl;
+    CostMetrics cost {
+      .forward_time = -1,
+      .backward_time = -1, 
+      .memory_requirement = 0
+    };
+    
+    if (measure_operator_cost(sim, pc, cost)) {
+      opm.emplace_back(
+        OpMeasurement {
+          .name = get_name_structure(),
+          .pc_str = pc.get_pc_str(),
+          .fwtime = cost.forward_time,
+          .bwtime = cost.backward_time,
+          .mem_req = cost.memory_requirement
+        }
+      );
+      std::cout << "Measured " << get_name_structure() << " " << pc.get_pc_str() << " fw: " << cost.forward_time << " bw: " << cost.backward_time << std::endl;
+    } else {
+      // opm.emplace_back(
+      //   OpMeasurement {
+      //     .name = get_name_structure(),
+      //     .pc_str = pc.get_pc_str(),
+      //     .fwtime = -1,
+      //     .bwtime = -1,
+      //     .mem_req = 0 
+      //   }
+      // );
+    }
   }
 }
 
@@ -2341,9 +2370,16 @@ void FFModel::optimize(Simulator* simulator,
 {
   // Start from data parallel
   std::map<Op*, ParallelConfig> current, next;
-  float best_runtime = simulator->simulate_runtime(this, best, comp_mode);
+  std::unique_ptr<L1OptimizerInformation> l1bestinfo, l1currinfo;
+  double best_runtime = simulator->simulate_runtime(this, best, comp_mode);
   current = best;
-  float current_runtime = best_runtime;
+  double current_runtime = best_runtime;
+  if (simulator->l1optimizer) {
+    simulator->l1optimizer->optimize(0, best_runtime);
+    l1bestinfo = simulator->l1optimizer->export_information();
+    l1currinfo = simulator->l1optimizer->export_information();
+    // simulator->l1optimizer->store_tm();
+  }
   size_t reset_span = budget / 100, last_reset_iter = 0;
   if (reset_span == 0)
     reset_span = 1;
@@ -2355,9 +2391,15 @@ void FFModel::optimize(Simulator* simulator,
       current = best;
       current_runtime = best_runtime;
       last_reset_iter = iter;
+      if (simulator->l1optimizer) {
+        simulator->l1optimizer->import_information(l1bestinfo);
+        // if (l1currinfo != l1bestinfo)
+        // simulator->l1optimizer->delete_information(l1currinfo);
+        l1currinfo = simulator->l1optimizer->export_information();
+      }
     }
     rewrite(current, next, use_propagation);
-    float next_runtime = simulator->simulate_runtime(this, next, comp_mode);
+    double next_runtime = simulator->simulate_runtime(this, next, comp_mode);
     // printf("=========== next Discovered Strategy ==========: %f\n", next_runtime);
     // std::map<Op*, ParallelConfig>::const_iterator it;
     // for (it = next.begin(); it != next.end(); it++) {
@@ -2380,25 +2422,57 @@ void FFModel::optimize(Simulator* simulator,
       printf("iteration(%zu) current_strategy(%.4lf) next_strategy(%.4lf) best_strategy(%.4lf)\n", iter,
              current_runtime, next_runtime, best_runtime);
     }
-    float rn = static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX);
-    //float ratio = (next_runtime - current_runtime) / current_runtime;
-    float diff = (next_runtime - current_runtime);
+    double rn = static_cast<double>(std::rand()) / static_cast<double>(RAND_MAX);
+    //double ratio = (next_runtime - current_runtime) / current_runtime;
+    double diff = (next_runtime - current_runtime);
     if (next_runtime < best_runtime) {
       best_runtime = next_runtime;
       best = next;
+      if (simulator->l1optimizer) {
+        // simulator->l1optimizer->delete_information(l1bestinfo);
+        // if (l1currinfo != l1bestinfo)
+        //   simulator->l1optimizer->delete_information(l1currinfo);
+        l1bestinfo = simulator->l1optimizer->export_information();
+        simulator->l1optimizer->optimize(iter, next_runtime, true);
+        l1currinfo = simulator->l1optimizer->export_information();
+      }
     }
     if (next_runtime < current_runtime) {
       current = next;
       current_runtime = next_runtime;
+      if (simulator->l1optimizer) {
+        // if (l1currinfo != l1bestinfo)
+        // simulator->l1optimizer->delete_information(l1currinfo);
+        simulator->l1optimizer->optimize(iter, next_runtime, true);
+        l1currinfo = simulator->l1optimizer->export_information();
+      }
     } else if (rn < std::exp(-alpha * diff)) {
       current = next;
       current_runtime = next_runtime;
+      if (simulator->l1optimizer) {
+        if (l1currinfo != l1bestinfo)
+        // simulator->l1optimizer->delete_information(l1currinfo);
+        simulator->l1optimizer->optimize(iter, next_runtime, true);
+        l1currinfo = simulator->l1optimizer->export_information();
+      }
     }
+    // else {
+    //   // restore l1 state
+    //   if (simulator->l1optimizer) {
+    //     simulator->l1optimizer->import_information(l1currinfo);
+    //   }
+    // }
 
-    if (simulator->l1optimizer)
-      simulator->l1optimizer->optimize(iter, next_runtime);
+    if (simulator->l1optimizer) {
+      if (simulator->l1optimizer->optimize(iter, next_runtime)) {
+        // simulator->l1optimizer->delete_information(l1currinfo);
+        l1currinfo = simulator->l1optimizer->export_information();
+      }
+    }
   }
   printf("=========== Best Discovered Strategy ==========\n");
+  if (simulator->l1optimizer)
+    simulator->l1optimizer->import_information(l1bestinfo);
   simulator->simulate_runtime(this, best, comp_mode, this->config.export_strategy_task_graph_file);
   std::map<Op*, ParallelConfig>::const_iterator it;
   for (it = best.begin(); it != best.end(); it++) {
@@ -2791,6 +2865,11 @@ void FFConfig::parse_args(char **argv, int argc)
     if (!strcmp(argv[i], "--nodes"))
     {
       numNodes = atoi(argv[++i]);
+      continue;
+    }
+    if (!strcmp(argv[i], "--no-gpu"))
+    {
+      nogpu = true;
       continue;
     }
     if (!strcmp(argv[i], "-ll:cpu"))
@@ -3613,6 +3692,14 @@ void register_flexflow_internal_tasks()
     registrar.set_leaf();
     Runtime::preregister_task_variant<Simulator::simulation_task>(
         registrar, "Simulation Task 2");
+  }
+  {
+    TaskVariantRegistrar registrar(CUSTOM_SIMULATION_TASK_ID_3,
+                                   "Simulation Only 3");
+    registrar.add_constraint(ProcessorConstraint(Processor::TOC_PROC));
+    registrar.set_leaf();
+    Runtime::preregister_task_variant<SpMulMatSimulator::simulation_task>(
+        registrar, "Simulation Task 3");
   }
   {
     TaskVariantRegistrar registrar(CUSTOM_MEASUREMENT_TASK_ID_1,
