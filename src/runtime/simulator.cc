@@ -810,6 +810,7 @@ double LogicalTaskgraphBasedSimulator::simulate_runtime(
   task_manager->reset();
   if (l1optimizer)
     l1optimizer->reset();
+  std::unordered_map<SimTask*, Op*> task_to_op;
   // Step 1: register forward and backward tasks
   for (size_t l = 0; l < model->layers.size(); l++) {
     Op* op = model->layers[l];
@@ -820,6 +821,7 @@ double LogicalTaskgraphBasedSimulator::simulate_runtime(
     SimTask *ar_task = nullptr;
     for (int j = 0; j < config.num_parts(); j++) {
       SimTask* task1 = task_manager->new_forward_task(op, j);
+      task_to_op[task1] = op;
       task1->device = machine->get_gpu(config.device_ids[j]);
       task1->mem = machine->get_gpu_fb_mem(config.device_ids[j]);
       task1->run_time = forward_time;
@@ -827,6 +829,7 @@ double LogicalTaskgraphBasedSimulator::simulate_runtime(
         l1optimizer->task_added(task1);
       if (comp_mode == COMP_MODE_TRAINING) {
         SimTask* task2 = task_manager->new_backward_task(op, j);
+        task_to_op[task2] = op;
         task2->device = machine->get_gpu(config.device_ids[j]);
         task2->mem = machine->get_gpu_fb_mem(config.device_ids[j]);
         task2->run_time = backward_time;
@@ -865,6 +868,7 @@ double LogicalTaskgraphBasedSimulator::simulate_runtime(
           }
           
           SimTask* ar_task = task_manager->new_allreduce_task(op, node_ids, xfer_size);
+          task_to_op[ar_task] = op;
           if (l1optimizer) 
             l1optimizer->task_added(ar_task);
           for (int dstId = 0; dstId < config.num_parts(); dstId ++) {
@@ -946,6 +950,12 @@ double LogicalTaskgraphBasedSimulator::simulate_runtime(
       }
     }
     else if (cur_task->type == SimTask::TASK_ALLREDUCE) {
+      if (model->config.big_gpu > 0 && task_to_op[cur_task]->op_type != OperatorType::OP_EMBEDDING) {
+        double internal_ar_time = compute_internal_ar_time(model, cur_task);
+        cur_task->ready_time += internal_ar_time;
+        cur_task->run_time = internal_ar_time;
+        start_time += internal_ar_time;
+      }
       expand_allreduce(cur_task, start_time, ready_queue);
       idx++;
       continue;
@@ -1105,6 +1115,13 @@ double LogicalTaskgraphBasedSimulator::route_transfer(SimTask * transfer_task,
 
   transfer_task->run_time = final_finish_time - final_start_time;
   return final_finish_time;
+}
+
+double LogicalTaskgraphBasedSimulator::compute_internal_ar_time(const FFModel* model, SimTask * allreduce_task) 
+{
+  assert(model->config.big_gpu > 0);
+  // std::cerr << "internal_ar_time: " << (2 * allreduce_task->xfer_size / model->config.big_gpu / model->config.inter_gpu_bandwidth) << " for size " << allreduce_task->xfer_size << " inter_gpu_bandwidth " << model->config.inter_gpu_bandwidth << std::endl;
+  return (2 * allreduce_task->xfer_size / model->config.big_gpu / model->config.inter_gpu_bandwidth);
 }
 
 double LogicalTaskgraphBasedSimulator::route_transfer_seg(SimTask * transfer_task, 
@@ -1546,6 +1563,9 @@ double SpMulMatSimulator::simulate_runtime(
   task_manager->reset();
   if (l1optimizer)
     l1optimizer->reset();
+  
+  std::unordered_map<SimTask*, Op*> task_to_op;
+
   // Step 1: register forward and backward tasks
   for (size_t l = 0; l < model->layers.size(); l++) {
     Op* op = model->layers[l];
@@ -1556,6 +1576,7 @@ double SpMulMatSimulator::simulate_runtime(
     SimTask *ar_task = nullptr;
     for (int j = 0; j < config.num_parts(); j++) {
       SimTask* task1 = task_manager->new_forward_task(op, j);
+      task_to_op[task1] = op;
       task1->device = machine->get_gpu(config.device_ids[j]);
       task1->mem = machine->get_gpu_fb_mem(config.device_ids[j]);
       task1->run_time = forward_time;
@@ -1563,6 +1584,7 @@ double SpMulMatSimulator::simulate_runtime(
         l1optimizer->task_added(task1);
       if (comp_mode == COMP_MODE_TRAINING) {
         SimTask* task2 = task_manager->new_backward_task(op, j);
+        task_to_op[task2] = op;
         task2->device = machine->get_gpu(config.device_ids[j]);
         task2->mem = machine->get_gpu_fb_mem(config.device_ids[j]);
         task2->run_time = backward_time;
@@ -1600,6 +1622,7 @@ double SpMulMatSimulator::simulate_runtime(
             }
           }
           SimTask* ar_task = task_manager->new_allreduce_task(op, node_ids, xfer_size);
+          task_to_op[ar_task] = op;
           if (l1optimizer) 
             l1optimizer->task_added(ar_task);
           for (int dstId = 0; dstId < config.num_parts(); dstId ++) {
@@ -1685,6 +1708,13 @@ double SpMulMatSimulator::simulate_runtime(
       }
     }
     else if (cur_task->type == SimTask::TASK_ALLREDUCE) {
+      if (model->config.big_gpu > 0 && task_to_op[cur_task]->op_type != OperatorType::OP_EMBEDDING) {
+        double internal_ar_time = compute_internal_ar_time(model, cur_task);
+        
+        cur_task->ready_time += internal_ar_time;
+        cur_task->run_time = internal_ar_time;
+        start_time += internal_ar_time;
+      }
       expand_allreduce(cur_task, start_time, ready_queue);
       idx++;
       continue;

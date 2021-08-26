@@ -2209,7 +2209,7 @@ void FFModel::rewrite(const std::map<Op*, ParallelConfig>& current,
     //TODO: need to make sure opId is not an output layer of the model
     if (opId == layers.size() - 1)
       return;
-    // next[layers[opId]] = layers[opId]->get_random_parallel_config(*ffmodel);
+    next[layers[opId]] = layers[opId]->get_random_parallel_config(*ffmodel);
   //   if (opId < 80) {
   //    // while (ppc.dim[ppc.nDims-1] < 54) {
   //    //   next[layers[opId]] = layers[opId]->get_random_parallel_config(*this);
@@ -2302,27 +2302,47 @@ void Op::measure_all(Simulator * sim, FFModel& ff, std::vector<OpMeasurement>& o
   size_t local_bup = ff.config.local_batch_sz_upperlimit;
   if (op_type == OperatorType::OP_MULTIHEAD_ATTENTION)
     local_bup = 432;
-  printf("batch_size: %d, local_batch_sz_upperlimit: %zu\n", batch_size, local_bup);
-  for (int i = 1; i <= ff.config.workersPerNode; i++) {
-    if (ff.config.workersPerNode % i == 0) {
-      if (batch_size % i != 0)
-        continue;
-      if (batch_size / i > local_bup) {
-        continue;
+  if (op_type == OperatorType::OP_EMBEDDING) {
+    local_candidates.insert(1);
+  }
+  else {
+    printf("batch_size: %d, local_batch_sz_upperlimit: %zu\n", batch_size, local_bup);
+    if (ff.config.big_gpu == 0) {
+      for (int i = 1; i <= ff.config.workersPerNode; i++) {
+        if (ff.config.workersPerNode % i == 0) {
+          if (batch_size % i != 0)
+            continue;
+          if (batch_size / i > local_bup) {
+            continue;
+          }
+          local_candidates.insert(i);
+        }
       }
-      local_candidates.insert(i);
+      for (int i = 1; i <= ff.config.numNodes; i++) {
+        if (ff.config.numNodes % i == 0) {
+          if (batch_size % (i * ff.config.workersPerNode) != 0)
+            continue;
+          if (batch_size / (i * ff.config.workersPerNode) > local_bup) {
+            continue;
+          }
+          local_candidates.insert(i * ff.config.workersPerNode);
+        }
+      }
+    }
+    else {
+      for (int i = 1; i <= ff.config.numNodes; i++) {
+        if (ff.config.numNodes % i == 0) {
+          if (batch_size % (i * ff.config.big_gpu) != 0)
+            continue;
+          if (batch_size / (i * ff.config.big_gpu) > local_bup) {
+            continue;
+          }
+          local_candidates.insert(i * ff.config.big_gpu);
+        }
+      }
     }
   }
-  for (int i = 1; i <= ff.config.numNodes; i++) {
-    if (ff.config.numNodes % i == 0) {
-      if (batch_size % (i * ff.config.workersPerNode) != 0)
-        continue;
-      if (batch_size / (i * ff.config.workersPerNode) > local_bup) {
-        continue;
-      }
-      local_candidates.insert(i * ff.config.workersPerNode);
-    }
-  }
+
 
   for (int num_parts: local_candidates) {
     ParallelConfig pc;
@@ -2338,16 +2358,35 @@ void Op::measure_all(Simulator * sim, FFModel& ff, std::vector<OpMeasurement>& o
     };
     
     if (measure_operator_cost(sim, pc, cost)) {
-      opm.emplace_back(
-        OpMeasurement {
-          .name = get_name_structure(),
-          .pc_str = pc.get_pc_str(),
-          .fwtime = cost.forward_time,
-          .bwtime = cost.backward_time,
-          .mem_req = cost.memory_requirement
-        }
-      );
-      std::cout << "Measured " << get_name_structure() << " " << pc.get_pc_str() << " fw: " << cost.forward_time << " bw: " << cost.backward_time << std::endl;
+
+      if (ff.config.big_gpu > 0) {
+        ParallelConfig record_pc = pc;
+        if (op_type != OperatorType::OP_EMBEDDING)
+          record_pc.dim[record_pc.nDims - 1] /= ff.config.big_gpu;
+        opm.emplace_back(
+          OpMeasurement {
+            .name = get_name_structure(),
+            .pc_str = record_pc.get_pc_str(),
+            .fwtime = cost.forward_time,
+            .bwtime = cost.backward_time,
+            .mem_req = cost.memory_requirement
+          }
+        );
+        std::cout << "Measured " << get_name_structure() << " " << pc.get_pc_str() << " record: " << record_pc.get_pc_str() << " fw: " << cost.forward_time << " bw: " << cost.backward_time << std::endl;
+      }
+      else {
+        opm.emplace_back(
+          OpMeasurement {
+            .name = get_name_structure(),
+            .pc_str = pc.get_pc_str(),
+            .fwtime = cost.forward_time,
+            .bwtime = cost.backward_time,
+            .mem_req = cost.memory_requirement
+          }
+        );
+       std::cout << "Measured " << get_name_structure() << " " << pc.get_pc_str() << " fw: " << cost.forward_time << " bw: " << cost.backward_time << std::endl;
+      }
+
     } else {
       // opm.emplace_back(
       //   OpMeasurement {
@@ -2967,6 +3006,10 @@ void FFConfig::parse_args(char **argv, int argc)
     }
     if (!strcmp(argv[i], "--measure")) {
       measurement_only = true;
+      continue;
+    }
+    if (!strcmp(argv[i], "--big-gpu")) {
+      big_gpu = atoi(argv[++i]);
       continue;
     }
   }

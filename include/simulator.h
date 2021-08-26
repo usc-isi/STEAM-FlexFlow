@@ -869,6 +869,7 @@ public:
                                   const std::vector<PhysicalRegion> &regions,
                                   Context ctx, Runtime *runtime);
   virtual void get_taskgraph_flatbuf(const FFModel* model, flatbuffers::FlatBufferBuilder &builder);
+  virtual double compute_internal_ar_time(const FFModel* model, SimTask * allreduce_task);
 
   bool segment_transfer;
   size_t segment_size;

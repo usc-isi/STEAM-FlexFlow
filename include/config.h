@@ -196,6 +196,7 @@ public:
   size_t local_batch_sz_upperlimit;
   bool enable_control_replication;
   bool nogpu = false;
+  int big_gpu = 0;
   int python_data_loader_type;
 };
 

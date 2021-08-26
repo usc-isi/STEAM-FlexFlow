@@ -960,6 +960,7 @@ void NetworkedMachineModel::update_route() {
   // for (int i = 0; i < num_nodes; i++) {
   parallel_for(num_nodes, [&](int start, int end){  
     for(int i = start; i < end; i++) {
+      // std::cerr << "node i " << i << std::endl;
       auto all_routes = routing_strategy->get_routes_from_src(i);
       for (int j = 0; j < num_nodes; j++) {
         ids_to_nw_nominal_device[i * total_devs + j]->set_physical_paths(all_routes[j]);
