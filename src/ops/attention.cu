@@ -731,6 +731,8 @@ bool MultiHeadAttention::measure_operator_cost(Simulator* sim,
   }
 
   inner_measure_operator_cost(sim, forward, backward, cost_metrics);
+  // XXX: measurement results seem buggy. set bw to 2*fw
+  cost_metrics.backward_time = 2 * cost_metrics.forward_time;
 
   if (sim->computationMode == COMP_MODE_TRAINING) {
     printf("[Measure MultiHeadAttention] query(%d %d %d) key(%d %d %d) value(%d %d %d) output(%d %d %d)"
