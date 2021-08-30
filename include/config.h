@@ -167,6 +167,7 @@ public:
   bool search_overlap_backward_update;
   CompMode computationMode;
   std::string export_strategy_task_graph_file;
+  std::string topology;
   //Control parallelizable dimensions
   bool enable_sample_parallel;
   bool enable_parameter_parallel;

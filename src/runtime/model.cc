@@ -1790,10 +1790,19 @@ void FFModel::simulate(CompMode comp_mode)
   config.computationMode = comp_mode;
   // Launch the simulation task
   FFModel* model = this;
-  TaskLauncher launcher(CUSTOM_SIMULATION_TASK_ID,
+  std::cerr << config.topology << std::endl;
+  if (config.topology != "topoopt") {
+    TaskLauncher launcher(CUSTOM_SIMULATION_TASK_ID,
       TaskArgument(&model, sizeof(FFModel*)));
-  Future future = runtime->execute_task(ctx, launcher);
-  future.get_void_result();
+    Future future = runtime->execute_task(ctx, launcher);
+    future.get_void_result();
+  }
+  else {
+    TaskLauncher launcher(CUSTOM_SIMULATION_TASK_ID_3,
+      TaskArgument(&model, sizeof(FFModel*)));
+    Future future = runtime->execute_task(ctx, launcher);
+    future.get_void_result();
+  }
 }
 
 // for convinence of testing...
@@ -3010,6 +3019,10 @@ void FFConfig::parse_args(char **argv, int argc)
     }
     if (!strcmp(argv[i], "--big-gpu")) {
       big_gpu = atoi(argv[++i]);
+      continue;
+    }
+    if (!strcmp(argv[i], "--topology")) {
+      topology = std::string(argv[++i]);
       continue;
     }
   }
