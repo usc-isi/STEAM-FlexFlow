@@ -317,13 +317,21 @@ void LogicalTaskgraphBasedSimulator::simulation_task(const Task *task,
   // off_t offset = memFBImpl->alloc_bytes_local(model->config.simulator_work_space_size);
   // void* base_ptr = memFBImpl->get_direct_ptr(offset, 0);
   // FlatDegConstraintNetworkTopologyGenerator topo_gen = FlatDegConstraintNetworkTopologyGenerator(model->config.numNodes, model->config.node_degree);
-  BigSwitchNetworkTopologyGenerator topo_gen = BigSwitchNetworkTopologyGenerator(model->config.numNodes);
+  NetworkTopologyGenerator * topo_gen;
+  if (model->config.topology == "fattree")
+    topo_gen = new BigSwitchNetworkTopologyGenerator(model->config.numNodes);
+  else if (model->config.topology == "fc")
+    topo_gen = new FCTopologyGenerator(model->config.numNodes);
+  else if (model->config.topology == "random") 
+    topo_gen = new FlatDegConstraintNetworkTopologyGenerator(model->config.numNodes, model->config.node_degree);
+  else 
+    assert("Unsupported topology" && false);
   
   NetworkedMachineModel *nmachine = new NetworkedMachineModel(model->config.numNodes, 
     model->config.workersPerNode,  
-    1,
+    model->config.topology == "fattree" ? 1 : 0,
     model->config.network_latency,
-    topo_gen.generate_topology(),
+    topo_gen->generate_topology(),
     gpu_mem.capacity(),
     model->config.iface_bandwidth
   );
@@ -377,9 +385,9 @@ void LogicalTaskgraphBasedSimulator::simulation_task(const Task *task,
       //   }
       // }
       // if (opsz * model->config.numNodes * model->config.workersPerNode < gpu_mem.capacity())
-      // if (model->layers[l]->op_type != OperatorType::OP_EMBEDDING)
-      //   strategies[model->layers[l]] = model->layers[l]->get_data_parallel_config(*model);
-      // else
+      if (model->layers[l]->op_type != OperatorType::OP_EMBEDDING)
+        strategies[model->layers[l]] = model->layers[l]->get_data_parallel_config(*model);
+      else
         strategies[model->layers[l]] = model->layers[l]->get_random_parallel_config(*model);
     }
   }

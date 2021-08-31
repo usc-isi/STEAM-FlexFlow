@@ -119,10 +119,7 @@ void top_level_task(const Task* task,
     ff.run_measurement();
   }
   else {
-    if (ffConfig.node_degree == 1)
-      ff.simulate();
-    else 
-      ff.simulate_new();
+    ff.simulate();
   }
 #if 0
   Optimizer* optimizer = new SGDOptimizer(&ff, 0.001f);

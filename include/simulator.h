@@ -455,7 +455,7 @@ public:
  * Generate a flat network topology that's degree constraint and guaranteed
  * to be connected
  */
-class FlatDegConstraintNetworkTopologyGenerator {
+class FlatDegConstraintNetworkTopologyGenerator : public NetworkTopologyGenerator {
 public:
     FlatDegConstraintNetworkTopologyGenerator(int num_nodes, int degree);
     virtual ConnectionMatrix generate_topology() const;
@@ -470,7 +470,7 @@ public:
  * Generate an abstract-switch network topology
  * good for simple simulation of a fattree
  */
-class BigSwitchNetworkTopologyGenerator {
+class BigSwitchNetworkTopologyGenerator : public NetworkTopologyGenerator  {
 public:
     BigSwitchNetworkTopologyGenerator(int num_nodes);
     virtual ConnectionMatrix generate_topology() const;
@@ -481,10 +481,22 @@ public:
 /**
  * Generate a zero matrix
  */
-class FlatEmptyNetworkTopologyGenerator {
+class FlatEmptyNetworkTopologyGenerator : public NetworkTopologyGenerator  {
 public:
     FlatEmptyNetworkTopologyGenerator(int num_nodes): num_nodes(num_nodes){}
     virtual ConnectionMatrix generate_topology() const {return ConnectionMatrix(num_nodes*num_nodes, 0);} 
+public:
+    int num_nodes;
+};
+
+class FCTopologyGenerator : public NetworkTopologyGenerator  {
+public:
+    FCTopologyGenerator(int num_nodes): num_nodes(num_nodes){}
+    virtual ConnectionMatrix generate_topology() const {
+      ConnectionMatrix result = ConnectionMatrix(num_nodes*num_nodes, 1);
+      for (int i = 0; i < num_nodes; i++) result[i + i * num_nodes] = 0;
+      return result;
+    } 
 public:
     int num_nodes;
 };
