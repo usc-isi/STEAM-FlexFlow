@@ -16,10 +16,10 @@ echo " Defaults for Linux machine"
 BUILD_TYPE=Debug
 
 # set CUDA Arch, replace xx with your GPU architecture
-FF_CUDA_ARCH=70
+FF_CUDA_ARCH=86
 
 # set CUDNN dir in case cmake cannot autodetect a path
-CUDNN_DIR=/usr/local/cuda
+CUDNN_DIR=/opt/cuda
 
 # set CUDA dir in case cmake cannot autodetect a path
 #CUDA_DIR=/usr/local/cuda

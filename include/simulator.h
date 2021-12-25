@@ -17,7 +17,6 @@
 
 #include "ffconst.h"
 #include "config.h"
-#include "blossom_match.h"
 #include <memory>
 #include <queue>
 #include <fstream>
@@ -39,10 +38,6 @@ class Op;
 class FFModel;
 
 #define MOD(a, b) ((a) % (b)) < 0 ? ((a) % (b)) + (b) : ((a) % (b))
-
-namespace flatbuffers {
-  class FlatBufferBuilder;
-}
 
 struct CostMetrics {
   double forward_time, backward_time;
@@ -584,116 +579,6 @@ public:
 protected:
     MachineModel *machine; // Would really like to do a T extends MachineModel...
 };
- 
-// #if 0
-/**
- * TODO: TopoOpt as of SIGCOMM 2021 submission
- */
-class DemandHeuristicNetworkOptimizer : public L1Optimizer {
-  friend class Simulator;
-  friend class FFModel;
-public:
-  DemandHeuristicNetworkOptimizer(MachineModel* machine);
-  ~DemandHeuristicNetworkOptimizer() = default;
-  virtual bool optimize(int mcmc_iter, double sim_iter_time, bool force_run = false);
-  virtual void task_added(SimTask * task);
-  virtual void reset();
-  virtual std::unique_ptr<L1OptimizerInformation> export_information();
-  virtual void import_information(const std::unique_ptr<L1OptimizerInformation>& information);
-  virtual void delete_information(const std::unique_ptr<L1OptimizerInformation>& information);
-  size_t edge_id(int i, int j) const;
-  size_t unordered_edge_id(int i, int j) const;
-  void optimize_demand(
-      ConnectionMatrix &conn,
-      std::unordered_map<size_t, uint64_t> &max_of_bidir,
-      std::unordered_map<size_t, size_t> &node_if_allocated); 
-  void connect_unused_node(ConnectionMatrix &conn, std::unordered_map<size_t, size_t> &node_if_allocated);
-  void connect_cc(std::unordered_map<uint64_t, uint64_t> &logical_id_to_demand, 
-                  ConnectionMatrix &conn);
-
-  size_t get_if_in_use(size_t node, const ConnectionMatrix & conn);
-  bool add_link(size_t i, size_t j, ConnectionMatrix & conn);
-  void remove_link(size_t i, size_t j, ConnectionMatrix & conn);
-
-  virtual void store_tm() const;
-
-  inline static bool has_endpoint(uint64_t e, size_t v, size_t n) {
-    return e / n == v || e % n == v;
-  }
-
-  inline static bool maxed(const std::unordered_map<size_t, size_t> & node_if_allocated, 
-                           size_t d, size_t n) 
-  {
-    size_t counter = 0;
-    for (auto & item: node_if_allocated) {
-      if (item.second == d) {
-        counter++;
-      }
-    }
-    return counter >= (n - 1);
-  }
-
-  inline static bool maxed(const std::unordered_map<size_t, size_t> & node_if_allocated, 
-            const std::unordered_set<size_t> & nodes_to_care,
-            size_t d) 
-  {
-    size_t counter = 0;
-    for (auto & item: node_if_allocated) {
-      if (nodes_to_care.find(item.first) != nodes_to_care.end() && item.second == d) {
-        counter++;
-      }
-    }
-    return counter >= (nodes_to_care.size() - 1);
-  }
-
-
-  std::unordered_map<uint64_t, uint64_t> dev_busy_time;
-  // std::unordered_map<size_t, uint64_t> dev_busy_time_gpu;
-  // std::unordered_map<size_t, uint64_t> dev_busy_time_dram_gpu;
-  // std::unordered_map<size_t, uint64_t> dev_busy_time_gpu_dram;
-  // std::unordered_map<size_t, uint64_t> dev_busy_time_gpu_gpu;
-  std::unordered_map<size_t, uint64_t> physical_traffic_demand;
-  std::unordered_map<size_t, uint64_t> logical_traffic_demand;
-
-  size_t if_cnt;
-  double best_sim_time, curr_sim_time;
-  double alpha;
-  int num_iter_nochange;
-  int no_improvement_th;
-
-};
-// #endif
-
-class DemandHeuristicNetworkOptimizerPlus : public DemandHeuristicNetworkOptimizer 
-{
-public:
-  DemandHeuristicNetworkOptimizerPlus(MachineModel* machine);
-
-  void connectivity_assign(ConnectionMatrix &conn,
-    std::unordered_map<size_t, uint64_t> &max_of_bidir,
-    std::unordered_map<size_t, size_t> &node_if_allocated);
-  void connect_topology(
-    // const std::unordered_map<uint64_t, uint64_t> & logical_id_to_demand, 
-    ConnectionMatrix &conn, 
-    std::unordered_map<size_t, size_t> & node_if_allocated);
-  void utility_max_assign(
-    ConnectionMatrix &conn,
-    // const std::unordered_map<size_t, uint64_t> &max_of_bidir,
-    std::unordered_map<size_t, size_t> &node_if_allocated);
-  double compute_utility(
-    const std::unordered_map<size_t, std::pair<uint64_t, double>> &indirect_traffic,
-    const ConnectionMatrix & conn);
-  double compute_utility(
-    const std::unordered_map<size_t,uint64_t> &sum_of_bidir,
-    const std::unordered_map<size_t,uint64_t> &indirect_traffic,
-    const ConnectionMatrix & conn);
-  std::unordered_map<size_t, std::pair<uint64_t, double>>
-    construct_indir_traffic_list(const ConnectionMatrix &conn); 
-  std::unordered_map<size_t, uint64_t> 
-    construct_bidir_negative_util(const ConnectionMatrix &conn);
-  virtual bool optimize(int mcmc_iter, double sim_iter_time, bool force_run = false);
-};
-
 template <typename T>
 class DotFile {
 public:
@@ -876,114 +761,15 @@ public:
   virtual void expand_allreduce(SimTask * allreduce_task, double start_time,std::priority_queue<SimTask*, std::vector<SimTask*>, SimTaskCompare>& ready_queue);
   void add_task_dependencies_with_xfer(
       SimTask* src_task, SimTask* dst_task, size_t message_size);
-  bool searlize_logical_taskgraph(const FFModel* model, std::string const &export_file_name);
   static void simulation_task(const Task *task,
                                   const std::vector<PhysicalRegion> &regions,
                                   Context ctx, Runtime *runtime);
-  virtual void get_taskgraph_flatbuf(const FFModel* model, flatbuffers::FlatBufferBuilder &builder);
   virtual double compute_internal_ar_time(const FFModel* model, SimTask * allreduce_task);
 
   bool segment_transfer;
   size_t segment_size;
 
   // flatbuffers::FlatBufferBuilder builder;
-};
-
-struct DPGroup {
-  int starting_node;
-  int group_size;
-  size_t xfer_size;
-  // std::set<int> jump_dists;
-};
-
-struct SpMulMatInformation : public L1OptimizerInformation {
-  ConnectionMatrix conn;
-  std::unordered_map<uint64_t, std::vector<std::vector<int>>> selected_jumps;
-  // std::unordered_map<uint64_t, std::vector<NominalCommDevice*>> dp_ncomms;
-};
-
-// Space-multiplexed matching?...
-class SpMulMat : public DemandHeuristicNetworkOptimizer {
-public: 
-  SpMulMat(MachineModel * machine, int degree, bool bidir);
-  ~SpMulMat() = default;
-
-  virtual bool optimize(int mcmc_iter, double sim_iter_time, bool force_run = false);
-  virtual void task_added(SimTask * task);
-  virtual void reset();
-  virtual std::unique_ptr<L1OptimizerInformation> export_information();
-  virtual void import_information(const std::unique_ptr<L1OptimizerInformation>& information);
-  virtual void delete_information(const std::unique_ptr<L1OptimizerInformation>& information);
-  virtual void store_tm() const; 
-
-  std::vector<std::pair<uint64_t, int>> generate_dp_topology(ConnectionMatrix & conn, int dp_degree);
-  void generate_mp_matching(ConnectionMatrix & conn, int dp_degree);
-  void generate_one_match(ConnectionMatrix & conn, std::unordered_map<uint64_t, uint64_t> & mp_tm);
-  ConnectionMatrix add_ring(const ConnectionMatrix & conn, int start, int dist);
-  // ConnectionMatrix construct_hop_matrix(const ConnectionMatrix & conn);
-  double compute_mp_satified(const ConnectionMatrix & hop_matrix);
-  void construct_candidate_jumps();
-  std::vector<int> all_coin_change(const std::set<int> & coins);
-  std::vector<int> query_path(const std::vector<int>& candidates, int jump);
-  std::pair<blossom_match::Graph, std::vector<double>>
-    convert_to_blsm_match_graph(std::unordered_map<uint64_t, uint64_t> & mp_tm);
-  // std::vector<std::vector<int>> get_selected_jumps(int group_sz); 
-  ConnectionMatrix connect_topology(const ConnectionMatrix & conn, 
-    ConnectionMatrix & mp_conn, ConnectionMatrix & dp_conn, 
-    const std::vector<std::pair<uint64_t, int>> & dp_rings, int mp_degree);
-  void construct_topology();
-  const std::vector<NominalCommDevice*>& get_dp_ncomms(int src, int grp_sz);
-
-  // uint64_t get_mp_bandwidth_tax(const ConnectionMatrix & conn);
-
-  inline void get_dp_mp_degree(int & dp_degree, int & mp_degree);
-  // inline size_t edge_id(int i, int j) const;
-  // inline size_t unordered_edge_id(int i, int j) const;
-  // inline int get_start_node(uint64_t id) const;
-  // inline int get_group_size(uint64_t id) const;
-  // inline uint64_t dpgrp_unique_key(const DPGroup & dpg) const;
-  inline bool segment_overlap(const std::vector<int>& a, const std::vector<int>& b);
-  inline std::vector<int> negative(const std::vector<int>& v);
-  inline std::vector<int> choose_n(const std::vector<int>& cjs, int init_jmp, int n);
-
-  void print_all_rings() const;
-
-  std::unordered_map<uint64_t, std::vector<int>> candidate_jumps;
-  std::unordered_map<uint64_t, std::vector<std::vector<int>>> selected_jumps;
-  std::unordered_map<uint64_t, uint64_t> dpgrpsz_xfersize;
-  std::vector<DPGroup> dpgrps;
-  std::unordered_map<uint64_t, uint64_t> mp_tm_logical;
-
-  std::unordered_map<uint64_t, std::vector<NominalCommDevice*>> dp_ncomms;
-
-  // int degree;
-  bool bidir;
-  bool constructed;
-  // double best_sim_time;
-  // double curr_sim_time;
-  // double alpha;
-  // int num_iter_nochange;
-  // int no_improvement_th;
-};
-
-class SpMulMatSimulator: public LogicalTaskgraphBasedSimulator {
-public: 
-  SpMulMatSimulator(const FFModel* model,
-            FFHandler handler,
-            Memory memory,
-            MachineModel *machine);
-  virtual double simulate_runtime(const FFModel* model,
-      const std::map<Op*, ParallelConfig>& global,
-      CompMode comp_mode);
-  virtual double simulate_runtime(const FFModel* model,
-      const std::map<Op*, ParallelConfig>& global,
-      CompMode comp_mode,
-      std::string const &export_file_name);
-  virtual void expand_allreduce(SimTask * allreduce_task, double start_time,std::priority_queue<SimTask*, std::vector<SimTask*>, SimTaskCompare>& ready_queue);
-  virtual void get_taskgraph_flatbuf(const FFModel* model, flatbuffers::FlatBufferBuilder &builder);
-  static void simulation_task(const Task *task,
-                                  const std::vector<PhysicalRegion> &regions,
-                                  Context ctx, Runtime *runtime);
 };
 
 #endif

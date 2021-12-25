@@ -1798,7 +1798,7 @@ void FFModel::simulate(CompMode comp_mode)
     future.get_void_result();
   }
   else {
-    TaskLauncher launcher(CUSTOM_SIMULATION_TASK_ID_3,
+    TaskLauncher launcher(CUSTOM_SIMULATION_TASK_ID_2,
       TaskArgument(&model, sizeof(FFModel*)));
     Future future = runtime->execute_task(ctx, launcher);
     future.get_void_result();
@@ -3748,14 +3748,6 @@ void register_flexflow_internal_tasks()
     registrar.set_leaf();
     Runtime::preregister_task_variant<Simulator::simulation_task>(
         registrar, "Simulation Task 2");
-  }
-  {
-    TaskVariantRegistrar registrar(CUSTOM_SIMULATION_TASK_ID_3,
-                                   "Simulation Only 3");
-    registrar.add_constraint(ProcessorConstraint(Processor::TOC_PROC));
-    registrar.set_leaf();
-    Runtime::preregister_task_variant<SpMulMatSimulator::simulation_task>(
-        registrar, "Simulation Task 3");
   }
   {
     TaskVariantRegistrar registrar(CUSTOM_MEASUREMENT_TASK_ID_1,
