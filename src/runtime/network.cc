@@ -1826,7 +1826,7 @@ void SpMulMat::construct_candidate_jumps() {
         if (k > group_size) {
           break;
         }
-        if (std::gcd(group_size, k) == 1)
+        if (Realm::gcd(group_size, k) == 1)
           candidate_jumps[group_size].emplace_back(base_jump * PRIMES[k]);
       }
     }
