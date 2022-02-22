@@ -39,6 +39,7 @@ class Op;
 class FFModel;
 
 #define MOD(a, b) ((a) % (b)) < 0 ? ((a) % (b)) + (b) : ((a) % (b))
+// #define DEBUG_PRINT
 
 namespace flatbuffers {
   class FlatBufferBuilder;

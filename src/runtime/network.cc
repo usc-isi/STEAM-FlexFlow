@@ -1795,21 +1795,22 @@ std::vector<int> SpMulMat::choose_n_geo(const std::vector<int>& cjs, int n)
   if (n == 1) {
     return {cjs[0]};
   }
-  double diff = cjs[cjs.size() - 1] - cjs[0];
-  double ratio = std::pow(machine->get_num_nodes(), 1/diff);
+  double diff = (double)cjs[cjs.size() - 1] / cjs[0];
+  double ratio = std::pow(diff, 1.0/(n-(bidir?0:1)));
+  // std::cerr << "n: " << n << ",ratio: " << ratio << std::endl;
 
   std::set<int> result{};
   double curr = cjs[0];
   for (int i = 0; i < n; i++) {
+    assert(curr <= cjs[cjs.size() - 1]);
     auto candidate = std::lower_bound(cjs.begin(), cjs.end(), curr);
     while (result.find(*candidate) != result.end()) {
       candidate++;
     }
     result.insert(*candidate);
-    // std::cerr << "Adding " << *std::upper_bound(cjs.cbegin(), cjs.cend(), jmp) 
-    //           << ", jmp = " << jmp << std::endl;
+    // std::cerr << "Adding " << *candidate << std::endl;
     curr *= ratio;
-    assert(curr <= cjs[cjs.size() - 1]);
+    // std::cerr << "curr " << curr << std::endl;
   }
   return std::vector<int>{result.cbegin(), result.cend()};
 }
@@ -1827,7 +1828,7 @@ void SpMulMat::construct_candidate_jumps() {
           break;
         }
         if (Realm::gcd(group_size, k) == 1)
-          candidate_jumps[group_size].emplace_back(base_jump * PRIMES[k]);
+          candidate_jumps[group_size].emplace_back(base_jump * k);
       }
     }
   }
@@ -1931,8 +1932,9 @@ std::vector<std::pair<uint64_t, int>> SpMulMat::generate_dp_topology(ConnectionM
     selected_jumps.emplace(
       std::make_pair(curr_dpg.first, std::vector<std::vector<int>>{}));
     // for (int j = 0; j < curr_dpg.second; j += bidir ? 2 : 1) {
-    for (auto cj: candidate_jumps.at(curr_dpg.first)) {
-      std::vector<int> jmps = choose_n(candidate_jumps.at(curr_dpg.first), cj, curr_dpg.second / (bidir ? 2 : 1));
+    // for (auto cj: candidate_jumps.at(curr_dpg.first)) {
+      // std::vector<int> jmps = choose_n(candidate_jumps.at(curr_dpg.first), cj, curr_dpg.second / (bidir ? 2 : 1));
+      std::vector<int> jmps = choose_n_geo(candidate_jumps.at(curr_dpg.first), curr_dpg.second / (bidir ? 2 : 1));
       ConnectionMatrix proposed = conn;
       for (int j = 0; j < jmps.size(); j++) {
         for (int k = 0; k < ndevs / curr_dpg.first; k++) {
@@ -1949,7 +1951,7 @@ std::vector<std::pair<uint64_t, int>> SpMulMat::generate_dp_topology(ConnectionM
         best = proposed;
         best_jmps = jmps;
       }
-    }
+    // }
     // }
     assert(best_jmps.size() >= 1);
     conn = best;

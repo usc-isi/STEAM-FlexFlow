@@ -420,6 +420,7 @@ void LogicalTaskgraphBasedSimulator::add_task_dependencies_with_xfer(
   std::vector<SimTask*> final_tasks;
   for (CommDevice * d: path) {
     SimTask* task = task_manager->new_nominal_comm_task();
+    // std::cerr << "add_task_dependency_with_xfer: " << task << std::endl;
     task->device = d;
     task->run_time = 0;
     task->xfer_size = message_size;
