@@ -1,0 +1,107 @@
+network:
+  version: 2
+  ethernets:
+    enp65s0f0:
+      match:
+        macaddress: 14:02:ec:ca:e5:a4
+      dhcp4: false
+      addresses: [10.100.8.1/24]
+      set-name: pp1rdma
+      mtu: 9000
+    enp65s0f1:
+      match:
+        macaddress: 14:02:ec:ca:e5:a5
+      dhcp4: false
+      addresses: [10.100.8.2/24]
+      set-name: pp2rdma
+      mtu: 9000
+    enp65s0f2:
+      match:
+        macaddress: 14:02:ec:ca:e5:a6
+      dhcp4: false
+      addresses: [10.100.8.3/24]
+      set-name: pp3rdma
+      mtu: 9000
+    enp65s0f3:
+      match:
+        macaddress: 14:02:ec:ca:e5:a7
+      dhcp4: false
+      addresses: [10.100.8.4/24]
+      set-name: pp4rdma
+      mtu: 9000
+    enp65s0f4:
+      match:
+        macaddress: 14:02:ec:ca:e5:a8
+      dhcp4: false
+      set-name: pp1eth
+      mtu: 9000
+    enp65s0f5:
+      match:
+        macaddress: 14:02:ec:ca:e5:a9
+      dhcp4: false
+      set-name: pp2eth
+      mtu: 9000
+    enp65s0f6:
+      match:
+        macaddress: 14:02:ec:ca:e5:aa
+      dhcp4: false
+      set-name: pp3eth
+      mtu: 9000
+    enp65s0f7:
+      match:
+        macaddress: 14:02:ec:ca:e5:ab
+      dhcp4: false
+      set-name: pp4eth
+      mtu: 9000
+    enp1s0f0:
+      match:
+        macaddress: 14:02:ec:ca:ca:d8
+      dhcp4: false
+      addresses: [10.100.8.5/24]
+      set-name: pp5rdma
+      mtu: 9000
+    enp1s0f1:
+      match:
+        macaddress: 14:02:ec:ca:ca:d9
+      dhcp4: false
+      addresses: [10.100.8.6/24]
+      set-name: pp6rdma
+      mtu: 9000
+    enp1s0f2:
+      match:
+        macaddress: 14:02:ec:ca:ca:da
+      dhcp4: false
+      addresses: [10.100.8.7/24]
+      set-name: pp7rdma
+      mtu: 9000
+    enp1s0f3:
+      match:
+        macaddress: 14:02:ec:ca:ca:db
+      dhcp4: false
+      addresses: [10.100.8.8/24]
+      set-name: pp8rdma
+      mtu: 9000
+    enp1s0f4:
+      match:
+        macaddress: 14:02:ec:ca:ca:dc
+      dhcp4: false
+      set-name: pp5eth
+      mtu: 9000
+    enp1s0f5:
+      match:
+        macaddress: 14:02:ec:ca:ca:dd
+      dhcp4: false
+      set-name: pp6eth
+      mtu: 9000
+    enp1s0f6:
+      match:
+        macaddress: 14:02:ec:ca:ca:de
+      dhcp4: false
+      set-name: pp7eth
+      mtu: 9000
+    enp1s0f7:
+      match:
+        macaddress: 14:02:ec:ca:ca:df
+      dhcp4: false
+      set-name: pp8eth
+      mtu: 9000
