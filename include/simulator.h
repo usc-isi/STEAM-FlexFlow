@@ -39,6 +39,7 @@ class Op;
 class FFModel;
 
 #define MOD(a, b) ((a) % (b)) < 0 ? ((a) % (b)) + (b) : ((a) % (b))
+// #define DEBUG_PRINT
 
 namespace flatbuffers {
   class FlatBufferBuilder;
@@ -945,6 +946,7 @@ public:
   inline bool segment_overlap(const std::vector<int>& a, const std::vector<int>& b);
   inline std::vector<int> negative(const std::vector<int>& v);
   inline std::vector<int> choose_n(const std::vector<int>& cjs, int init_jmp, int n);
+  inline std::vector<int> choose_n_geo(const std::vector<int>& cjs, int n);
 
   void print_all_rings() const;
 
