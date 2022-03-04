@@ -1823,7 +1823,7 @@ void SpMulMat::get_dp_mp_degree(int & dp_degree, int & mp_degree)
   }
 
   for (auto & entry: mp_tm_logical) {
-    total_dp_traffic += entry.second;
+    total_mp_traffic += entry.second;
   }
 
   dp_degree = lround(total_dp_traffic / (total_dp_traffic + total_mp_traffic) * if_cnt);

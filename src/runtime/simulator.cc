@@ -841,6 +841,7 @@ double LogicalTaskgraphBasedSimulator::simulate_runtime(
     }
   }
 
+  std::set<SimTask*> ars;
   for (size_t l = 0; l < model->layers.size(); l++) {
     Op* op = model->layers[l];
     ParallelConfig config = global.find(op)->second;
@@ -869,6 +870,7 @@ double LogicalTaskgraphBasedSimulator::simulate_runtime(
           
           SimTask* ar_task = task_manager->new_allreduce_task(op, node_ids, xfer_size);
           task_to_op[ar_task] = op;
+          ars.insert(ar_task);
           if (l1optimizer) 
             l1optimizer->task_added(ar_task);
           for (int dstId = 0; dstId < config.num_parts(); dstId ++) {
@@ -879,6 +881,19 @@ double LogicalTaskgraphBasedSimulator::simulate_runtime(
       }
     }
   }
+  /*
+  {
+    for (size_t l = 0; l < model->layers.size(); l++) {
+      Op* op0 = model->layers[l];
+      ParallelConfig config0 = global.find(op0)->second;
+      for (int dstId = 0; dstId < config0.num_parts(); dstId ++) {
+        for (SimTask* t: ars) {
+          task_manager->get_backward_task(op0, dstId)->add_next_task(t);
+        }
+      }
+    }
+  }
+  */
         
 
   // Step 2: insert dependencies and comm. tasks before compute tasks
@@ -1596,6 +1611,8 @@ double SpMulMatSimulator::simulate_runtime(
     }
   }
 
+  std::unordered_set<SimTask*> ars;
+
   for (size_t l = 0; l < model->layers.size(); l++) {
     Op* op = model->layers[l];
     ParallelConfig config = global.find(op)->second;
@@ -1623,6 +1640,8 @@ double SpMulMatSimulator::simulate_runtime(
           }
           SimTask* ar_task = task_manager->new_allreduce_task(op, node_ids, xfer_size);
           task_to_op[ar_task] = op;
+          ars.insert(ar_task);
+          
           if (l1optimizer) 
             l1optimizer->task_added(ar_task);
           for (int dstId = 0; dstId < config.num_parts(); dstId ++) {
@@ -1632,6 +1651,19 @@ double SpMulMatSimulator::simulate_runtime(
       }
     }
   }
+  /*
+  {
+    for (size_t l = 0; l < model->layers.size(); l++) {
+      Op* op0 = model->layers[l];
+      ParallelConfig config0 = global.find(op0)->second;
+      for (int dstId = 0; dstId < config0.num_parts(); dstId ++) {
+        for (SimTask* t: ars) {
+          task_manager->get_backward_task(op0, dstId)->add_next_task(t);
+        }
+      }
+    }
+  }
+  */
 
   // Step 2: insert dependencies and comm. tasks before compute tasks
   for (size_t l = 0; l < model->layers.size(); l++) {
