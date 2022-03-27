@@ -547,7 +547,7 @@ public:
  */
 #if 0
 /**
- * Special class of tasks for all reduce. This is more for exporting 
+ * Special class of tasks for all reduce. This is more for exporting
  * task graph since recording individual transfers would take too much space
  */
 class AllReduceTask : public SimTask {
