@@ -13,10 +13,10 @@ echo " Defaults for Linux machine"
 #LD_FLAGS=${LD_FLAGS+=""}
 
 # set build type
-BUILD_TYPE=Debug
+BUILD_TYPE=Release
 
 # set CUDA Arch, replace xx with your GPU architecture
-FF_CUDA_ARCH=70
+FF_CUDA_ARCH=86
 
 # set CUDNN dir in case cmake cannot autodetect a path
 CUDNN_DIR=/usr/local/cuda
@@ -25,7 +25,7 @@ CUDNN_DIR=/usr/local/cuda
 #CUDA_DIR=/usr/local/cuda
 
 # enable Python
-FF_USE_PYTHON=OFF
+FF_USE_PYTHON=ON
 
 # enable NCCL
 FF_USE_NCCL=ON
