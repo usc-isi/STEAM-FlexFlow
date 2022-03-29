@@ -237,6 +237,10 @@ if(FF_BUILD_ALL_EXAMPLES)
   add_subdirectory(examples/cpp/vgg16sim)
 endif()
 
+if(FF_BUILD_ALL_EXAMPLES)
+  add_subdirectory(examples/cpp/ncfsim)
+endif()
+
 # installation
 set(INCLUDE_DEST "include")
 set(LIB_DEST "lib")

@@ -184,7 +184,7 @@ void parse_input_args(char **argv, int argc, NCFConfig& config)
       continue;
     }
     if (!strcmp(argv[i], "--edim_per_table")) {
-      config.factor_num = atoi(argv[++i]);
+      config.embed_dim_per_table = atoi(argv[++i]);
       continue;
     }
     if (!strcmp(argv[i], "--ntables")) {

@@ -5,11 +5,11 @@ set(project_target ncfsim)
 find_package(HDF5 REQUIRED COMPONENTS C)
 set(CPU_SRC
   ${FLEXFLOW_CPP_DRV_SRC}
-  dlrm.cc
-  dlrm.h)
+  ncf.cc
+  ncf.h)
 
 set(GPU_SRC
-  dlrm.cu)
+  ncf.cu)
 
 cuda_add_executable(${project_target} ${CPU_SRC} ${GPU_SRC})
 target_include_directories(${project_target} PRIVATE ${FLEXFLOW_INCLUDE_DIRS} ${CMAKE_INSTALL_INCLUDEDIR} ${HDF5_C_INCLUDE_DIRS})

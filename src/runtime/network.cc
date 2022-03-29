@@ -1940,8 +1940,7 @@ std::vector<std::pair<uint64_t, int>> SpMulMat::generate_dp_topology(ConnectionM
   // contains all the hops one can do on the ring
   std::set<int> coins;
 
-  // for (int i = 0; i < n_parallel_rings.size(); i++)
-  // {
+ for (int i = 0; i < n_parallel_rings.size(); i++) {
     auto & curr_dpg = n_parallel_rings[i];
     double mp_satisfied = std::numeric_limits<double>::lowest();
     ConnectionMatrix best = conn;
@@ -1949,26 +1948,26 @@ std::vector<std::pair<uint64_t, int>> SpMulMat::generate_dp_topology(ConnectionM
     selected_jumps.emplace(
       std::make_pair(curr_dpg.first, std::vector<std::vector<int>>{}));
     // for (int j = 0; j < curr_dpg.second; j += bidir ? 2 : 1) {
-    //   for (auto cj: candidate_jumps.at(curr_dpg.first)) {
-        // std::vector<int> jmps = choose_n(candidate_jumps.at(curr_dpg.first), cj, curr_dpg.second / (bidir ? 2 : 1));
-        std::vector<int> jmps = choose_n_geo(candidate_jumps.at(curr_dpg.first), curr_dpg.second / (bidir ? 2 : 1));
-        ConnectionMatrix proposed = conn;
-        for (int j = 0; j < jmps.size(); j++) {
-          for (int k = 0; k < ndevs / curr_dpg.first; k++) {
-            proposed = add_ring(proposed, k, jmps[j]);
-          }
+    // for (auto cj: candidate_jumps.at(curr_dpg.first)) {
+      // std::vector<int> jmps = choose_n(candidate_jumps.at(curr_dpg.first), cj, curr_dpg.second / (bidir ? 2 : 1));
+      std::vector<int> jmps = choose_n_geo(candidate_jumps.at(curr_dpg.first), curr_dpg.second / (bidir ? 2 : 1));
+      ConnectionMatrix proposed = conn;
+      for (int j = 0; j < jmps.size(); j++) {
+        for (int k = 0; k < ndevs / curr_dpg.first; k++) {
+          proposed = add_ring(proposed, k, jmps[j]);
         }
-        // ConnectionMatrix hopm = construct_hop_matrix(conn);
-        double mp_this = compute_mp_satified(proposed);
-  #ifdef DEBUG_PRINT
-        std::cerr << "MP satisfied: " << mp_this << std::endl;
-  #endif
-        if (mp_this > mp_satisfied || (mp_this == mp_satisfied && unif(gen) > 0.5)) {
-          mp_satisfied = mp_this;
-          best = proposed;
-          best_jmps = jmps;
-        }
-    //   }
+      }
+      // ConnectionMatrix hopm = construct_hop_matrix(conn);
+      double mp_this = compute_mp_satified(proposed);
+#ifdef DEBUG_PRINT
+      std::cerr << "MP satisfied: " << mp_this << std::endl;
+#endif
+      if (mp_this > mp_satisfied || (mp_this == mp_satisfied && unif(gen) > 0.5)) {
+        mp_satisfied = mp_this;
+        best = proposed;
+        best_jmps = jmps;
+      }
+    // }
     // }
     assert(best_jmps.size() >= 1);
     conn = best;
