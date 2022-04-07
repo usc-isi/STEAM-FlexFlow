@@ -882,7 +882,7 @@ double LogicalTaskgraphBasedSimulator::simulate_runtime(
       }
     }
   }
-  /*
+          /*
   {
     for (size_t l = 0; l < model->layers.size(); l++) {
       Op* op0 = model->layers[l];
@@ -894,7 +894,7 @@ double LogicalTaskgraphBasedSimulator::simulate_runtime(
       }
     }
   }
-  */
+          */
         
 
   // Step 2: insert dependencies and comm. tasks before compute tasks
@@ -1153,7 +1153,7 @@ double LogicalTaskgraphBasedSimulator::route_transfer_seg(SimTask * transfer_tas
   double curr_task_run_time = 0; 
   double curr_task_ready_time = transfer_task->ready_time; 
   double xfer_size = transfer_task->xfer_left > segment_size ? segment_size : transfer_task->xfer_left;
-  xfer_size /= route.size();
+  // xfer_size /= route.size();
   transfer_task->xfer_left = transfer_task->xfer_left > segment_size ? transfer_task->xfer_left - segment_size : 0;
   finished = transfer_task->xfer_left == 0; 
 // #ifdef DEBUG_PRINT
@@ -1653,7 +1653,7 @@ double SpMulMatSimulator::simulate_runtime(
       }
     }
   }
-  /*
+          /*
   {
     for (size_t l = 0; l < model->layers.size(); l++) {
       Op* op0 = model->layers[l];
@@ -1665,7 +1665,7 @@ double SpMulMatSimulator::simulate_runtime(
       }
     }
   }
-  */
+          */
 
   // Step 2: insert dependencies and comm. tasks before compute tasks
   for (size_t l = 0; l < model->layers.size(); l++) {

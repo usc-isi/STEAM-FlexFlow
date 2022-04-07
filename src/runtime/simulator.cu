@@ -516,8 +516,8 @@
        // }
        // if (opsz * model->config.numNodes * model->config.workersPerNode < gpu_mem.capacity())
        if (model->layers[l]->op_type != OperatorType::OP_EMBEDDING)
-         //strategies[model->layers[l]] = model->layers[l]->get_data_parallel_config(*model);
-         strategies[model->layers[l]] = model->layers[l]->get_random_parallel_config(*model);
+         strategies[model->layers[l]] = model->layers[l]->get_data_parallel_config(*model);
+         //strategies[model->layers[l]] = model->layers[l]->get_random_parallel_config(*model);
        else {
          ParallelConfig pc = model->layers[l]->get_random_parallel_config(*model);
          pc.device_ids[0] = (curr_gpu++) % model->config.numNodes;
