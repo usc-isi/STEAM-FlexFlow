@@ -271,6 +271,9 @@ EcmpRoutes ShortestPathNetworkRoutingStrategy::get_routes(int src_node, int dst_
   q.push(src_node);
   dist[src_node] = 0;
 
+  std::vector<int> rd_idx(total_devs);
+  std::iota(std::begin(rd_idx), std::end(rd_idx), 0);
+
   // BFS
   while (!q.empty()) {
     int min_node = q.front();
@@ -280,7 +283,8 @@ EcmpRoutes ShortestPathNetworkRoutingStrategy::get_routes(int src_node, int dst_
     if (min_node == dst_node)
       break;
 
-    for (int i = 0; i < total_devs; i++) {
+    std::random_shuffle(rd_idx.begin(), rd_idx.end());
+    for (int i: rd_idx) {
       if (visited[i] || conn[min_node * total_devs + i] == 0) {
         continue;
       }
@@ -305,6 +309,7 @@ EcmpRoutes ShortestPathNetworkRoutingStrategy::get_routes(int src_node, int dst_
 
 std::vector<EcmpRoutes> ShortestPathNetworkRoutingStrategy::get_routes_from_src(int src_node) 
 {
+  
   std::vector<uint64_t> dist(total_devs, std::numeric_limits<uint64_t>::max());
   std::vector<int> prev(total_devs, -1);
   std::vector<bool> visited(total_devs, false);
@@ -313,13 +318,16 @@ std::vector<EcmpRoutes> ShortestPathNetworkRoutingStrategy::get_routes_from_src(
   q.push(src_node);
   dist[src_node] = 0;
 
+  std::vector<int> rd_idx(total_devs);
+  std::iota(std::begin(rd_idx), std::end(rd_idx), 0);
   // BFS
   while (!q.empty()) {
     int min_node = q.front();
     q.pop();
     visited[min_node] = true;
 
-    for (int i = 0; i < total_devs; i++) {
+    std::random_shuffle(rd_idx.begin(), rd_idx.end());
+    for (int i: rd_idx) {
       if (visited[i] || conn[min_node * total_devs + i] == 0) {
         continue;
       }
