@@ -310,6 +310,11 @@ EcmpRoutes ShortestPathNetworkRoutingStrategy::get_routes(int src_node, int dst_
 std::vector<EcmpRoutes> ShortestPathNetworkRoutingStrategy::get_routes_from_src(int src_node) 
 {
   
+  std::vector<EcmpRoutes> final_result;
+  for (int i = 0; i < total_devs; i++) {
+    final_result.emplace_back(get_routes(src_node, i));
+  }
+  /*
   std::vector<uint64_t> dist(total_devs, std::numeric_limits<uint64_t>::max());
   std::vector<int> prev(total_devs, -1);
   std::vector<bool> visited(total_devs, false);
@@ -355,6 +360,7 @@ std::vector<EcmpRoutes> ShortestPathNetworkRoutingStrategy::get_routes_from_src(
     // assert(result.size() > 0);
     final_result.emplace_back(std::make_pair(std::vector<double>{1}, std::vector<Route>{result}));
   }
+  */
   return final_result; 
 }
 
