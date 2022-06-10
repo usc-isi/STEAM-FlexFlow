@@ -1,0 +1,1118 @@
+{
+  conn: [
+    {
+      fromnode: 15,
+      tonode: 8,
+      nconn: 8
+    },
+    {
+      fromnode: 14,
+      tonode: 15,
+      nconn: 8
+    },
+    {
+      fromnode: 13,
+      tonode: 14,
+      nconn: 8
+    },
+    {
+      fromnode: 12,
+      tonode: 13,
+      nconn: 8
+    },
+    {
+      fromnode: 11,
+      tonode: 12,
+      nconn: 8
+    },
+    {
+      fromnode: 10,
+      tonode: 11,
+      nconn: 8
+    },
+    {
+      fromnode: 9,
+      tonode: 10,
+      nconn: 8
+    },
+    {
+      fromnode: 8,
+      tonode: 9,
+      nconn: 8
+    },
+    {
+      fromnode: 7,
+      tonode: 15,
+      nconn: 1
+    },
+    {
+      fromnode: 15,
+      tonode: 7,
+      nconn: 1
+    },
+    {
+      fromnode: 6,
+      tonode: 14,
+      nconn: 1
+    },
+    {
+      fromnode: 14,
+      tonode: 6,
+      nconn: 1
+    },
+    {
+      fromnode: 5,
+      tonode: 13,
+      nconn: 1
+    },
+    {
+      fromnode: 13,
+      tonode: 5,
+      nconn: 1
+    },
+    {
+      fromnode: 4,
+      tonode: 12,
+      nconn: 1
+    },
+    {
+      fromnode: 12,
+      tonode: 4,
+      nconn: 1
+    },
+    {
+      fromnode: 3,
+      tonode: 11,
+      nconn: 1
+    },
+    {
+      fromnode: 11,
+      tonode: 3,
+      nconn: 1
+    },
+    {
+      fromnode: 2,
+      tonode: 10,
+      nconn: 1
+    },
+    {
+      fromnode: 10,
+      tonode: 2,
+      nconn: 1
+    },
+    {
+      fromnode: 1,
+      tonode: 9,
+      nconn: 1
+    },
+    {
+      fromnode: 9,
+      tonode: 1,
+      nconn: 1
+    },
+    {
+      tonode: 8,
+      nconn: 1
+    },
+    {
+      fromnode: 8,
+      nconn: 1
+    }
+  ],
+  routes: [
+    {
+      fromnode: 7,
+      tonode: 6,
+      paths: [
+        {
+          hopnode: [
+            7,
+            15,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            6
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 7,
+      tonode: 5,
+      paths: [
+        {
+          hopnode: [
+            7,
+            15,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            5
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 7,
+      tonode: 4,
+      paths: [
+        {
+          hopnode: [
+            7,
+            15,
+            8,
+            9,
+            10,
+            11,
+            12,
+            4
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 7,
+      tonode: 3,
+      paths: [
+        {
+          hopnode: [
+            7,
+            15,
+            8,
+            9,
+            10,
+            11,
+            3
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 7,
+      tonode: 2,
+      paths: [
+        {
+          hopnode: [
+            7,
+            15,
+            8,
+            9,
+            10,
+            2
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 7,
+      tonode: 1,
+      paths: [
+        {
+          hopnode: [
+            7,
+            15,
+            8,
+            9,
+            1
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 7,
+      paths: [
+        {
+          hopnode: [
+            7,
+            15,
+            8,
+            0
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 6,
+      tonode: 7,
+      paths: [
+        {
+          hopnode: [
+            6,
+            14,
+            15,
+            7
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 6,
+      tonode: 5,
+      paths: [
+        {
+          hopnode: [
+            6,
+            14,
+            15,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            5
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 6,
+      tonode: 4,
+      paths: [
+        {
+          hopnode: [
+            6,
+            14,
+            15,
+            8,
+            9,
+            10,
+            11,
+            12,
+            4
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 6,
+      tonode: 3,
+      paths: [
+        {
+          hopnode: [
+            6,
+            14,
+            15,
+            8,
+            9,
+            10,
+            11,
+            3
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 6,
+      tonode: 2,
+      paths: [
+        {
+          hopnode: [
+            6,
+            14,
+            15,
+            8,
+            9,
+            10,
+            2
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 6,
+      tonode: 1,
+      paths: [
+        {
+          hopnode: [
+            6,
+            14,
+            15,
+            8,
+            9,
+            1
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 6,
+      paths: [
+        {
+          hopnode: [
+            6,
+            14,
+            15,
+            8,
+            0
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 5,
+      tonode: 7,
+      paths: [
+        {
+          hopnode: [
+            5,
+            13,
+            14,
+            15,
+            7
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 5,
+      tonode: 6,
+      paths: [
+        {
+          hopnode: [
+            5,
+            13,
+            14,
+            6
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 5,
+      tonode: 4,
+      paths: [
+        {
+          hopnode: [
+            5,
+            13,
+            14,
+            15,
+            8,
+            9,
+            10,
+            11,
+            12,
+            4
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 5,
+      tonode: 3,
+      paths: [
+        {
+          hopnode: [
+            5,
+            13,
+            14,
+            15,
+            8,
+            9,
+            10,
+            11,
+            3
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 5,
+      tonode: 2,
+      paths: [
+        {
+          hopnode: [
+            5,
+            13,
+            14,
+            15,
+            8,
+            9,
+            10,
+            2
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 5,
+      tonode: 1,
+      paths: [
+        {
+          hopnode: [
+            5,
+            13,
+            14,
+            15,
+            8,
+            9,
+            1
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 5,
+      paths: [
+        {
+          hopnode: [
+            5,
+            13,
+            14,
+            15,
+            8,
+            0
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 4,
+      tonode: 7,
+      paths: [
+        {
+          hopnode: [
+            4,
+            12,
+            13,
+            14,
+            15,
+            7
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 4,
+      tonode: 6,
+      paths: [
+        {
+          hopnode: [
+            4,
+            12,
+            13,
+            14,
+            6
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 4,
+      tonode: 5,
+      paths: [
+        {
+          hopnode: [
+            4,
+            12,
+            13,
+            5
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 4,
+      tonode: 3,
+      paths: [
+        {
+          hopnode: [
+            4,
+            12,
+            13,
+            14,
+            15,
+            8,
+            9,
+            10,
+            11,
+            3
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 4,
+      tonode: 2,
+      paths: [
+        {
+          hopnode: [
+            4,
+            12,
+            13,
+            14,
+            15,
+            8,
+            9,
+            10,
+            2
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 4,
+      tonode: 1,
+      paths: [
+        {
+          hopnode: [
+            4,
+            12,
+            13,
+            14,
+            15,
+            8,
+            9,
+            1
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 4,
+      paths: [
+        {
+          hopnode: [
+            4,
+            12,
+            13,
+            14,
+            15,
+            8,
+            0
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 3,
+      tonode: 7,
+      paths: [
+        {
+          hopnode: [
+            3,
+            11,
+            12,
+            13,
+            14,
+            15,
+            7
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 3,
+      tonode: 6,
+      paths: [
+        {
+          hopnode: [
+            3,
+            11,
+            12,
+            13,
+            14,
+            6
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 3,
+      tonode: 5,
+      paths: [
+        {
+          hopnode: [
+            3,
+            11,
+            12,
+            13,
+            5
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 3,
+      tonode: 4,
+      paths: [
+        {
+          hopnode: [
+            3,
+            11,
+            12,
+            4
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 3,
+      tonode: 2,
+      paths: [
+        {
+          hopnode: [
+            3,
+            11,
+            12,
+            13,
+            14,
+            15,
+            8,
+            9,
+            10,
+            2
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 3,
+      tonode: 1,
+      paths: [
+        {
+          hopnode: [
+            3,
+            11,
+            12,
+            13,
+            14,
+            15,
+            8,
+            9,
+            1
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 3,
+      paths: [
+        {
+          hopnode: [
+            3,
+            11,
+            12,
+            13,
+            14,
+            15,
+            8,
+            0
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 2,
+      tonode: 7,
+      paths: [
+        {
+          hopnode: [
+            2,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            7
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 2,
+      tonode: 6,
+      paths: [
+        {
+          hopnode: [
+            2,
+            10,
+            11,
+            12,
+            13,
+            14,
+            6
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 2,
+      tonode: 5,
+      paths: [
+        {
+          hopnode: [
+            2,
+            10,
+            11,
+            12,
+            13,
+            5
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 2,
+      tonode: 4,
+      paths: [
+        {
+          hopnode: [
+            2,
+            10,
+            11,
+            12,
+            4
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 2,
+      tonode: 3,
+      paths: [
+        {
+          hopnode: [
+            2,
+            10,
+            11,
+            3
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 2,
+      tonode: 1,
+      paths: [
+        {
+          hopnode: [
+            2,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            8,
+            9,
+            1
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 2,
+      paths: [
+        {
+          hopnode: [
+            2,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            8,
+            0
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 1,
+      tonode: 7,
+      paths: [
+        {
+          hopnode: [
+            1,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            7
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 1,
+      tonode: 6,
+      paths: [
+        {
+          hopnode: [
+            1,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            6
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 1,
+      tonode: 5,
+      paths: [
+        {
+          hopnode: [
+            1,
+            9,
+            10,
+            11,
+            12,
+            13,
+            5
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 1,
+      tonode: 4,
+      paths: [
+        {
+          hopnode: [
+            1,
+            9,
+            10,
+            11,
+            12,
+            4
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 1,
+      tonode: 3,
+      paths: [
+        {
+          hopnode: [
+            1,
+            9,
+            10,
+            11,
+            3
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 1,
+      tonode: 2,
+      paths: [
+        {
+          hopnode: [
+            1,
+            9,
+            10,
+            2
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      fromnode: 1,
+      paths: [
+        {
+          hopnode: [
+            1,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            8,
+            0
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      tonode: 7,
+      paths: [
+        {
+          hopnode: [
+            0,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            7
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      tonode: 6,
+      paths: [
+        {
+          hopnode: [
+            0,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            6
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      tonode: 5,
+      paths: [
+        {
+          hopnode: [
+            0,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            5
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      tonode: 4,
+      paths: [
+        {
+          hopnode: [
+            0,
+            8,
+            9,
+            10,
+            11,
+            12,
+            4
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      tonode: 3,
+      paths: [
+        {
+          hopnode: [
+            0,
+            8,
+            9,
+            10,
+            11,
+            3
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      tonode: 2,
+      paths: [
+        {
+          hopnode: [
+            0,
+            8,
+            9,
+            10,
+            2
+          ],
+          chance: 1.0
+        }
+      ]
+    },
+    {
+      tonode: 1,
+      paths: [
+        {
+          hopnode: [
+            0,
+            8,
+            9,
+            1
+          ],
+          chance: 1.0
+        }
+      ]
+    }
+  ]
+}
