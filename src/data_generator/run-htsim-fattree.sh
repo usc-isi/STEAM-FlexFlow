@@ -1,0 +1,1 @@
+~/STEAM/MIT/STEAM-ffsim-opera/src/clos/datacenter/htsim_tcp_fattree -simtime 3600.1 -flowfile ./output-tg.fattree -speed 1000 -ofile nwsim_linkft-fat.txt -nodes 16 -ssthresh 10000 -rttnet 1000 -rttrack 1000 -q 10000

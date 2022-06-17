@@ -1,0 +1,100 @@
+namespace FlatBufTaskGraph;
+
+enum SimTaskType: short {
+  TASK_FORWARD = 0,
+  TASK_BACKWARD = 1,
+  TASK_COMM = 2,
+  TASK_UPDATE = 3,
+  TASK_BARRIER = 4,
+  TASK_NOMINAL_COMM = 5,
+  TASK_ALLREDUCE = 6
+}
+
+enum DeviceType: short {
+  DEVICE_COMP_GPU = 0,
+  DEVICE_COMP_CPU = 1,
+  DEVICE_MEM_SYSTEM = 2,
+  DEVICE_MEM_Z_COPY = 3,
+  DEVICE_MEM_GPU_FB = 4,
+  DEVICE_COMM_MEMBUS_COMM = 5,
+  DEVICE_COMM_UPI_IN_COMM = 6,
+  DEVICE_COMM_UPI_OUT_COMM = 7,
+  DEVICE_COMM_NIC_IN_COMM = 8,
+  DEVICE_COMM_NIC_OUT_COMM = 9,
+  DEVICE_COMM_PCI_TO_HOST_COMM = 10,
+  DEVICE_COMM_PCI_TO_DEV_COMM = 11,
+  DEVICE_COMM_NVLINK_COMM = 12,
+  DEVICE_COMM_NW_COMM = 13,
+  DEVICE_COMM_NW_NOMINAL = 14,
+}
+
+table Task {
+  type: SimTaskType;
+  taskid: ulong;
+  deviceid: ulong = 0;
+  runtime: float = 0;
+  xfersize: ulong = 0;
+  nexttasks: [ulong]; 
+}
+
+table Device {
+  type: DeviceType;
+  deviceid: ulong;
+  nodeid: ulong = 0;
+  deviceproperty: ulong = 0;
+  bandwidth: ulong = 0;
+}
+
+table Connection {
+  fromnode: uint;
+  tonode: uint;
+  nconn: uint;
+}
+
+table Path {
+  hopnode: [uint];
+  chance: float;
+}
+
+table Route {
+  fromnode: uint;
+  tonode: uint;
+  paths: [Path];
+}
+
+table Operator {
+  opid: ulong;
+  type: ulong;
+  name: string;
+}
+
+table RingDescriptor {
+  jumps: [int];
+}
+
+table Rings {
+  ringsz: ulong;
+  ringpaths: [RingDescriptor];
+}
+
+table TaskGraph {
+  ngpupernode: uint;
+  nnode: uint;
+  nswitch: uint;
+  intergpubw: float;
+  drambw: float;
+  netbw: float;
+  conn: [Connection];
+  ops: [Operator];
+  tasks: [Task];
+  devices: [Device];
+  routes: [Route];
+  rings: [Rings];
+}
+
+table Topology {
+  conn: [Connection]; 
+  routes: [Route];
+}
+
+root_type TaskGraph
