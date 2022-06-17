@@ -925,6 +925,7 @@ NetworkedMachineModel::NetworkedMachineModel(int num_nodes,
     // }
   }
 
+  //NetworkTopologyGenerator::print_conn_matrix(conn_matrix, total_devs, 0);
   routing_strategy = new ShortestPathNetworkRoutingStrategy(conn_matrix, ids_to_nw_comm_device, total_devs);
   update_route();
 }

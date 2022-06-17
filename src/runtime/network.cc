@@ -303,7 +303,8 @@ EcmpRoutes ShortestPathNetworkRoutingStrategy::get_routes(int src_node, int dst_
     result.insert(result.begin(), devmap.at(prev[curr] * total_devs + curr));
     curr = prev[curr];
   }
-  assert(result.size() || src_node == dst_node);
+  //std::cerr << "src: " << src_node << " dst: " << dst_node << " hops: " << result.size() << std::endl;
+  // assert(result.size() || src_node == dst_node);
   return std::make_pair(std::vector<double>{1}, std::vector<Route>{result});
 }
 
@@ -1867,6 +1868,9 @@ void SpMulMat::get_dp_mp_degree(int & dp_degree, int & mp_degree)
     total_mp_traffic += entry.second;
   }
 
+  dp_degree = if_cnt; 
+  mp_degree = 0;
+  /*
   dp_degree = lround(total_dp_traffic / (total_dp_traffic + total_mp_traffic) * if_cnt);
   mp_degree = lround(total_mp_traffic / (total_dp_traffic + total_mp_traffic) * if_cnt);
 
@@ -1885,6 +1889,7 @@ void SpMulMat::get_dp_mp_degree(int & dp_degree, int & mp_degree)
     }
     
   }
+  */
   assert(mp_degree + dp_degree == if_cnt);
 #ifdef DEBUG_PRINT
   std::cerr << "dp deg: " << dp_degree << std::endl;
