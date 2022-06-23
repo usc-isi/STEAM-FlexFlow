@@ -9,23 +9,17 @@ import FlatBufTaskGraph.Route as route
 import FlatBufTaskGraph.Path as path
 import FlatBufTaskGraph.Task as task
 import FlatBufTaskGraph.Topology as tp
+import FlatBufTaskGraph.Rings as rings
+import FlatBufTaskGraph.RingDescriptor as ringdescriptor
+
 import copy
+import sys
+import argparse
 
 builder = fb.Builder(0)
 
-# describe topology
-# num_nodes, connection
-Ngpupernode = 2
-Nnodes = 16 
-Nswitches = 8
-NodeperSwitch = int(Nnodes / Nswitches)
-Ntotalnodes = Nnodes + Nswitches
-Gpubw = 0.0
-Drambw = 0.0
-Netbw = 1000.0
 
-assert(Ntotalnodes == Nnodes + Nswitches)
-
+g_task = []
 g_conn = []
 g_route = []
 g_device = []
@@ -33,7 +27,7 @@ g_device = []
 def make_vector(_builder, elm_l):
     for e in elm_l:
         _builder.PrependUOffsetTRelative(e)
-    return builder.EndVector(len(elm_l))
+    return builder.EndVector()
 
 def add_conns(_builder, _conn):
     conn_l = []
@@ -53,7 +47,7 @@ def add_hopnode(_builder, _hopnode):
     path.StartHopnodeVector(_builder, len(_hopnode))
     for p in _hopnode:
         _builder.PrependUint32(p)
-    hopnode = _builder.EndVector(len(_hopnode))
+    hopnode = _builder.EndVector()
     return hopnode 
 
 def add_paths(_builder, _path):
@@ -175,27 +169,40 @@ def get_route(src, dest, distance_l):
     (dest_nodeid, dest_switchid) = get_rel_ids(dest)
     h = [src]
 
+    # node is part of the switch (HPPN)
+    if (src_switchid < 0 or dest_switchid < 0):
+        assert(dest_switchid < 0 and src_switchid < 0)
+        src_switchid = src
+        dest_switchid = dest
+
+    # node and the switch is separated
     if (src_switchid == dest_switchid):
         h = [src, src_switchid + Nnodes, dest]
         return h
 
+    nnodes = Nswitches
+    if (Nswitches == 0): nnodes = Nnodes
+
     distance_l.sort(reverse = True)
     diff = dest_switchid - src_switchid
-    if diff < 0:
-        diff = diff + Nswitches 
+    if (Nswitches > 0): diff = diff + Nswitches
+    elif (diff < 0): diff = diff + Nnodes 
+
     g_switchid = get_switch_gid(src_switchid)
     t_switchid = src_switchid
-    h.append(g_switchid)
+    if (src != g_switchid):
+        h.append(g_switchid)
     while diff > 0:
         for d in distance_l:
             while diff >= d:
-                t_switchid = (t_switchid + d) % Nswitches
+                t_switchid = (t_switchid + d) % nnodes
                 #print("diff = %d, d = %d, t_switchid = %d" % (diff, d, t_switchid))
                 h.append(get_switch_gid(t_switchid))
                 diff = diff - d
     #print("src %d, dest %d, src_switchid %d, dest_switchid %d, t_switchid %d, dest_switchid %d: h = %s" % (src, dest, src_switchid, dest_switchid, t_switchid, dest_switchid, str(h)))
     assert (t_switchid == dest_switchid)
-    h.append(dest)
+    if (dest != dest_switchid):
+        h.append(dest)
     return h
 
 # return global (nodeid, switchid) of gpu node
@@ -203,6 +210,7 @@ def get_ids(i):
     assert(i < Nnodes)
     nodeid = i
     switchid = int(i/NodeperSwitch) + Nnodes
+    if (Nswitches == 0): switchid = -1
     return (nodeid, switchid)
 
 # return (nodeid, switchid) of gpu node
@@ -210,6 +218,7 @@ def get_rel_ids(i):
     assert(i < Nnodes)
     nodeid = i
     switchid = int(i/NodeperSwitch)
+    if (Nswitches == 0): switchid = -1
     return (nodeid, switchid)
 
 # get global id of gpu node 
@@ -219,6 +228,7 @@ def get_node_gid(i):
     
 # get global id of switch from its relative id
 def get_switch_gid(i):
+    if (Nswitches == 0): return i
     assert(i < Nswitches)
     return i + Nnodes
 
@@ -245,23 +255,26 @@ def generate_ring(arg_topo):
     # gpu i is connected to switch i/(gpus per node) + (ngpus)
 
     # switch to a node (independent of arg_topo)
-    for i in range(Nnodes):
-        (node_id, switch_id) = get_ids(i)
-        g_conn.append([switch_id, node_id, 1])
-        g_conn.append([node_id, switch_id, 1])
+    if (Nswitches != 0):
+        for i in range(Nnodes):
+            (node_id, switch_id) = get_ids(i)
+            g_conn.append([switch_id, node_id, 10])
+            g_conn.append([node_id, switch_id, 10])
 
     arg_topo.sort(key=lambda x: x[0]) # sort according to the distance
     distances = [i[0] for i in arg_topo]
     #print("distances = %s" % str(distances))
     # switch to switch
+    if (Nswitches == 0): nnodes = Nnodes;
     for _t in arg_topo:
         first_switch = Nnodes
+        if (Nswitches == 0): first_switch = 0
         distance = _t[0]
         nconn = _t[1]
-        for i in range(Nswitches):
+        for i in range(nnodes):
             j = i + distance
-            if (j < 0): j = j + Nswitches
-            if (j >= Nswitches): j = j - Nswitches
+            if (j < 0): j = j + nnodes 
+            if (j >= nnodes): j = j - nnodes
             g_conn.append([i+first_switch, j+first_switch, nconn])
         #pr2dlist("connection matrix", g_conn)
 
@@ -282,17 +295,28 @@ def add_ringdescriptorjumps(_builder, _rd):
     rd_l = []
 #    _rd.reverse()
     ringdescriptor.StartJumpsVector(_builder, len(_rd))
+    print("_rd = %s" % str(_rd))
     for r in _rd:
         _builder.PrependInt32(r)
-    jumps = _builder.EndVector(len(_rd))
+    jumps = _builder.EndVector()
     return jumps
+
+def add_ringpaths(_builder, _rd):
+    if (_rd == []): return None
+    rd_l = []
+    for r in _rd:
+        rd_v = add_ringdescriptorjumps(_builder, r)
+        rd_l.append(rd_v)
+    rings.StartRingpathsVector(_builder, len(_rd))
+    paths_v = make_vector(_builder, rd_l)
+    return paths_v
 
 def add_rings(_builder, _rings):
     print("rings = %s" % str(_rings))
     if (_rings == []): return None
     rings_l = []
     for r in _rings:
-        rd_v = add_ringdescriptorjumps(_builder, r[1])
+        rd_v = add_ringpaths(_builder, r[1])
         rings.Start(_builder)
         rings.AddRingsz(_builder, r[0])
         rings.AddRingpaths(_builder, rd_v)
@@ -340,7 +364,7 @@ def add_nexttasks(_builder, _nt):
     for n in _nt:
         #print("add %s" % str(n))
         _builder.PrependUint64(n)
-    nt_v = _builder.EndVector(len(_nt))
+    nt_v = _builder.EndVector()
     return nt_v
 
 def add_tasks(_builder, _tasks):
@@ -451,9 +475,12 @@ def read_routes(mytg):
         for j in range(mypath_length):
             mypath = myroutes.Paths(j)
             hopnode = mypath.HopnodeAsNumpy()
+            h_l = []
+            if (not mypath.HopnodeIsNone()):
+                h_l = hopnode.tolist()
             chance = mypath.Chance()
 #            print("\thopnode = %s : prob %f" % (str(hopnode), chance))
-            p_l.append([hopnode.tolist(), chance])
+            p_l.append([h_l, chance])
         routes_l.append([fnode, tonode, p_l])
     return routes_l
 
@@ -481,7 +508,9 @@ def read_tasks(mytg):
         runtime = mytask.Runtime()
         xfersize = mytask.Xfersize()
         nexttasks = mytask.NexttasksAsNumpy()
-        nexttasks_l = nexttasks.tolist()
+        nexttasks_l = []
+        if (not mytask.NexttasksIsNone()): 
+            nexttasks_l = nexttasks.tolist()
         tasks_l.append([ttype, taskid, deviceid, runtime, xfersize, nexttasks_l])
 #        print("type %d, taskid %d, deviceid %d, runtime %d, xfersize %d" % (ttype, taskid, deviceid, runtime, xfersize))
 #        print("next tasks = %s" % str(nexttasks))
@@ -504,14 +533,19 @@ def read_devices(mytg):
 def read_rings(mytg):
     myrings_length = mytg.RingsLength()
     rings_l = []
-    for i in range(myrings_length):
+    for i in range(myrings_length):	# for each ring
         myring = mytg.Rings(i)
-        ringsz = mytg.Ringsz
+        ringsz = myring.Ringsz()
         myringpaths_len = myring.RingpathsLength()
         l = []
-        for j in range(myringpaths_len):
-            myringpath = myring.Ringpaths(j)
-            jumps = myringpath.JumpsAsNumpy()
+        for j in range(myringpaths_len): # for each ringdescriptor
+            myringdescriptor = myring.Ringpaths(j)
+            if (myringdescriptor.JumpsIsNone()): 
+                print("jumpis None")
+                continue
+            print("jumps length = %d" % myringdescriptor.JumpsLength())
+            jumps = myringdescriptor.JumpsAsNumpy()
+            print("jumps = %s" % str(jumps))
             l.append(jumps.tolist())
         rings_l.append([ringsz, l])
 #    print("Rings = %s" % str(rings_l))
@@ -556,21 +590,59 @@ def read_taskgraph(fname):
     tg_l = [ngpupernode, nnode, nswitch, intergpubw, drambw, netbw, conn_l, ops_l, tasks_l, devices_l, routes_l, rings_l]
     return tg_l
 
+def usage():
+    print("Usage: python3 tgconverter.py <input flatbuffer task graph> <output flatbuffer task graph> <Number of nodes> <Number of swtiches> <Ring type {1, 2, 3}>")
+    sys.exit()
+
+parser = argparse.ArgumentParser(description='Process some integers.')
+parser.add_argument('-i',  '--input', type=str, help='input taskgraph file in flabuffers', required=True)
+parser.add_argument('-o',  '--output', type=str, help='output taskgraph file in flabuffers', required=True)
+parser.add_argument('-N',  '--Nodes', type=int, help='number of nodes in the taskgraph file in flabuffers', required=True)
+parser.add_argument('-S',  '--Switches', type=int, help='number of switches in the taskgraph file in flabuffers', required=True)
+parser.add_argument('-T',  '--Type', type=int, help='Ring type of the new taskgraph file in flabuffers', required=True)
+
+# describe topology
+# num_nodes, connection
+Ngpupernode = 2
+Nnodes = 16 
+Nswitches = 8
+Gpubw = 0.0
+Drambw = 0.0
+Netbw = 1000.0
 output_fname = 'ringtopo1.bin'
-generate_ring1_task()
-arg_topo1 = [[1, 1], [2, 1], [3, 1], [4, 1], [5, 1], [6, 1], [7, 1]] # Ring 1
-arg_topo2 = [[1, 8]] # Ring 2
-arg_topo3 = [[1, 7], [2,1]] # Ring 3
-generate_ring(arg_topo1)
+
+args = vars(parser.parse_args())
+print(args)
+Nnodes = args['Nodes']
+Nswitches = args['Switches']
+NodeperSwitch = 1
+if (Nswitches != 0):	# Node itself is a switch
+    NodeperSwitch = int(Nnodes / Nswitches)
+Ntotalnodes = Nnodes + Nswitches
+input_fname = args['input']
+output_fname = args['output']
+ring_type = args['Type']
+
+assert(Ntotalnodes == Nnodes + Nswitches)
+
+#generate_ring1_task()
+ring_topo1 = [[1, 1], [2, 1], [3, 1], [4, 1], [5, 1], [6, 1], [7, 1]] # Ring 1
+ring_topo2 = [[1, 8]] # Ring 2
+ring_topo3 = [[1, 7], [2,1]] # Ring 3
+ring_topo = [ring_topo1, ring_topo2, ring_topo3]
+generate_ring(ring_topo[ring_type - 1])
 conn_v = add_conns(builder, g_conn)
 route_v = add_routes(builder, g_route)
-task_v = add_tasks(builder, g_task)
-device_v = add_devices(builder, g_device)
+#task_v = add_tasks(builder, g_task)
+#device_v = add_devices(builder, g_device)
 
 #build_taskgraph(builder, Ngpupernode, Nnodes, Nswitches, Gpubw, Drambw, Netbw, conn_v, route_v, task_v, device_v, 'test-tg.bin')
 #build_topology(builder, conn_v, route_v, 'test-tp.bin')
 
-tg_l = read_taskgraph('output-tg.fattree')
+tg_l = read_taskgraph(input_fname)
+
+#sys.exit()
+
 tg_l_save = copy.deepcopy(tg_l)
 #do_diff(tg_l, tg_l_save)
 #print_list("old conn", tg_l[6])
