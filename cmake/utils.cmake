@@ -1,4 +1,5 @@
-set(known_gpu_archs "60,75")
+#set(known_gpu_archs "60,75")
+set(known_gpu_archs "")
 function(remove_duplicate_args __string)
   if(${__string})
     set(__list ${${__string}})

@@ -8,6 +8,11 @@
 #include <functional>
 #include <numeric>
 
+#include "isi_parallel.h"
+#ifdef ISI_PARALLEL
+#endif
+
+//#define DEBUG_PRINT
 #include "simulator.h"
 // #define EDGE(a, b, n) ((a) > (b) ? ((a) * (n) + (b)) : ((b) * (n) + (a)))
 #define PRINT_EDGE(e, n) do {std::cout << "(" << e / n << ", " << e % n << ")";} while (0);
@@ -20,10 +25,16 @@
   }                                                                         \
 } while (0);                                                                \
 
+#ifdef ISI_PARALLEL
+//static std::random_device rd; 
+static int initialized = 0;
+static std::mt19937 gen[1024];
+static std::uniform_real_distribution<double> unif(0, 1);
+#else
 static std::random_device rd; 
 static std::mt19937 gen = std::mt19937(rd()); 
 static std::uniform_real_distribution<double> unif(0, 1);
-
+#endif
 // all prime numbers below 2048. good enouggh.
 const static uint16_t PRIMES[] = {1, 2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271, 277, 281, 283, 293, 307, 311, 313, 317, 331, 337, 347, 349, 353, 359, 367, 373, 379, 383, 389, 397, 401, 409, 419, 421, 431, 433, 439, 443, 449, 457, 461, 463, 467, 479, 487, 491, 499, 503, 509, 521, 523, 541, 547, 557, 563, 569, 571, 577, 587, 593, 599, 601, 607, 613, 617, 619, 631, 641, 643, 647, 653, 659, 661, 673, 677, 683, 691, 701, 709, 719, 727, 733, 739, 743, 751, 757, 761, 769, 773, 787, 797, 809, 811, 821, 823, 827, 829, 839, 853, 857, 859, 863, 877, 881, 883, 887, 907, 911, 919, 929, 937, 941, 947, 953, 967, 971, 977, 983, 991, 997, 1009, 1013, 1019, 1021, 1031, 1033, 1039, 1049, 1051, 1061, 1063, 1069, 1087, 1091, 1093, 1097, 1103, 1109, 1117, 1123, 1129, 1151, 1153, 1163, 1171, 1181, 1187, 1193, 1201, 1213, 1217, 1223, 1229, 1231, 1237, 1249, 1259, 1277, 1279, 1283, 1289, 1291, 1297, 1301, 1303, 1307, 1319, 1321, 1327, 1361, 1367, 1373, 1381, 1399, 1409, 1423, 1427, 1429, 1433, 1439, 1447, 1451, 1453, 1459, 1471, 1481, 1483, 1487, 1489, 1493, 1499, 1511, 1523, 1531, 1543, 1549, 1553, 1559, 1567, 1571, 1579, 1583, 1597, 1601, 1607, 1609, 1613, 1619, 1621, 1627, 1637, 1657, 1663, 1667, 1669, 1693, 1697, 1699, 1709, 1721, 1723, 1733, 1741, 1747, 1753, 1759, 1777, 1783, 1787, 1789, 1801, 1811, 1823, 1831, 1847, 1861, 1867, 1871, 1873, 1877, 1879, 1889, 1901, 1907, 1913, 1931, 1933, 1949, 1951, 1973, 1979, 1987, 1993, 1997, 1999, 2003, 2011, 2017, 2027, 2029, 2039};
 
@@ -46,12 +57,22 @@ WeightedShortestPathRoutingStrategy::WeightedShortestPathRoutingStrategy(
     const std::map<size_t, CommDevice*>& devmap,
     int total_devs) 
 : conn(c), devmap(devmap), total_devs(total_devs)
+#ifdef ISI_PARALLEL
+{
+	std::random_device rd; 
+	int i;
+	if (initialized == 0) { initialized = 1;
+	for (i = 0; i < omp_get_num_threads(); i++)
+		gen[i] = std::mt19937(rd());
+	}
+}
+#else
 {} 
-
+#endif
 EcmpRoutes WeightedShortestPathRoutingStrategy::get_routes(int src_node, int dst_node) 
 {
   int key = src_node * total_devs + dst_node;
-
+//  fprintf(stderr, "%s: omp thread = %d\n", __func__, omp_get_thread_num());
   if (conn[key] > 0) {
     return std::make_pair(std::vector<double>({1}), std::vector<Route>({Route({devmap.at(key)})}));
   }
@@ -84,7 +105,11 @@ EcmpRoutes WeightedShortestPathRoutingStrategy::get_routes(int src_node, int dst
         continue;
       }
       double new_dist = dist[min_node] + 1; // numeric_limits<uint64_t>::max() / get_bandwidth_bps(min_node, i);
+#ifdef ISI_PARALLEL
+      if (new_dist < dist[i] || (new_dist == dist[i] && unif(gen[omp_get_thread_num()]) < 0.5)) {
+#else
       if (new_dist < dist[i] || (new_dist == dist[i] && unif(gen) < 0.5)) {
+#endif
         dist[i] = new_dist;
         prev[i] = min_node;
         pq.push(std::make_pair(new_dist, i));
@@ -253,6 +278,24 @@ ShortestPathNetworkRoutingStrategy::ShortestPathNetworkRoutingStrategy(
 : conn(c), devmap(devmap), total_devs(total_devs)
 {} 
 
+#ifdef ISI_PARALLEL
+class rand_x {
+	unsigned int seed;
+public:
+	rand_x(int init) : seed(init) {}
+
+	int operator()(int limit) {
+		int divisor = RAND_MAX/(limit + 1);
+		int retval;
+
+		do {
+			retval = rand_r(&seed) /divisor;
+		} while (retval > limit);
+		return retval;
+	}
+};
+#endif
+
 EcmpRoutes ShortestPathNetworkRoutingStrategy::get_routes(int src_node, int dst_node) 
 {
   int key = src_node * total_devs + dst_node;
@@ -283,13 +326,18 @@ EcmpRoutes ShortestPathNetworkRoutingStrategy::get_routes(int src_node, int dst_
     if (min_node == dst_node)
       break;
 
-    std::random_shuffle(rd_idx.begin(), rd_idx.end());
+   // std::random_shuffle(rd_idx.begin(), rd_idx.end(), rand_x(*rd_idx.end()));
+    std::shuffle(rd_idx.begin(), rd_idx.end(), gen[omp_get_thread_num()]);
     for (int i: rd_idx) {
       if (visited[i] || conn[min_node * total_devs + i] == 0) {
         continue;
       }
       double new_dist = dist[min_node] + 1; 
+#ifdef ISI_PARALLEL
+      if (new_dist < dist[i] || (new_dist == dist[i] && unif(gen[omp_get_thread_num()]) < 0.5)) {
+#else
       if (new_dist < dist[i] || (new_dist == dist[i] && unif(gen) < 0.5)) {
+#endif
         dist[i] = new_dist;
         prev[i] = min_node;
         q.push(i);
@@ -397,7 +445,11 @@ void ShortestPathNetworkRoutingStrategy::hop_count(int src_node, int dst_node, i
         continue;
       }
       double new_dist = dist[min_node] + 1; 
+#ifdef ISI_PARALLEL
+      if (new_dist < dist[i] || (new_dist == dist[i] && unif(gen[omp_get_thread_num()]) < 0.5)) {
+#else
       if (new_dist < dist[i] || (new_dist == dist[i] && unif(gen) < 0.5)) {
+#endif
         dist[i] = new_dist;
         prev[i] = min_node;
         q.push(i);
@@ -436,7 +488,11 @@ std::vector<std::pair<int, int>> ShortestPathNetworkRoutingStrategy::hop_count(i
         continue;
       }
       double new_dist = dist[min_node] + 1; 
+#ifdef ISI_PARALLEL
+      if (new_dist < dist[i] || (new_dist == dist[i] && unif(gen[omp_get_thread_num()]) < 0.5)) {
+#else
       if (new_dist < dist[i] || (new_dist == dist[i] && unif(gen) < 0.5)) {
+#endif
         dist[i] = new_dist;
         prev[i] = min_node;
         q.push(i);
@@ -480,8 +536,13 @@ ConnectionMatrix FlatDegConstraintNetworkTopologyGenerator::generate_topology() 
   std::uniform_int_distribution<> distrib(0, num_nodes - 1);
 
   while ((long)visited_node.size() != num_nodes) {
+#ifdef ISI_PARALLEL
+    distrib(gen[omp_get_thread_num()]);
+    int next_step = distrib(gen[omp_get_thread_num()]);
+#else
     distrib(gen);
     int next_step = distrib(gen);
+#endif
     if (next_step == curr_node) {
       continue;
     } 
@@ -511,8 +572,13 @@ ConnectionMatrix FlatDegConstraintNetworkTopologyGenerator::generate_topology() 
   int a = 0, b = 0;
 
   while (node_with_avail_if.size() > 1) {
+#ifdef ISI_PARALLEL
+    a = distrib(gen[omp_get_thread_num()]);
+    while ((b = distrib(gen[omp_get_thread_num()])) == a);
+#else
     a = distrib(gen);
     while ((b = distrib(gen)) == a);
+#endif
 
     assert(conn[get_id(node_with_avail_if[a].first, node_with_avail_if[b].first)] < degree);
     conn[get_id(node_with_avail_if[a].first, node_with_avail_if[b].first)]++;
@@ -634,7 +700,11 @@ bool DemandHeuristicNetworkOptimizer::optimize(int mcmc_iter, double sim_iter_ti
   double diff = sim_iter_time - curr_sim_time;
   std::cerr << "sim_iter_time: " << sim_iter_time << ", curr_sim_time: " << curr_sim_time 
             << ", best_iter_time: " << best_sim_time << std::endl;
+#ifdef ISI_PARALLEL
+  bool change = diff < 0 ? true : diff != 0 && unif(gen[omp_get_thread_num()]) < std::exp(-alpha * diff);
+#else
   bool change = diff < 0 ? true : diff != 0 && unif(gen) < std::exp(-alpha * diff);
+#endif
   if (sim_iter_time < best_sim_time) {
     best_sim_time = sim_iter_time;
     change = true;
@@ -787,8 +857,13 @@ void DemandHeuristicNetworkOptimizer::connect_unused_node(
     std::uniform_int_distribution<> distrib(0, num_nodes - 1);
 
     while ((long)visited_node.size() != num_nodes) {
+#ifdef ISI_PARALLEL
+      // distrib(gen);
+      int next_step = unlinked_nodes[distrib(gen[omp_get_thread_num()])];
+#else
       // distrib(gen);
       int next_step = unlinked_nodes[distrib(gen)];
+#endif
       if (next_step == curr_node) {
         continue;
       } 
@@ -827,8 +902,13 @@ void DemandHeuristicNetworkOptimizer::connect_unused_node(
     std::unordered_set<size_t> unused_node_set = 
       std::unordered_set<size_t>(unlinked_nodes.begin(), unlinked_nodes.end());
     while (!maxed(node_if_allocated, if_cnt, ndevs)/*maxed(node_if_allocated, unused_node_set, if_cnt)*/) {
+#ifdef ISI_PARALLEL
+      a = distrib(gen[omp_get_thread_num()]);
+      while ((b = distrib(gen[omp_get_thread_num()])) == a);
+#else
       a = distrib(gen);
       while ((b = distrib(gen)) == a);
+#endif
 
       size_t node0 = node_with_avail_if[a].first;
       size_t node1 = node_with_avail_if[b].first;
@@ -1308,7 +1388,11 @@ void DemandHeuristicNetworkOptimizerPlus::connect_topology(
           demand = 0;
         else 
           demand = logical_traffic_demand[edge_id(n0, n1)];
+#ifdef ISI_PARALLEL
+        if (demand > max_demand || (demand == max_demand && unif(gen[omp_get_thread_num()]) > 0.5)) {
+#else
         if (demand > max_demand || (demand == max_demand && unif(gen) > 0.5)) {
+#endif
           if (node_if_allocated[n0] == if_cnt || node_if_allocated[n1] == if_cnt) {
             continue;
           }
@@ -1652,9 +1736,15 @@ DemandHeuristicNetworkOptimizerPlus::construct_bidir_negative_util(const Connect
 bool DemandHeuristicNetworkOptimizerPlus::optimize(int mcmc_iter, double sim_iter_time, bool forced)
 {
   double diff = sim_iter_time - curr_sim_time;
+#ifdef ISI_PARALLEL
+  std::cerr << omp_get_thread_num() << ": sim_iter_time: " << sim_iter_time << ", curr_sim_time: " << curr_sim_time 
+            << ", best_iter_time: " << best_sim_time << std::endl;
+  bool change = diff < 0 ? true : diff != 0 && unif(gen[omp_get_thread_num()]) < std::exp(-alpha * diff);
+#else
   std::cerr << "sim_iter_time: " << sim_iter_time << ", curr_sim_time: " << curr_sim_time 
             << ", best_iter_time: " << best_sim_time << std::endl;
   bool change = diff < 0 ? true : diff != 0 && unif(gen) < std::exp(-alpha * diff);
+#endif
   if (sim_iter_time < best_sim_time) {
     best_sim_time = sim_iter_time;
     change = true;
@@ -1814,15 +1904,17 @@ std::vector<int> SpMulMat::choose_n_geo(const std::vector<int>& cjs, int n)
   double ratio = std::pow(diff, 1.0/(n-(bidir?0:1)));
   // std::cerr << "n: " << n << ",ratio: " << ratio << std::endl;
 
-  std::set<int> result{};
+//  std::set<int> result{};
+  std::vector<int> result;
   double curr = cjs[0];
   for (int i = 0; i < n; i++) {
     assert(curr <= cjs[cjs.size() - 1]);
     auto candidate = std::lower_bound(cjs.begin(), cjs.end(), curr);
-    while (result.find(*candidate) != result.end()) {
-      candidate++;
-    }
-    result.insert(*candidate);
+//    while (result.find(*candidate) != result.end()) {
+//      candidate++;
+//    }
+//    result.insert(*candidate);
+    result.insert(result.end(), * candidate);
     // std::cerr << "Adding " << *candidate << std::endl;
     curr *= ratio;
     // std::cerr << "curr " << curr << std::endl;
@@ -1849,6 +1941,7 @@ void SpMulMat::construct_candidate_jumps() {
   }
 }
 
+// DK: always return the same thing with 'if_cnt' value
 void SpMulMat::get_dp_mp_degree(int & dp_degree, int & mp_degree)
 {
 
@@ -1898,6 +1991,7 @@ void SpMulMat::get_dp_mp_degree(int & dp_degree, int & mp_degree)
 
 }
 
+// DK: with fixed dp_degree, it seems to do the same thing
 std::vector<std::pair<uint64_t, int>> SpMulMat::generate_dp_topology(ConnectionMatrix & conn, int dp_degree) 
 {
   size_t ndevs = machine->get_num_nodes();
@@ -1981,7 +2075,11 @@ std::vector<std::pair<uint64_t, int>> SpMulMat::generate_dp_topology(ConnectionM
 #ifdef DEBUG_PRINT
       std::cerr << "MP satisfied: " << mp_this << std::endl;
 #endif
+#ifdef ISI_PARALLEL
+      if (mp_this > mp_satisfied || (mp_this == mp_satisfied && unif(gen[omp_get_thread_num()]) > 0.5)) {
+#else
       if (mp_this > mp_satisfied || (mp_this == mp_satisfied && unif(gen) > 0.5)) {
+#endif
         mp_satisfied = mp_this;
         best = proposed;
         best_jmps = jmps;
@@ -2249,7 +2347,11 @@ std::vector<int> SpMulMat::all_coin_change(const std::set<int> & coins)
           if (dists.back()[MOD(i-(c), machine->get_num_nodes())] != -1 && 
               (curr_dists[i] == -1 || 
               (dists.back()[MOD(i-(c), machine->get_num_nodes())] + 1 < curr_dists[i] || 
+#ifdef ISI_PARALLEL
+              (dists.back()[MOD(i-(c), machine->get_num_nodes())] + 1 == curr_dists[i] && unif(gen[omp_get_thread_num()]) > 0.5)))) {
+#else
               (dists.back()[MOD(i-(c), machine->get_num_nodes())] + 1 == curr_dists[i] && unif(gen) > 0.5)))) {
+#endif
             curr_dists[i] = dists.back()[MOD(i-(c), machine->get_num_nodes())] + 1;
             curr_backtrace[i] = c; 
           }
@@ -2289,13 +2391,22 @@ std::vector<int> SpMulMat::query_path(const std::vector<int>& candidates, int ju
 bool SpMulMat::optimize(int mcmc_iter, double sim_iter_time, bool forced) 
 {
   double diff = sim_iter_time - curr_sim_time;
+#ifdef ISI_PARALLEL
+  bool change = diff < 0 ? true : diff != 0 && unif(gen[omp_get_thread_num()]) < std::exp(-alpha * diff);
+#else
   bool change = diff < 0 ? true : diff != 0 && unif(gen) < std::exp(-alpha * diff);
+#endif
   if (sim_iter_time < best_sim_time) {
     best_sim_time = sim_iter_time;
     change = true;
   }
-  std::cerr << "sim_iter_time: " << sim_iter_time << ", curr_sim_time: " << curr_sim_time 
+#ifdef ISI_PARALLEL
+//  std::cerr << omp_get_thread_num() << ":sim_iter_time: " << sim_iter_time << ", curr_sim_time: " << curr_sim_time 
+//          << ", best_iter_time: " << best_sim_time << ", change: " << change << std::endl;
+#else
+  std::cerr << omp_get_thread_num() << ":sim_iter_time: " << sim_iter_time << ", curr_sim_time: " << curr_sim_time 
           << ", best_iter_time: " << best_sim_time << ", change: " << change << std::endl;
+#endif
   if (change) {
     curr_sim_time = sim_iter_time;
   }
@@ -2306,7 +2417,9 @@ bool SpMulMat::optimize(int mcmc_iter, double sim_iter_time, bool forced)
   if (!forced && !change && num_iter_nochange < no_improvement_th)
     return false;
 
+#ifndef ISI_PARALLEL
   std::cerr << "Changing... " << std::endl;
+#endif
   selected_jumps.clear();
   for (auto & entry: dp_ncomms) {
     for (auto & c: entry.second) {
@@ -2337,9 +2450,9 @@ bool SpMulMat::optimize(int mcmc_iter, double sim_iter_time, bool forced)
   // connect_topology(final, dp_rings, mp_degree);
   nm->set_topology(final);
   nm->update_route();
-// #ifdef DEBUG_PRINT
+#ifdef DEBUG_PRINT
   NetworkTopologyGenerator::print_conn_matrix(final, ndevs, 0);
-// #endif
+#endif
   return true;
 }
 

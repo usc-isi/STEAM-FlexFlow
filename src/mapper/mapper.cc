@@ -14,6 +14,7 @@
  */
 
 #include "mapper.h"
+#include "isi_parallel.h"
 
 LegionRuntime::Logger::Category log_ff_mapper("Mapper");
 
@@ -169,11 +170,19 @@ void FFMapper::register_sharding_functor(int argc, char** argv)
       num_nodes = atoi(argv[++i]);
       continue;
     }
+#ifdef ISI_PARALLEL
+    if (!strcmp(argv[i], "--no-gpu"))
+    {
+       nogpu = true;
+       continue;
+    }
+#else
     // if (!strcmp(argv[i], "--no-gpu"))
     // {
     //   nogpu = true;
     //   continue;
     // }
+#endif
   }
   if (strategyFile != "") {
     load_strategies_from_file(strategyFile, all_strategies);

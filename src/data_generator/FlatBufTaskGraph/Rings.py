@@ -56,23 +56,18 @@ class Rings(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         return o == 0
 
-def Start(builder): builder.StartObject(2)
-def RingsStart(builder):
-    """This method is deprecated. Please switch to Start."""
-    return Start(builder)
-def AddRingsz(builder, ringsz): builder.PrependUint64Slot(0, ringsz, 0)
-def RingsAddRingsz(builder, ringsz):
-    """This method is deprecated. Please switch to AddRingsz."""
-    return AddRingsz(builder, ringsz)
-def AddRingpaths(builder, ringpaths): builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(ringpaths), 0)
-def RingsAddRingpaths(builder, ringpaths):
-    """This method is deprecated. Please switch to AddRingpaths."""
-    return AddRingpaths(builder, ringpaths)
-def StartRingpathsVector(builder, numElems): return builder.StartVector(4, numElems, 4)
-def RingsStartRingpathsVector(builder, numElems):
-    """This method is deprecated. Please switch to Start."""
-    return StartRingpathsVector(builder, numElems)
-def End(builder): return builder.EndObject()
-def RingsEnd(builder):
-    """This method is deprecated. Please switch to End."""
-    return End(builder)
+def RingsStart(builder): builder.StartObject(2)
+def Start(builder):
+    return RingsStart(builder)
+def RingsAddRingsz(builder, ringsz): builder.PrependUint64Slot(0, ringsz, 0)
+def AddRingsz(builder, ringsz):
+    return RingsAddRingsz(builder, ringsz)
+def RingsAddRingpaths(builder, ringpaths): builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(ringpaths), 0)
+def AddRingpaths(builder, ringpaths):
+    return RingsAddRingpaths(builder, ringpaths)
+def RingsStartRingpathsVector(builder, numElems): return builder.StartVector(4, numElems, 4)
+def StartRingpathsVector(builder, numElems):
+    return RingsStartRingpathsVector(builder, numElems)
+def RingsEnd(builder): return builder.EndObject()
+def End(builder):
+    return RingsEnd(builder)

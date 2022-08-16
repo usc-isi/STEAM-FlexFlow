@@ -22,6 +22,11 @@
 #include <unordered_set>
 #include <limits>
 
+#include "isi_parallel.h"
+#ifdef ISI_PARALLEL
+static unsigned seed[1024];
+#endif
+//#define DEBUG_PRINT
 using namespace std;
 using json = nlohmann::json;
 static const uint64_t GPU_MEM = 42949672960ULL;
@@ -559,10 +564,17 @@ void FFModel::load_measurement(Simulator * sim, const std::string & fname) {
   auto meas_json = json::parse(meas_str);
   size_t batch_size = meas_json["batch_size"].get<size_t>();
   size_t ngpus = meas_json["ngpus"].get<size_t>();
+#ifdef ISI_PARALLEL
+   if (omp_get_thread_num() == 0)
+#endif
+  std::cout << "batch_size = " << batch_size << ", config.batchSize = " << config.batchSize << std::endl;
   assert(batch_size == config.batchSize);
   assert(ngpus == config.numNodes * config.workersPerNode); 
   sim->measurements = new std::unordered_map<std::string, CostMetrics>();
   
+#ifdef ISI_PARALLEL
+   if (omp_get_thread_num() == 0)
+#endif
   printf("loaded num_nodes %zu, num_gpus %zu\n", batch_size, ngpus);
   for (auto & meas: meas_json["measurements"]) {
     std::string name = meas["name"].get<std::string>();
@@ -582,10 +594,10 @@ void FFModel::load_measurement(Simulator * sim, const std::string & fname) {
       opcandidates[name] = std::vector<ParallelConfig>();
       opcandidates[name].push_back(ParallelConfig::restore_pc_from_str(pc_str));
     }
-
   }
 }
 
+// DK: 'ff' is not changed.
 ParallelConfig Op::get_random_parallel_config(const FFModel& ff) const
 {
   // int num_parts;
@@ -596,16 +608,30 @@ ParallelConfig Op::get_random_parallel_config(const FFModel& ff) const
   }
 ugly:
   ParallelConfig pc;
+#ifdef ISI_PARALLEL
+  //int idx = rand_r(&seed[omp_get_thread_num()]) % candidates.size();
+  int idx = rand_r(ff.random_seed) % candidates.size();
+#else
   int idx = std::rand() % candidates.size();
+#endif
   pc = candidates[idx];
   // s dimention only
   int num_parts = pc.dim[pc.nDims - 1];
   int total_num_devices = ff.config.workersPerNode * ff.config.numNodes;
 
   if (num_parts <= ff.config.workersPerNode) {
+#ifdef ISI_PARALLEL
+    //int start_node = rand_r(&seed[omp_get_thread_num()]) % ff.config.numNodes;
+    //int start_idx = start_node * ff.config.workersPerNode + 
+    //                rand_r(&seed[omp_get_thread_num()]) % (ff.config.workersPerNode - num_parts + 1); 
+    int start_node = rand_r(ff.random_seed) % ff.config.numNodes;
+    int start_idx = start_node * ff.config.workersPerNode + 
+                    rand_r(ff.random_seed) % (ff.config.workersPerNode - num_parts + 1); 
+#else
     int start_node = std::rand() % ff.config.numNodes;
     int start_idx = start_node * ff.config.workersPerNode + 
                     std::rand() % (ff.config.workersPerNode - num_parts + 1); 
+#endif
     for (int i = 0; i < num_parts; i++)
       pc.device_ids[i] = start_idx + i;
     // printf("start_node: %d, start_idx: %d, pc.device_ids[num_parts - 1]: %d\n", start_node, start_idx, pc.device_ids[num_parts - 1]);
@@ -622,10 +648,20 @@ ugly:
     int start_node; // = std::rand() % node_dist;
     if (ff.config.net_opt) {
       node_dist = ff.config.numNodes / nnodes_to_use;
+#ifdef ISI_PARALLEL
+      //start_node = rand_r(&seed[omp_get_thread_num()]) % node_dist;
+      start_node = rand_r(ff.random_seed) % node_dist;
+#else
       start_node = std::rand() % node_dist;
+#endif
     }
     else {
+#ifdef ISI_PARALLEL
+      //start_node = rand_r(&seed[omp_get_thread_num()]) % ff.config.numNodes;
+      start_node = rand_r(ff.random_seed) % ff.config.numNodes;
+#else
       start_node = std::rand() % ff.config.numNodes;
+#endif
       node_dist = 1; // std::rand() % ff.config.numNodes;
     }
 // #else
@@ -649,7 +685,12 @@ ugly:
     assert(cnt == num_parts);
     std::sort(pc.device_ids, pc.device_ids + num_parts);
   }
+#ifdef ISI_PARALLEL
+  //pc.pserver = pc.device_ids[rand_r(&seed[omp_get_thread_num()]) % num_parts];
+  pc.pserver = pc.device_ids[rand_r(ff.random_seed) % num_parts];
+#else
   pc.pserver = pc.device_ids[std::rand() % num_parts];
+#endif
 
   // flip a coin and reverse the assignment
   // if (std::rand() % 2) {
@@ -922,6 +963,34 @@ OpMeta::OpMeta(FFHandler _handle)
     trainableInputs[i] = true;
 }
 
+FFModel::FFModel(FFModel * org): config(org->config)
+{
+#ifdef ISI_PARALLEL
+  seed[omp_get_thread_num()] = std::rand();
+  this->random_seed = (unsigned int*) malloc(64);
+  this->random_seed[0] = std::rand();
+  fprintf(stderr, "NEW: %d: seed = %d, addr = %p\n", omp_get_thread_num(), this->random_seed[0], this->random_seed);
+#endif
+	op_global_guid = org->op_global_guid;
+//	config = org->config;
+//        fprintf(stderr, "%d: ORG: FFModel %p, optimizer = %p, loss_op = %p, metrics_op = %p\n", omp_get_thread_num(), org, org->optimizer, org->loss_op, org->metrics_op);
+	optimizer = org->optimizer;	// DK: maybe need to create? Maybe not. it is NULL.
+	loss_op = org->loss_op;	// DK: maybe need to create? Maybe not. it is NULL.
+	metrics_op = org->metrics_op;	// DK: maybe need to create? Maybe not. it is NULL.
+	metrics_input = org->metrics_input;	// integer value. so fine.
+//        fprintf(stderr, "%d: New: optimizer = %p, loss_op = %p, metrics_op = %p\n", omp_get_thread_num(), optimizer, loss_op, metrics_op);
+
+	layers = org->layers;
+	parameters = org->parameters;
+	for (int i = 0; i < MAX_NUM_WORKERS; i++)
+		handlers[i] = org->handlers[i];
+	simonly = org->simonly;
+	current_metrics = org->current_metrics;
+	opcandidates = org->opcandidates;
+
+	taskIs = org->taskIs;
+}
+
 FFModel::FFModel(FFConfig& _config , bool simonly)
 : op_global_guid(100), config(_config),
   optimizer(NULL), loss_op(NULL), metrics_op(NULL), simonly(simonly)
@@ -930,6 +999,12 @@ FFModel::FFModel(FFConfig& _config , bool simonly)
   Context ctx = config.lg_ctx;
   metrics_input = -1;
 
+#ifdef ISI_PARALLEL
+  seed[omp_get_thread_num()] = std::rand();
+  this->random_seed = (unsigned int*) malloc(64);
+  this->random_seed[0] = std::rand();
+  fprintf(stderr, "ORG: %d: seed = %d, addr = %p\n", omp_get_thread_num(), this->random_seed[0], this->random_seed);
+#endif
   // Load strategy file
   int start_dim = 1, end_dim = 4;
 #if MAX_TENSOR_DIM >= 5
@@ -1790,7 +1865,9 @@ void FFModel::simulate(CompMode comp_mode)
   config.computationMode = comp_mode;
   // Launch the simulation task
   FFModel* model = this;
+#ifdef DEBUG
   std::cerr << config.topology << std::endl;
+#endif
   if (config.topology != "topoopt") {
     TaskLauncher launcher(CUSTOM_SIMULATION_TASK_ID,
       TaskArgument(&model, sizeof(FFModel*)));
@@ -2116,14 +2193,24 @@ struct PropagationEdgeInfo {
   size_t size;
 };
 
-float randf() {
+float randf(unsigned int * seed) {
+#ifdef ISI_PARALLEL
+  //return static_cast<float>(rand_r(&seed[omp_get_thread_num()])) / static_cast<float>(RAND_MAX);
+  return static_cast<float>(rand_r(seed)) / static_cast<float>(RAND_MAX);
+#else
   return static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX);
+#endif
 }
 
 void FFModel::propagate(std::map<Op*, ParallelConfig> const &current,
                         std::map<Op*, ParallelConfig> &next) const {
   next = current;
+#ifdef ISI_PARALLEL
+//  size_t opId = rand_r(&seed[omp_get_thread_num()]) % (layers.size() - 1);
+  size_t opId = rand_r(this->random_seed) % (layers.size() - 1);
+#else
   size_t opId = std::rand() % (layers.size() - 1);
+#endif
   //TODO: need to make sure opId is not an output layer of the model
   assert (opId != layers.size() - 1);
 
@@ -2184,7 +2271,7 @@ void FFModel::propagate(std::map<Op*, ParallelConfig> const &current,
       );
     }
     assert (edge_weights.size() == choosable_edges.size());
-    PropagationEdgeInfo chosenEdgeInfo = select_random(choosable_edges, edge_weights);
+    PropagationEdgeInfo chosenEdgeInfo = select_random(choosable_edges, edge_weights, this->random_seed);
 
     auto const &dstOp = chosenEdgeInfo.dstOp;
     if (next.at(selected_op).is_data_parallel()) {
@@ -2195,7 +2282,7 @@ void FFModel::propagate(std::map<Op*, ParallelConfig> const &current,
       assert (dstOp->is_valid_parallel_config(*this, next.at(dstOp)));
     }
     selected_op = chosenEdgeInfo.dstOp;
-  } while (randf() < FFModel::CONTINUE_PROPAGATION_CHANCE);
+  } while (randf(this->random_seed) < FFModel::CONTINUE_PROPAGATION_CHANCE);
 }
 
 void FFModel::rewrite(const std::map<Op*, ParallelConfig>& current,
@@ -2211,10 +2298,15 @@ void FFModel::rewrite(const std::map<Op*, ParallelConfig>& current,
     propagate_chance = 0.0f;
   }
 
-  if (randf() < propagate_chance) {
+  if (randf(this->random_seed) < propagate_chance) {
     this->propagate(current, next);
   } else {
+#ifdef ISI_PARALLEL
+    size_t opId = rand_r(this->random_seed) % layers.size();
+    // size_t opId = rand_r(&seed[omp_get_thread_num()]) % layers.size();
+#else
     size_t opId = std::rand() % layers.size();
+#endif
     //TODO: need to make sure opId is not an output layer of the model
     if (opId == layers.size() - 1)
       return;
@@ -2410,6 +2502,9 @@ void Op::measure_all(Simulator * sim, FFModel& ff, std::vector<OpMeasurement>& o
   }
 }
 
+static double gbest_runtime[1024];
+int gbest_id = 0;
+
 void FFModel::optimize(Simulator* simulator,
                        std::map<Op*, ParallelConfig>& best,
                        size_t budget, float alpha,
@@ -2428,6 +2523,10 @@ void FFModel::optimize(Simulator* simulator,
     l1currinfo = simulator->l1optimizer->export_information();
     // simulator->l1optimizer->store_tm();
   }
+#ifdef ISI_PARALLEL
+  gbest_runtime[omp_get_thread_num()] = 0;
+  budget = budget / omp_get_num_threads();
+#endif
   size_t reset_span = budget / 100, last_reset_iter = 0;
   if (reset_span == 0)
     reset_span = 1;
@@ -2435,6 +2534,10 @@ void FFModel::optimize(Simulator* simulator,
     reset_span = 1000;
   for (size_t iter = 0; iter <= budget; iter++) {
     // Reset the current strategy to be the best strategy
+    if (iter % 100 == 0) {
+        fprintf(stderr, "%d iteration %d: start\n", omp_get_thread_num(), iter);
+        fflush(stderr);
+    }
     if (iter - last_reset_iter >= reset_span) {
       current = best;
       current_runtime = best_runtime;
@@ -2448,29 +2551,36 @@ void FFModel::optimize(Simulator* simulator,
     }
     rewrite(current, next, use_propagation);
     double next_runtime = simulator->simulate_runtime(this, next, comp_mode);
-    // printf("=========== next Discovered Strategy ==========: %f\n", next_runtime);
-    // std::map<Op*, ParallelConfig>::const_iterator it;
-    // for (it = next.begin(); it != next.end(); it++) {
-    //   printf("[%s] num_dims(%d) dims[", it->first->name, it->second.nDims);
-    //   for (int i = 0; i < it->second.nDims; i++)
-    //     if (i < it->second.nDims - 1)
-    //       printf("%d,", it->second.dim[i]);
-    //     else
-    //       printf("%d", it->second.dim[i]);
-    //   printf("] device_ids[");
-    //   for (int i = 0; i < it->second.num_parts(); i++)
-    //     if (i < it->second.num_parts() - 1)
-    //       printf("%d,", it->second.device_ids[i]);
-    //     else
-    //       printf("%d", it->second.device_ids[i]);
-    //   printf("]\n");
-    // }
-    // printf("============= MCMC Search ============\n\n");
-    if (iter % 10 == 0) {
-      printf("iteration(%zu) current_strategy(%.4lf) next_strategy(%.4lf) best_strategy(%.4lf)\n", iter,
+#ifndef ISI_PARALLEL
+     printf("=========== next Discovered Strategy ==========: %f\n", next_runtime);
+     std::map<Op*, ParallelConfig>::const_iterator it;
+     for (it = next.begin(); it != next.end(); it++) {
+       printf("[%s] num_dims(%d) dims[", it->first->name, it->second.nDims);
+       for (int i = 0; i < it->second.nDims; i++)
+         if (i < it->second.nDims - 1)
+           printf("%d,", it->second.dim[i]);
+         else
+           printf("%d", it->second.dim[i]);
+       printf("] device_ids[");
+       for (int i = 0; i < it->second.num_parts(); i++)
+         if (i < it->second.num_parts() - 1)
+           printf("%d,", it->second.device_ids[i]);
+         else
+           printf("%d", it->second.device_ids[i]);
+       printf("]\n");
+     }
+     printf("============= MCMC Search ============\n\n");
+#endif
+    if (iter % 1 == 0) {
+      printf("%d: iteration(%zu) current_strategy(%.4lf) next_strategy(%.4lf) best_strategy(%.4lf)\n", omp_get_thread_num(), iter,
              current_runtime, next_runtime, best_runtime);
     }
+#ifdef ISI_PARALLEL
+    //double rn = static_cast<double>(rand_r(&seed[omp_get_thread_num()])) / static_cast<double>(RAND_MAX);
+    double rn = static_cast<double>(rand_r(this->random_seed)) / static_cast<double>(RAND_MAX);
+#else
     double rn = static_cast<double>(std::rand()) / static_cast<double>(RAND_MAX);
+#endif
     //double ratio = (next_runtime - current_runtime) / current_runtime;
     double diff = (next_runtime - current_runtime);
     if (next_runtime < best_runtime) {
@@ -2518,7 +2628,30 @@ void FFModel::optimize(Simulator* simulator,
       }
     }
   }
-  printf("=========== Best Discovered Strategy ==========\n");
+#ifdef ISI_PARALLEL
+  gbest_runtime[omp_get_thread_num()] = best_runtime;
+  fprintf(stderr, "%d: before barrier after computing\n", omp_get_thread_num());
+#pragma omp barrier
+
+  int best_id = 0;
+  assert(gbest_runtime[best_id] > 0);
+  if (omp_get_thread_num() == 0) {
+       for (int i; i < omp_get_num_threads(); i++)
+	  fprintf(stderr, "thread %d: best-time = %f\n", i, gbest_runtime[i]);
+      for (int i = 1; i < omp_get_num_threads(); i++) {
+          assert(gbest_runtime[i] > 0);
+          if (gbest_runtime[best_id] > gbest_runtime[i])
+		best_id = i;
+	  if (omp_get_thread_num() == 0)
+		fprintf(stderr, "best_id = %d\n", best_id);
+      }
+      gbest_id = best_id;
+  }
+  fprintf(stderr, "%d: before barrier after voting\n", omp_get_thread_num());
+#pragma omp barrier
+#endif
+  if (gbest_id == omp_get_thread_num()) {
+  printf("%d: =========== Best Discovered Strategy ==========\n", omp_get_thread_num());
   if (simulator->l1optimizer)
     simulator->l1optimizer->import_information(l1bestinfo);
   simulator->simulate_runtime(this, best, comp_mode, this->config.export_strategy_task_graph_file);
@@ -2539,6 +2672,9 @@ void FFModel::optimize(Simulator* simulator,
     printf("]\n");
   }
   printf("============= MCMC Search Finished ============\n\n");
+  }
+  fprintf(stderr, "%d: before last barrier\n", omp_get_thread_num());
+#pragma omp barrier
 }
 
 void FFModel::zero_gradients(void)
@@ -2737,7 +2873,11 @@ bool DataLoader::get_samples(int numSamples, DataLoadMeta &meta)
 
 bool DataLoader::shuffle_samples(void)
 {
+#ifdef ISI_PARALLEL
   std::random_shuffle(samples.begin(), samples.end());
+#else
+  std::random_shuffle(samples.begin(), samples.end());
+#endif
   return true;
 }
 #endif
@@ -2767,12 +2907,20 @@ struct DefaultConfig {
   const static bool profiling = false;
   constexpr static float learningRate = 0.01f;
   constexpr static float weightDecay = 0.0001f;
-  const static size_t workSpaceSize = (size_t)1 * 1024 * 1024 * 1024; // 2GB
+#ifdef ISI_PARALLEL
+  const static size_t workSpaceSize = (size_t)1 * 128 * 1024 * 1024; // 0.12 GB
+#else
+  const static size_t workSpaceSize = (size_t)1 * 1024 * 1024 * 1024; // 2 GB
+#endif
   const static int numNodes = 1;
   const static int workersPerNode = 0;
   const static int cpusPerNode = 0;
   const static size_t searchBudget = 0;
+#ifdef ISI_PARALLEL
+  const static size_t simulatorWorkSpaceSize = (size_t)1 * 512 * 1024 * 1024; //0.5GB
+#else
   const static size_t simulatorWorkSpaceSize = (size_t)2 * 1024 * 1024 * 1024; //2GB
+#endif
   constexpr static float searchAlpha = 1.0f;
   const static bool searchOverlapBackwardUpdate = false;
   const static bool enableSampleParallel = true;
@@ -2858,6 +3006,7 @@ void FFConfig::parse_args(char **argv, int argc)
     //}
     if ((!strcmp(argv[i], "-b")) || (!strcmp(argv[i], "--batch-size"))) {
       batchSize = atoi(argv[++i]);
+      std::cout << "batchSize in agrument is " << batchSize << std::endl;
       continue;
     }
     if ((!strcmp(argv[i], "--lr")) || (!strcmp(argv[i], "--learning-rate"))) {
@@ -3024,6 +3173,9 @@ void FFConfig::parse_args(char **argv, int argc)
     if (!strcmp(argv[i], "--topology")) {
       topology = std::string(argv[++i]);
       continue;
+    }
+    else {
+      printf("Unknown option %s\n", argv[i]);
     }
   }
 }

@@ -3,6 +3,8 @@ project(FlexFlow)
 
 include(ExternalProject) 
 
+set(CUDA_CUDA_LIBRARY /spack/apps/linux-centos7-x86_64/gcc-8.3.0/cuda-11.2.0-7uwimxj27s4cptafhkw6a6fpyqf5nw4c/targets/x86_64-linux/lib/stubs/libcuda.so)
+
 # Set policy CMP0074 to eliminate cmake warnings
 cmake_policy(SET CMP0074 NEW)
 cmake_policy(SET CMP0077 NEW)

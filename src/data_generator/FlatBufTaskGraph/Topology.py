@@ -74,27 +74,21 @@ class Topology(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
         return o == 0
 
-def Start(builder): builder.StartObject(2)
-def TopologyStart(builder):
-    """This method is deprecated. Please switch to Start."""
-    return Start(builder)
-def AddConn(builder, conn): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(conn), 0)
-def TopologyAddConn(builder, conn):
-    """This method is deprecated. Please switch to AddConn."""
-    return AddConn(builder, conn)
-def StartConnVector(builder, numElems): return builder.StartVector(4, numElems, 4)
-def TopologyStartConnVector(builder, numElems):
-    """This method is deprecated. Please switch to Start."""
-    return StartConnVector(builder, numElems)
-def AddRoutes(builder, routes): builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(routes), 0)
-def TopologyAddRoutes(builder, routes):
-    """This method is deprecated. Please switch to AddRoutes."""
-    return AddRoutes(builder, routes)
-def StartRoutesVector(builder, numElems): return builder.StartVector(4, numElems, 4)
-def TopologyStartRoutesVector(builder, numElems):
-    """This method is deprecated. Please switch to Start."""
-    return StartRoutesVector(builder, numElems)
-def End(builder): return builder.EndObject()
-def TopologyEnd(builder):
-    """This method is deprecated. Please switch to End."""
-    return End(builder)
+def TopologyStart(builder): builder.StartObject(2)
+def Start(builder):
+    return TopologyStart(builder)
+def TopologyAddConn(builder, conn): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(conn), 0)
+def AddConn(builder, conn):
+    return TopologyAddConn(builder, conn)
+def TopologyStartConnVector(builder, numElems): return builder.StartVector(4, numElems, 4)
+def StartConnVector(builder, numElems):
+    return TopologyStartConnVector(builder, numElems)
+def TopologyAddRoutes(builder, routes): builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(routes), 0)
+def AddRoutes(builder, routes):
+    return TopologyAddRoutes(builder, routes)
+def TopologyStartRoutesVector(builder, numElems): return builder.StartVector(4, numElems, 4)
+def StartRoutesVector(builder, numElems):
+    return TopologyStartRoutesVector(builder, numElems)
+def TopologyEnd(builder): return builder.EndObject()
+def End(builder):
+    return TopologyEnd(builder)

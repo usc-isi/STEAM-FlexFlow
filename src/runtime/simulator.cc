@@ -18,10 +18,12 @@
 #include "model.h"
 #include "queue"
 
+#include "isi_parallel.h"
+
 // #include "flatbuffers/util.h"
 #include "taskgraph_generated.h"
 
-// #define DEBUG_PRINT
+//#define DEBUG_PRINT
 // #define WRITE_NETWORK_TRANSFER
 
 int ParallelConfig::num_parts() const
@@ -63,9 +65,16 @@ CommDevice::CommDevice(std::string const &name, CommDevType comm_type, int node_
 {}
 
 /* I hate this but this makes sense here... */
+#ifdef ISI_PARALLEL
+//static std::random_device rd; 
+static int initialized = 0;
+static std::mt19937 gen[1024];
+static std::uniform_real_distribution<> std_uniform = std::uniform_real_distribution<>(0.0, 1.0); 
+#else
 static std::random_device rd; 
 static std::mt19937 gen = std::mt19937(rd()); 
 static std::uniform_real_distribution<> std_uniform = std::uniform_real_distribution<>(0.0, 1.0); 
+#endif
 
 // NominalCommDevice::NominalCommDevice(std::string const &name, int device_id, const EcmpRoutes& routes) 
 // : CommDevice(name, CommDevice::NW_NOMINAL, -1, -1, device_id, 0, 0), routes(routes)
@@ -73,8 +82,18 @@ static std::uniform_real_distribution<> std_uniform = std::uniform_real_distribu
 
 NominalCommDevice::NominalCommDevice(std::string const &name, int device_id, int nnodes, NetworkRoutingStrategy * routing) 
 : CommDevice(name, CommDevice::NW_NOMINAL, -1, -1, device_id, 0, 0), routing_strategy(routing), dirty(true), nnode(nnodes)
+#ifdef ISI_PARALLEL
+{
+	std::random_device rd; 
+	int i;
+	if (initialized == 0) { initialized = 1;
+	for (i = 0; i < omp_get_num_threads(); i++)
+		gen[i] = std::mt19937(rd());
+	}
+}
+#else
 {}
-
+#endif
 void NominalCommDevice::reset() 
 {
   dirty = true;
@@ -93,7 +112,11 @@ Route NominalCommDevice::expand_to_physical() const
 
   assert(routes.first.size() > 0 || device_id / nnode == device_id % nnode);
   int pick = 0;
+#ifdef ISI_PARALLEL
+  double choice = std_uniform(gen[omp_get_thread_num()]);
+#else
   double choice = std_uniform(gen);
+#endif
   for (int i = 0; i < routes.first.size(); i++) {
     if (choice > routes.first[i]) break;
     pick = i;
@@ -146,6 +169,15 @@ std::string SimTask::get_type_str() const {
   }
 }
 
+#ifdef ISI_PARALLEL
+TaskManager::TaskManager(size_t _max_num_tasks)
+: max_num_tasks(_max_num_tasks)
+{
+//  fprintf(stderr, "%d: before malloc (%d) size task array\n", omp_get_thread_num(), max_num_tasks*sizeof(SimTask*));
+  tasks = (SimTask**) malloc(sizeof(SimTask*) * max_num_tasks);
+//  fprintf(stderr, "%d: after malloc (%d) size task array\n", omp_get_thread_num(), max_num_tasks*sizeof(SimTask*));
+}
+#else
 TaskManager::TaskManager(size_t _max_num_tasks)
 : max_num_tasks(_max_num_tasks)
 {
@@ -154,6 +186,7 @@ TaskManager::TaskManager(size_t _max_num_tasks)
     tasks[i] = new SimTask();
   }
 }
+#endif
 
 void TaskManager::reset()
 {
@@ -164,6 +197,20 @@ void TaskManager::reset()
 
 SimTask* TaskManager::new_task()
 {
+#ifdef ISI_PARALLEL
+  if (global_task_id == global_malloced) {
+	tasks[global_task_id] = new SimTask();
+  	global_malloced++;
+#if 0
+	if (global_malloced % 1000 == 0) 
+		fprintf(stderr, "%d: so far max global_task_id = %d\n", omp_get_thread_num(), global_task_id);
+#endif
+	if (tasks[global_task_id] == NULL) {
+	    fprintf(stderr, "new(SimTask) failed: Memory is exhaused: global_task_id = %d\n", global_task_id);
+	    exit(0);
+	}
+  }
+#endif
   assert(global_task_id + 1 < max_num_tasks);
   SimTask* task = tasks[global_task_id++];
   task->ready_time = 0.0f;
@@ -462,6 +509,7 @@ CostMetrics Simulator::measure_operator_cost(Op* op, const ParallelConfig& confi
     hash_to_operator_cost.find(hash);
   if (iter == hash_to_operator_cost.end()) {
     CostMetrics cost_metrics;
+    fprintf(stderr, "my thread id = %d", omp_get_thread_num());
     bool is_implemented = op->measure_operator_cost(this, config, cost_metrics);
     if (! is_implemented) {
       handle_measure_operator_cost_unimplemented(op);
@@ -718,6 +766,7 @@ double Simulator::simulate_runtime(const FFModel* model,
     idx++;
   }
   if (export_taskgraph) {
+	  fprintf(stderr, "%d: sim_time(%f), taskGraph.close()\n", omp_get_thread_num(), sim_time);
     taskGraph.close();
   }
   // Assert all tasks were processed
@@ -1242,6 +1291,7 @@ void LogicalTaskgraphBasedSimulator::expand_allreduce(SimTask * allreduce_task,
                                  double start_time,
                                  std::priority_queue<SimTask*, std::vector<SimTask*>, SimTaskCompare>& ready_queue) {
 
+//  fprintf(stderr, "%s: omp thread = %d\n", __func__, omp_get_thread_num());
   int n_participants = allreduce_task->next_tasks.size();
   if (n_participants == 1) return;
   
@@ -1254,7 +1304,11 @@ void LogicalTaskgraphBasedSimulator::expand_allreduce(SimTask * allreduce_task,
   MemDevice * dst_mem;
   // std::cerr << "expand_ar size: " << allreduce_task->xfer_size << ", " << "grp size: " << n_participants << std::endl;
 
+#ifdef ISI_PARALLEL
+  int dir = std_uniform(gen[omp_get_thread_num()]) < 0.5 ? 1 : -1;
+#else
   int dir = std_uniform(gen) < 0.5 ? 1 : -1;
+#endif
   // std::cerr << "dir: " << dir << std::endl;
   int round = 0, i = 0;
   // for (int i = 0; i < n_participants; i++) {

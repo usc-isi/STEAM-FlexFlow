@@ -18,7 +18,12 @@
  //#include "realm/runtime_impl.h"
  //#include "realm/cuda/cuda_module.h"
  #include "cuda_helper.h"
- 
+
+#include "isi_parallel.h"
+
+#ifdef ISI_PARALLEL
+extern int gbest_id;
+#endif
  typedef long long int coord_t;
  
  typedef Realm::Point<1, coord_t> Point1;
@@ -54,8 +59,24 @@
      handler.workSpace = workspaceInst.pointer_untyped(0, sizeof(char));
    }
  
-   size_t max_num_tasks = 256 * 1024 * 1024;
- 
+#ifdef ISI_PARALLEL
+   size_t max_num_tasks = 1024 * 1024;	// DK: the original size works for 64GB memory
+   if (!model->config.nogpu) {
+       cudaEventCreate(&start_event);
+       cudaEventCreate(&end_event);
+       conv2d_meta = new Conv2DMeta(handler);
+       linear_meta = new LinearMeta(handler, 4096);
+       pool2d_meta = new Pool2DMeta(handler);
+       ele_unary_meta = new ElementUnaryMeta(handler);
+       ele_binary_meta = new ElementBinaryMeta(handler);
+       //softmax_meta = new SoftmaxMeta(handler);
+       batch_matmul_meta = new BatchMatmulMeta(handler);
+       concat_meta = new ConcatMeta(handler);
+       //dropout_meta = new DropoutMeta(handler);
+       transpose_meta = new TransposeMeta(handler);
+   } 
+#else
+   size_t max_num_tasks = 256 * 1024 * 1024;	
    cudaEventCreate(&start_event);
    cudaEventCreate(&end_event);
    conv2d_meta = new Conv2DMeta(handler);
@@ -68,6 +89,7 @@
    concat_meta = new ConcatMeta(handler);
    //dropout_meta = new DropoutMeta(handler);
    transpose_meta = new TransposeMeta(handler);
+#endif
    this->machine = machine;
    segment_size = model->config.simulator_segment_size;
    max_num_segments = model->config.simulator_max_num_segments;
@@ -173,7 +195,20 @@
                                       const std::vector<PhysicalRegion> &regions,
                                       Context ctx, Runtime *runtime)
  {
+#ifdef ISI_PARALLEL
+#pragma omp parallel
+{
+   fprintf(stderr, "%d: before mymodel: FFModel = %p\n", omp_get_thread_num(), * ((FFModel **)task->args));
+   FFModel * mymodel = *((FFModel**) task->args);
+   fprintf(stderr, "%d: before smodel: FFModel = %p, optimizer = %p\n", omp_get_thread_num(), mymodel, mymodel->optimizer);
+   FFModel smodel(mymodel);
+//   FFModel smodel(mymodel->config, mymodel->simonly);
+   fprintf(stderr, "%d: before assign: FFModel = %p\n", omp_get_thread_num(), &smodel);
+   FFModel* model = & smodel;
+   fprintf(stderr, "%d: after assign\n", omp_get_thread_num());
+#else
    FFModel* model = *((FFModel**) task->args);
+#endif
    Memory gpu_mem = Machine::MemoryQuery(Machine::get_machine())
           .only_kind(Memory::GPU_FB_MEM).best_affinity_to(task->target_proc).first();
    // Realm::MemoryImpl* memImpl =
@@ -232,6 +267,9 @@
        strategies[model->layers[l]] = model->layers[l]->get_data_parallel_config(*model);
      }
    }
+#ifdef ISI_PARALLEL
+   if (omp_get_thread_num() == 0) {
+#endif
    if (model->config.computationMode == COMP_MODE_TRAINING) {
      fprintf(stderr, "MCMC search configuration: budget(%zu) alpha(%.8lf) mode(TRAINING)\n",
          model->config.search_budget, model->config.search_alpha);
@@ -239,8 +277,16 @@
      fprintf(stderr, "MCMC search configuration: budget(%zu) alpha(%.8lf) mode(INFERENCE)\n",
          model->config.search_budget, model->config.search_alpha);
    }
+#ifdef ISI_PARALLEL
+   }
+#endif
    model->optimize(simulator, strategies, model->config.search_budget,
        model->config.search_alpha, model->config.computationMode, model->config.enable_propagation);
+#ifdef ISI_PARALLEL
+   fprintf(stderr, "%d: before barrier: after optimize\n", omp_get_thread_num());
+#pragma omp barrier
+   if (omp_get_thread_num() == gbest_id) {
+#endif
    if (model->config.export_strategy_file.length() > 0) {
      fprintf(stderr, "Exporting the best discovered strategy to %s.\n",
          model->config.export_strategy_file.c_str());
@@ -259,10 +305,18 @@
          "Please set a path to export the strategy using --export or --export-strategy.\n");
      exit(0);
    }
+#ifdef ISI_PARALLEL
+   }
+#endif
    // Start from data
    // memFBImpl->free_bytes_local(offset, model->config.simulator_work_space_size);
    delete(simulator);
    delete(machine);
+#ifdef ISI_PARALLEL
+   fprintf(stderr, "%d: before barrier: Final\n", omp_get_thread_num());
+#pragma omp barrier
+}	// DK: openmp
+#endif
  }
  
  
@@ -308,7 +362,20 @@
                                       const std::vector<PhysicalRegion> &regions,
                                       Context ctx, Runtime *runtime)
  {
+#ifdef ISI_PARALLEL
+#pragma omp parallel
+{
+//   fprintf(stderr, "%d: before mymodel: FFModel = %p\n", omp_get_thread_num(), * ((FFModel **)task->args));
+   FFModel * mymodel = *((FFModel**) task->args);
+//   fprintf(stderr, "%d: before smodel: FFModel = %p, optimizer = %p\n", omp_get_thread_num(), mymodel, mymodel->optimizer);
+   FFModel smodel(mymodel);
+//   FFModel smodel(mymodel->config, mymodel->simonly);
+//   fprintf(stderr, "%d: before assign: FFModel = %p\n", omp_get_thread_num(), &smodel);
+   FFModel* model = & smodel;
+//   fprintf(stderr, "%d: after assign\n", omp_get_thread_num());
+#else
    FFModel* model = *((FFModel**) task->args);
+#endif
    Memory gpu_mem = Machine::MemoryQuery(Machine::get_machine())
           .only_kind(Memory::GPU_FB_MEM).best_affinity_to(task->target_proc).first();
    // Realm::MemoryImpl* memImpl =
@@ -355,12 +422,20 @@
    // simulator->l1optimizer = dhopt;
  
    // Set cublas/cudnn streams to allow Realm catch the events
- 
+
+#ifdef ISI_PARALLEL
+   if (!model->config.nogpu) {
+       cudaStream_t stream;
+       checkCUDA(get_legion_stream(&stream));
+       checkCUDA(cublasSetStream(simulator->handler.blas, stream));
+       checkCUDNN(cudnnSetStream(simulator->handler.dnn, stream));
+   }
+#else 
    cudaStream_t stream;
    checkCUDA(get_legion_stream(&stream));
    checkCUDA(cublasSetStream(simulator->handler.blas, stream));
    checkCUDNN(cudnnSetStream(simulator->handler.dnn, stream));
- 
+#endif 
    std::map<Op*, ParallelConfig> strategies;
    if (model->config.import_strategy_file.length() > 0) {
      // Load the strategy from config.strategies
@@ -396,6 +471,9 @@
        }
      }
    }
+#ifdef ISI_PARALLEL
+   if (omp_get_thread_num() == 0) {
+#endif
    if (model->config.computationMode == COMP_MODE_TRAINING) {
      fprintf(stderr, "MCMC search configuration: budget(%zu) alpha(%.8lf) mode(TRAINING)\n",
          model->config.search_budget, model->config.search_alpha);
@@ -403,8 +481,16 @@
      fprintf(stderr, "MCMC search configuration: budget(%zu) alpha(%.8lf) mode(INFERENCE)\n",
          model->config.search_budget, model->config.search_alpha);
    }
+#ifdef ISI_PARALLEL
+   }
+#endif
    model->optimize(simulator, strategies, model->config.search_budget,
        model->config.search_alpha, model->config.computationMode, model->config.enable_propagation);
+#ifdef ISI_PARALLEL
+   fprintf(stderr, "%d: before barrier: after optimize\n", omp_get_thread_num());
+#pragma omp barrier
+   if (omp_get_thread_num() == gbest_id) {
+#endif
    if (model->config.export_strategy_file.length() > 0) {
      fprintf(stderr, "Exporting the best discovered strategy to %s.\n",
          model->config.export_strategy_file.c_str());
@@ -423,10 +509,18 @@
          "Please set a path to export the strategy using --export or --export-strategy.\n");
      exit(0);
    }
+#ifdef ISI_PARALLEL
+   }
+#endif
    // Start from data
    // memFBImpl->free_bytes_local(offset, model->config.simulator_work_space_size);
    delete(simulator);
    delete(machine);
+#ifdef ISI_PARALLEL
+   fprintf(stderr, "%d: before barrier: Final\n", omp_get_thread_num());
+#pragma omp barrier
+}	// DK: openmp
+#endif
  }
  
  SpMulMatSimulator::SpMulMatSimulator(const FFModel* model,
@@ -436,13 +530,25 @@
  
  }
  
- 
  __host__
  void SpMulMatSimulator::simulation_task(const Task *task,
                                       const std::vector<PhysicalRegion> &regions,
                                       Context ctx, Runtime *runtime)
  {
+#ifdef ISI_PARALLEL
+#pragma omp parallel
+{
+   fprintf(stderr, "%d: before mymodel: FFModel = %p\n", omp_get_thread_num(), * ((FFModel **)task->args));
+   FFModel * mymodel = *((FFModel**) task->args);
+   fprintf(stderr, "%d: before smodel: FFModel = %p, optimizer = %p\n", omp_get_thread_num(), mymodel, mymodel->optimizer);
+   FFModel smodel(mymodel);
+//   FFModel smodel(mymodel->config, mymodel->simonly);
+   fprintf(stderr, "%d: before assign: FFModel = %p\n", omp_get_thread_num(), &smodel);
+   FFModel* model = & smodel;
+   fprintf(stderr, "%d: after assign\n", omp_get_thread_num());
+#else
    FFModel* model = *((FFModel**) task->args);
+#endif
    Memory gpu_mem = Machine::MemoryQuery(Machine::get_machine())
           .only_kind(Memory::GPU_FB_MEM).best_affinity_to(task->target_proc).first();
    // Realm::MemoryImpl* memImpl =
@@ -471,10 +577,12 @@
    machine = reinterpret_cast<MachineModel*>(nmachine);
  
    // Assume this task is running on GPU0
-   
+  
+//   model->config.nogpu = true; // DK
+
    Simulator* simulator = new SpMulMatSimulator(model, model->handlers[0], gpu_mem, machine);
    if (model->config.mfile != "") {
-     model->load_measurement(simulator, model->config.mfile);
+         model->load_measurement(simulator, model->config.mfile);
    }
    SpMulMat *dhopt = 
      new SpMulMat(machine, model->config.node_degree, true);
@@ -526,6 +634,9 @@
      }
  
    }
+#ifdef ISI_PARALLEL
+//   if (omp_get_thread_num() == 0) {
+#endif
    if (model->config.computationMode == COMP_MODE_TRAINING) {
      fprintf(stderr, "MCMC search configuration: budget(%zu) alpha(%.8lf) mode(TRAINING)\n",
          model->config.search_budget, model->config.search_alpha);
@@ -533,29 +644,45 @@
      fprintf(stderr, "MCMC search configuration: budget(%zu) alpha(%.8lf) mode(INFERENCE)\n",
          model->config.search_budget, model->config.search_alpha);
    }
+#ifdef ISI_PARALLEL
+//   }
+#endif
    model->optimize(simulator, strategies, model->config.search_budget,
        model->config.search_alpha, model->config.computationMode, model->config.enable_propagation);
-   if (model->config.export_strategy_file.length() > 0) {
-     fprintf(stderr, "Exporting the best discovered strategy to %s.\n",
-         model->config.export_strategy_file.c_str());
-     std::map<Op*, ParallelConfig>::const_iterator iter;
-     std::map<std::string, ParallelConfig> strategy_output;
-     for (iter = strategies.begin(); iter != strategies.end(); iter++) {
-       strategy_output[iter->first->name] = iter->second;
-     }
-     save_strategies_to_file(model->config.export_strategy_file, strategy_output);
-     fprintf(stderr, "To use the strategy for distributed training, restart"
-         " FlexFlow and import the strategy (i.e., --import %s)\n",
-         model->config.export_strategy_file.c_str());
-     exit(0);
-   }  else {
-     fprintf(stderr, "The best discovered strategy is not exported.\n"
-         "Please set a path to export the strategy using --export or --export-strategy.\n");
-     exit(0);
+#ifdef ISI_PARALLEL
+   fprintf(stderr, "%d: before barrier: after optimize\n", omp_get_thread_num());
+#pragma omp barrier
+   if (omp_get_thread_num() == gbest_id) {
+#endif
+       if (model->config.export_strategy_file.length() > 0) {
+         fprintf(stderr, "Exporting the best discovered strategy to %s.\n",
+             model->config.export_strategy_file.c_str());
+         std::map<Op*, ParallelConfig>::const_iterator iter;
+         std::map<std::string, ParallelConfig> strategy_output;
+         for (iter = strategies.begin(); iter != strategies.end(); iter++) {
+           strategy_output[iter->first->name] = iter->second;
+         }
+         save_strategies_to_file(model->config.export_strategy_file, strategy_output);
+         fprintf(stderr, "To use the strategy for distributed training, restart"
+             " FlexFlow and import the strategy (i.e., --import %s)\n",
+             model->config.export_strategy_file.c_str());
+         exit(0);
+       }  else {
+         fprintf(stderr, "The best discovered strategy is not exported.\n"
+             "Please set a path to export the strategy using --export or --export-strategy.\n");
+         exit(0);
+       }
+#ifdef ISI_PARALLEL
    }
+#endif
    // Start from data
    // memFBImpl->free_bytes_local(offset, model->config.simulator_work_space_size);
    delete(simulator);
    delete(machine);
+#ifdef ISI_PARALLEL
+   fprintf(stderr, "%d: before barrier: Final\n", omp_get_thread_num());
+#pragma omp barrier
+}	// DK: openmp
+#endif
  }
  

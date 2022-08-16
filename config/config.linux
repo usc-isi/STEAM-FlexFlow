@@ -6,23 +6,32 @@ echo " Defaults for Linux machine"
 # set CC and CXX to mpicc and mpic++ when enable gasnet
 # CC=mpicc
 # CXX=mpic++
+CC=gcc
+CXX=g++
 
 # add flags if needed
 #CC_FLAGS=${CC_FLAGS+=""}
 #NVCC_FLAGS=${NVCC_FLAGS+=""}
 #LD_FLAGS=${LD_FLAGS+=""}
 
+#set install dir
+#INSTALL_DIR=
+
 # set build type
 BUILD_TYPE=Release
 
 # set CUDA Arch, replace xx with your GPU architecture
-FF_CUDA_ARCH=86
+#FF_CUDA_ARCH=xx
+FF_CUDA_ARCH=80
 
 # set CUDNN dir in case cmake cannot autodetect a path
-CUDNN_DIR=/usr/local/cuda
+#CUDNN_DIR=/usr/local/cuda
 
 # set CUDA dir in case cmake cannot autodetect a path
 #CUDA_DIR=/usr/local/cuda
+#CUDA_DIR=/spack/apps/lmod/linux-centos7-x86_64/gcc/8.3.0/cuda/
+#CUDA_CUDA_LIBRARY=/spack/apps/pgi/2020_207/Linux_x86_64/20.7/compilers/lib64/stubs/libcuda.so
+#CUDA_CUDA_LIBRARY=/spack/apps/nvidia-hpc-sdk/2021_217/Linux_x86_64/21.7/cuda/lib64/stubs/libcuda.so
 
 # enable Python
 FF_USE_PYTHON=ON
@@ -33,8 +42,11 @@ FF_USE_NCCL=ON
 # enable GASNet
 FF_USE_GASNET=OFF
 
+# select GASNET conduit
+FF_GASNET_CONDUIT=ibv
+
 # build C++ examples
-FF_BUILD_EXAMPLES=ON
+FF_BUILD_ALL_EXAMPLES=ON
 
 # enable avx2
 FF_USE_AVX2=OFF

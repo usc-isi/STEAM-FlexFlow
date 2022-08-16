@@ -45,23 +45,18 @@ class Operator(object):
             return self._tab.String(o + self._tab.Pos)
         return None
 
-def Start(builder): builder.StartObject(3)
-def OperatorStart(builder):
-    """This method is deprecated. Please switch to Start."""
-    return Start(builder)
-def AddOpid(builder, opid): builder.PrependUint64Slot(0, opid, 0)
-def OperatorAddOpid(builder, opid):
-    """This method is deprecated. Please switch to AddOpid."""
-    return AddOpid(builder, opid)
-def AddType(builder, type): builder.PrependUint64Slot(1, type, 0)
-def OperatorAddType(builder, type):
-    """This method is deprecated. Please switch to AddType."""
-    return AddType(builder, type)
-def AddName(builder, name): builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(name), 0)
-def OperatorAddName(builder, name):
-    """This method is deprecated. Please switch to AddName."""
-    return AddName(builder, name)
-def End(builder): return builder.EndObject()
-def OperatorEnd(builder):
-    """This method is deprecated. Please switch to End."""
-    return End(builder)
+def OperatorStart(builder): builder.StartObject(3)
+def Start(builder):
+    return OperatorStart(builder)
+def OperatorAddOpid(builder, opid): builder.PrependUint64Slot(0, opid, 0)
+def AddOpid(builder, opid):
+    return OperatorAddOpid(builder, opid)
+def OperatorAddType(builder, type): builder.PrependUint64Slot(1, type, 0)
+def AddType(builder, type):
+    return OperatorAddType(builder, type)
+def OperatorAddName(builder, name): builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(name), 0)
+def AddName(builder, name):
+    return OperatorAddName(builder, name)
+def OperatorEnd(builder): return builder.EndObject()
+def End(builder):
+    return OperatorEnd(builder)

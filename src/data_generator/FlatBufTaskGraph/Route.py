@@ -63,27 +63,21 @@ class Route(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
         return o == 0
 
-def Start(builder): builder.StartObject(3)
-def RouteStart(builder):
-    """This method is deprecated. Please switch to Start."""
-    return Start(builder)
-def AddFromnode(builder, fromnode): builder.PrependUint32Slot(0, fromnode, 0)
-def RouteAddFromnode(builder, fromnode):
-    """This method is deprecated. Please switch to AddFromnode."""
-    return AddFromnode(builder, fromnode)
-def AddTonode(builder, tonode): builder.PrependUint32Slot(1, tonode, 0)
-def RouteAddTonode(builder, tonode):
-    """This method is deprecated. Please switch to AddTonode."""
-    return AddTonode(builder, tonode)
-def AddPaths(builder, paths): builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(paths), 0)
-def RouteAddPaths(builder, paths):
-    """This method is deprecated. Please switch to AddPaths."""
-    return AddPaths(builder, paths)
-def StartPathsVector(builder, numElems): return builder.StartVector(4, numElems, 4)
-def RouteStartPathsVector(builder, numElems):
-    """This method is deprecated. Please switch to Start."""
-    return StartPathsVector(builder, numElems)
-def End(builder): return builder.EndObject()
-def RouteEnd(builder):
-    """This method is deprecated. Please switch to End."""
-    return End(builder)
+def RouteStart(builder): builder.StartObject(3)
+def Start(builder):
+    return RouteStart(builder)
+def RouteAddFromnode(builder, fromnode): builder.PrependUint32Slot(0, fromnode, 0)
+def AddFromnode(builder, fromnode):
+    return RouteAddFromnode(builder, fromnode)
+def RouteAddTonode(builder, tonode): builder.PrependUint32Slot(1, tonode, 0)
+def AddTonode(builder, tonode):
+    return RouteAddTonode(builder, tonode)
+def RouteAddPaths(builder, paths): builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(paths), 0)
+def AddPaths(builder, paths):
+    return RouteAddPaths(builder, paths)
+def RouteStartPathsVector(builder, numElems): return builder.StartVector(4, numElems, 4)
+def StartPathsVector(builder, numElems):
+    return RouteStartPathsVector(builder, numElems)
+def RouteEnd(builder): return builder.EndObject()
+def End(builder):
+    return RouteEnd(builder)

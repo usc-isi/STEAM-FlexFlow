@@ -333,6 +333,7 @@ public:
     const ConnectionMatrix& conn;
     const std::map<size_t, CommDevice*>& devmap;
     int total_devs;
+    unsigned int seed;	// ISI_PARALLEL
 };
 
 /**
@@ -774,6 +775,7 @@ public:
   SimTask* new_task();
 public:
   size_t global_task_id, max_num_tasks;
+  size_t global_malloced = 0;	// DK's addition
   SimTask** tasks;
   
   std::map<size_t, SimTask*> hash_to_forward_task, hash_to_backward_task;

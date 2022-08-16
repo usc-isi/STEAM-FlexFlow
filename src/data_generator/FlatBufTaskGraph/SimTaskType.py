@@ -10,4 +10,3 @@ class SimTaskType(object):
     TASK_BARRIER = 4
     TASK_NOMINAL_COMM = 5
     TASK_ALLREDUCE = 6
-

@@ -51,19 +51,15 @@ class RingDescriptor(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         return o == 0
 
-def Start(builder): builder.StartObject(1)
-def RingDescriptorStart(builder):
-    """This method is deprecated. Please switch to Start."""
-    return Start(builder)
-def AddJumps(builder, jumps): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(jumps), 0)
-def RingDescriptorAddJumps(builder, jumps):
-    """This method is deprecated. Please switch to AddJumps."""
-    return AddJumps(builder, jumps)
-def StartJumpsVector(builder, numElems): return builder.StartVector(4, numElems, 4)
-def RingDescriptorStartJumpsVector(builder, numElems):
-    """This method is deprecated. Please switch to Start."""
-    return StartJumpsVector(builder, numElems)
-def End(builder): return builder.EndObject()
-def RingDescriptorEnd(builder):
-    """This method is deprecated. Please switch to End."""
-    return End(builder)
+def RingDescriptorStart(builder): builder.StartObject(1)
+def Start(builder):
+    return RingDescriptorStart(builder)
+def RingDescriptorAddJumps(builder, jumps): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(jumps), 0)
+def AddJumps(builder, jumps):
+    return RingDescriptorAddJumps(builder, jumps)
+def RingDescriptorStartJumpsVector(builder, numElems): return builder.StartVector(4, numElems, 4)
+def StartJumpsVector(builder, numElems):
+    return RingDescriptorStartJumpsVector(builder, numElems)
+def RingDescriptorEnd(builder): return builder.EndObject()
+def End(builder):
+    return RingDescriptorEnd(builder)

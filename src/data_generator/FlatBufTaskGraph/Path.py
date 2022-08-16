@@ -58,23 +58,18 @@ class Path(object):
             return self._tab.Get(flatbuffers.number_types.Float32Flags, o + self._tab.Pos)
         return 0.0
 
-def Start(builder): builder.StartObject(2)
-def PathStart(builder):
-    """This method is deprecated. Please switch to Start."""
-    return Start(builder)
-def AddHopnode(builder, hopnode): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(hopnode), 0)
-def PathAddHopnode(builder, hopnode):
-    """This method is deprecated. Please switch to AddHopnode."""
-    return AddHopnode(builder, hopnode)
-def StartHopnodeVector(builder, numElems): return builder.StartVector(4, numElems, 4)
-def PathStartHopnodeVector(builder, numElems):
-    """This method is deprecated. Please switch to Start."""
-    return StartHopnodeVector(builder, numElems)
-def AddChance(builder, chance): builder.PrependFloat32Slot(1, chance, 0.0)
-def PathAddChance(builder, chance):
-    """This method is deprecated. Please switch to AddChance."""
-    return AddChance(builder, chance)
-def End(builder): return builder.EndObject()
-def PathEnd(builder):
-    """This method is deprecated. Please switch to End."""
-    return End(builder)
+def PathStart(builder): builder.StartObject(2)
+def Start(builder):
+    return PathStart(builder)
+def PathAddHopnode(builder, hopnode): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(hopnode), 0)
+def AddHopnode(builder, hopnode):
+    return PathAddHopnode(builder, hopnode)
+def PathStartHopnodeVector(builder, numElems): return builder.StartVector(4, numElems, 4)
+def StartHopnodeVector(builder, numElems):
+    return PathStartHopnodeVector(builder, numElems)
+def PathAddChance(builder, chance): builder.PrependFloat32Slot(1, chance, 0.0)
+def AddChance(builder, chance):
+    return PathAddChance(builder, chance)
+def PathEnd(builder): return builder.EndObject()
+def End(builder):
+    return PathEnd(builder)

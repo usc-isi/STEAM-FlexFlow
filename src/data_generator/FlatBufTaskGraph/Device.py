@@ -59,31 +59,24 @@ class Device(object):
             return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
         return 0
 
-def Start(builder): builder.StartObject(5)
-def DeviceStart(builder):
-    """This method is deprecated. Please switch to Start."""
-    return Start(builder)
-def AddType(builder, type): builder.PrependInt16Slot(0, type, 0)
-def DeviceAddType(builder, type):
-    """This method is deprecated. Please switch to AddType."""
-    return AddType(builder, type)
-def AddDeviceid(builder, deviceid): builder.PrependUint64Slot(1, deviceid, 0)
-def DeviceAddDeviceid(builder, deviceid):
-    """This method is deprecated. Please switch to AddDeviceid."""
-    return AddDeviceid(builder, deviceid)
-def AddNodeid(builder, nodeid): builder.PrependUint64Slot(2, nodeid, 0)
-def DeviceAddNodeid(builder, nodeid):
-    """This method is deprecated. Please switch to AddNodeid."""
-    return AddNodeid(builder, nodeid)
-def AddDeviceproperty(builder, deviceproperty): builder.PrependUint64Slot(3, deviceproperty, 0)
-def DeviceAddDeviceproperty(builder, deviceproperty):
-    """This method is deprecated. Please switch to AddDeviceproperty."""
-    return AddDeviceproperty(builder, deviceproperty)
-def AddBandwidth(builder, bandwidth): builder.PrependUint64Slot(4, bandwidth, 0)
-def DeviceAddBandwidth(builder, bandwidth):
-    """This method is deprecated. Please switch to AddBandwidth."""
-    return AddBandwidth(builder, bandwidth)
-def End(builder): return builder.EndObject()
-def DeviceEnd(builder):
-    """This method is deprecated. Please switch to End."""
-    return End(builder)
+def DeviceStart(builder): builder.StartObject(5)
+def Start(builder):
+    return DeviceStart(builder)
+def DeviceAddType(builder, type): builder.PrependInt16Slot(0, type, 0)
+def AddType(builder, type):
+    return DeviceAddType(builder, type)
+def DeviceAddDeviceid(builder, deviceid): builder.PrependUint64Slot(1, deviceid, 0)
+def AddDeviceid(builder, deviceid):
+    return DeviceAddDeviceid(builder, deviceid)
+def DeviceAddNodeid(builder, nodeid): builder.PrependUint64Slot(2, nodeid, 0)
+def AddNodeid(builder, nodeid):
+    return DeviceAddNodeid(builder, nodeid)
+def DeviceAddDeviceproperty(builder, deviceproperty): builder.PrependUint64Slot(3, deviceproperty, 0)
+def AddDeviceproperty(builder, deviceproperty):
+    return DeviceAddDeviceproperty(builder, deviceproperty)
+def DeviceAddBandwidth(builder, bandwidth): builder.PrependUint64Slot(4, bandwidth, 0)
+def AddBandwidth(builder, bandwidth):
+    return DeviceAddBandwidth(builder, bandwidth)
+def DeviceEnd(builder): return builder.EndObject()
+def End(builder):
+    return DeviceEnd(builder)

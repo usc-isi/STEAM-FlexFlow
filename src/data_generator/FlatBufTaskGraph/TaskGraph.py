@@ -216,83 +216,63 @@ class TaskGraph(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(26))
         return o == 0
 
-def Start(builder): builder.StartObject(12)
-def TaskGraphStart(builder):
-    """This method is deprecated. Please switch to Start."""
-    return Start(builder)
-def AddNgpupernode(builder, ngpupernode): builder.PrependUint32Slot(0, ngpupernode, 0)
-def TaskGraphAddNgpupernode(builder, ngpupernode):
-    """This method is deprecated. Please switch to AddNgpupernode."""
-    return AddNgpupernode(builder, ngpupernode)
-def AddNnode(builder, nnode): builder.PrependUint32Slot(1, nnode, 0)
-def TaskGraphAddNnode(builder, nnode):
-    """This method is deprecated. Please switch to AddNnode."""
-    return AddNnode(builder, nnode)
-def AddNswitch(builder, nswitch): builder.PrependUint32Slot(2, nswitch, 0)
-def TaskGraphAddNswitch(builder, nswitch):
-    """This method is deprecated. Please switch to AddNswitch."""
-    return AddNswitch(builder, nswitch)
-def AddIntergpubw(builder, intergpubw): builder.PrependFloat32Slot(3, intergpubw, 0.0)
-def TaskGraphAddIntergpubw(builder, intergpubw):
-    """This method is deprecated. Please switch to AddIntergpubw."""
-    return AddIntergpubw(builder, intergpubw)
-def AddDrambw(builder, drambw): builder.PrependFloat32Slot(4, drambw, 0.0)
-def TaskGraphAddDrambw(builder, drambw):
-    """This method is deprecated. Please switch to AddDrambw."""
-    return AddDrambw(builder, drambw)
-def AddNetbw(builder, netbw): builder.PrependFloat32Slot(5, netbw, 0.0)
-def TaskGraphAddNetbw(builder, netbw):
-    """This method is deprecated. Please switch to AddNetbw."""
-    return AddNetbw(builder, netbw)
-def AddConn(builder, conn): builder.PrependUOffsetTRelativeSlot(6, flatbuffers.number_types.UOffsetTFlags.py_type(conn), 0)
-def TaskGraphAddConn(builder, conn):
-    """This method is deprecated. Please switch to AddConn."""
-    return AddConn(builder, conn)
-def StartConnVector(builder, numElems): return builder.StartVector(4, numElems, 4)
-def TaskGraphStartConnVector(builder, numElems):
-    """This method is deprecated. Please switch to Start."""
-    return StartConnVector(builder, numElems)
-def AddOps(builder, ops): builder.PrependUOffsetTRelativeSlot(7, flatbuffers.number_types.UOffsetTFlags.py_type(ops), 0)
-def TaskGraphAddOps(builder, ops):
-    """This method is deprecated. Please switch to AddOps."""
-    return AddOps(builder, ops)
-def StartOpsVector(builder, numElems): return builder.StartVector(4, numElems, 4)
-def TaskGraphStartOpsVector(builder, numElems):
-    """This method is deprecated. Please switch to Start."""
-    return StartOpsVector(builder, numElems)
-def AddTasks(builder, tasks): builder.PrependUOffsetTRelativeSlot(8, flatbuffers.number_types.UOffsetTFlags.py_type(tasks), 0)
-def TaskGraphAddTasks(builder, tasks):
-    """This method is deprecated. Please switch to AddTasks."""
-    return AddTasks(builder, tasks)
-def StartTasksVector(builder, numElems): return builder.StartVector(4, numElems, 4)
-def TaskGraphStartTasksVector(builder, numElems):
-    """This method is deprecated. Please switch to Start."""
-    return StartTasksVector(builder, numElems)
-def AddDevices(builder, devices): builder.PrependUOffsetTRelativeSlot(9, flatbuffers.number_types.UOffsetTFlags.py_type(devices), 0)
-def TaskGraphAddDevices(builder, devices):
-    """This method is deprecated. Please switch to AddDevices."""
-    return AddDevices(builder, devices)
-def StartDevicesVector(builder, numElems): return builder.StartVector(4, numElems, 4)
-def TaskGraphStartDevicesVector(builder, numElems):
-    """This method is deprecated. Please switch to Start."""
-    return StartDevicesVector(builder, numElems)
-def AddRoutes(builder, routes): builder.PrependUOffsetTRelativeSlot(10, flatbuffers.number_types.UOffsetTFlags.py_type(routes), 0)
-def TaskGraphAddRoutes(builder, routes):
-    """This method is deprecated. Please switch to AddRoutes."""
-    return AddRoutes(builder, routes)
-def StartRoutesVector(builder, numElems): return builder.StartVector(4, numElems, 4)
-def TaskGraphStartRoutesVector(builder, numElems):
-    """This method is deprecated. Please switch to Start."""
-    return StartRoutesVector(builder, numElems)
-def AddRings(builder, rings): builder.PrependUOffsetTRelativeSlot(11, flatbuffers.number_types.UOffsetTFlags.py_type(rings), 0)
-def TaskGraphAddRings(builder, rings):
-    """This method is deprecated. Please switch to AddRings."""
-    return AddRings(builder, rings)
-def StartRingsVector(builder, numElems): return builder.StartVector(4, numElems, 4)
-def TaskGraphStartRingsVector(builder, numElems):
-    """This method is deprecated. Please switch to Start."""
-    return StartRingsVector(builder, numElems)
-def End(builder): return builder.EndObject()
-def TaskGraphEnd(builder):
-    """This method is deprecated. Please switch to End."""
-    return End(builder)
+def TaskGraphStart(builder): builder.StartObject(12)
+def Start(builder):
+    return TaskGraphStart(builder)
+def TaskGraphAddNgpupernode(builder, ngpupernode): builder.PrependUint32Slot(0, ngpupernode, 0)
+def AddNgpupernode(builder, ngpupernode):
+    return TaskGraphAddNgpupernode(builder, ngpupernode)
+def TaskGraphAddNnode(builder, nnode): builder.PrependUint32Slot(1, nnode, 0)
+def AddNnode(builder, nnode):
+    return TaskGraphAddNnode(builder, nnode)
+def TaskGraphAddNswitch(builder, nswitch): builder.PrependUint32Slot(2, nswitch, 0)
+def AddNswitch(builder, nswitch):
+    return TaskGraphAddNswitch(builder, nswitch)
+def TaskGraphAddIntergpubw(builder, intergpubw): builder.PrependFloat32Slot(3, intergpubw, 0.0)
+def AddIntergpubw(builder, intergpubw):
+    return TaskGraphAddIntergpubw(builder, intergpubw)
+def TaskGraphAddDrambw(builder, drambw): builder.PrependFloat32Slot(4, drambw, 0.0)
+def AddDrambw(builder, drambw):
+    return TaskGraphAddDrambw(builder, drambw)
+def TaskGraphAddNetbw(builder, netbw): builder.PrependFloat32Slot(5, netbw, 0.0)
+def AddNetbw(builder, netbw):
+    return TaskGraphAddNetbw(builder, netbw)
+def TaskGraphAddConn(builder, conn): builder.PrependUOffsetTRelativeSlot(6, flatbuffers.number_types.UOffsetTFlags.py_type(conn), 0)
+def AddConn(builder, conn):
+    return TaskGraphAddConn(builder, conn)
+def TaskGraphStartConnVector(builder, numElems): return builder.StartVector(4, numElems, 4)
+def StartConnVector(builder, numElems):
+    return TaskGraphStartConnVector(builder, numElems)
+def TaskGraphAddOps(builder, ops): builder.PrependUOffsetTRelativeSlot(7, flatbuffers.number_types.UOffsetTFlags.py_type(ops), 0)
+def AddOps(builder, ops):
+    return TaskGraphAddOps(builder, ops)
+def TaskGraphStartOpsVector(builder, numElems): return builder.StartVector(4, numElems, 4)
+def StartOpsVector(builder, numElems):
+    return TaskGraphStartOpsVector(builder, numElems)
+def TaskGraphAddTasks(builder, tasks): builder.PrependUOffsetTRelativeSlot(8, flatbuffers.number_types.UOffsetTFlags.py_type(tasks), 0)
+def AddTasks(builder, tasks):
+    return TaskGraphAddTasks(builder, tasks)
+def TaskGraphStartTasksVector(builder, numElems): return builder.StartVector(4, numElems, 4)
+def StartTasksVector(builder, numElems):
+    return TaskGraphStartTasksVector(builder, numElems)
+def TaskGraphAddDevices(builder, devices): builder.PrependUOffsetTRelativeSlot(9, flatbuffers.number_types.UOffsetTFlags.py_type(devices), 0)
+def AddDevices(builder, devices):
+    return TaskGraphAddDevices(builder, devices)
+def TaskGraphStartDevicesVector(builder, numElems): return builder.StartVector(4, numElems, 4)
+def StartDevicesVector(builder, numElems):
+    return TaskGraphStartDevicesVector(builder, numElems)
+def TaskGraphAddRoutes(builder, routes): builder.PrependUOffsetTRelativeSlot(10, flatbuffers.number_types.UOffsetTFlags.py_type(routes), 0)
+def AddRoutes(builder, routes):
+    return TaskGraphAddRoutes(builder, routes)
+def TaskGraphStartRoutesVector(builder, numElems): return builder.StartVector(4, numElems, 4)
+def StartRoutesVector(builder, numElems):
+    return TaskGraphStartRoutesVector(builder, numElems)
+def TaskGraphAddRings(builder, rings): builder.PrependUOffsetTRelativeSlot(11, flatbuffers.number_types.UOffsetTFlags.py_type(rings), 0)
+def AddRings(builder, rings):
+    return TaskGraphAddRings(builder, rings)
+def TaskGraphStartRingsVector(builder, numElems): return builder.StartVector(4, numElems, 4)
+def StartRingsVector(builder, numElems):
+    return TaskGraphStartRingsVector(builder, numElems)
+def TaskGraphEnd(builder): return builder.EndObject()
+def End(builder):
+    return TaskGraphEnd(builder)

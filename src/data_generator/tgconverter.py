@@ -1,4 +1,4 @@
-
+# python code to read a task graph in flatbuffers format and replace its topology with rings for INTREPID network architecture
 # namespace: FlatBufTaskGraph
 import flatbuffers as fb
 import FlatBufTaskGraph.TaskGraph as tg
@@ -163,6 +163,164 @@ def generate_ring1_task():
         g_device.append(dev_i)
     #print("g_device = %s" % str(g_device))
 
+def normalize_nodeid(ref_node, offset, in_group):
+    new_node = ref_node + offset
+    if (in_group):
+        ref_gid = int(ref_node / Nodespergroup)
+        if (offset < 0):
+            if (new_node < ref_gid * Nodespergroup): new_node = new_node + Nodespergroup
+        else:
+            if (new_node >= (ref_gid + 1) * Nodespergroup): new_node = new_node - Nodespergroup
+        assert(new_node >= (ref_gid) * Nodespergroup and new_node < (ref_gid +1) * Nodespergroup)
+    else:
+        if (new_node < 0): new_node = new_node + Nnodes
+        if (new_node >= Nnodes): new_node = new_node - Nnodes
+        assert(new_node >= 0 and new_node < Nnodes)
+
+    print("normalize_nodeid: ref_node(%d), offset(%d), in_group(%s), return(%d)" % (ref_node, offset, str(in_group), new_node))
+
+    return new_node
+
+def normalized_total (node_id):
+    if (node_id < 0): node_id = node_id + Nnodes
+    if (node_id >= Nnodes): node_id = node_id - Nnodes
+    return node_id
+
+def normalized_diff(diff, in_group):
+    if diff >= 0: return (False, diff)
+    if (in_group): diff = diff + Nodespergroup
+    else: diff = diff + Nnodes
+    return (True, diff)
+
+def same_group(n1, n2):
+    if (int(n1 / Nodespergroup) == int(n2 / Nodespergroup)): return True
+    return False
+
+def same_ring(n1, n2):
+    print("same_ring: %d offset(%d), %d offset(%d)" % (n1, n1 % Nodespergroup, n2, n2 % Nodespergroup))
+    if (n1 % Nodespergroup == n2 % Nodespergroup): return True
+    return False
+
+def get_dist(src, dest, in_group):
+    nnodes = Nnodes
+    if (in_group): nnodes = Nodespergroup
+    half_ring = int(nnodes / 2)
+
+    raw_diff = dest - src
+    p_diff = raw_diff
+    r_diff = nnodes - raw_diff
+    reverse_direction = False
+    if (raw_diff <= 0): 
+        reverse_direction = True
+        p_diff = raw_diff + nnodes
+        r_diff = - raw_diff
+    return (raw_diff, p_diff, r_diff)
+
+def get_route_ring(src, dest, d_list, in_group):
+    nnodes = Nnodes
+    if (in_group): nnodes = Nodespergroup
+    half_ring = int(nnodes / 2)
+
+    (raw_diff, p_diff, r_diff) = get_dist(src, dest, in_group)
+
+    print("get_route_ring: src(%d), dest(%d), in_group(%s), d_list = %s, raw_diff(%d), p_diff(%d), r_diff(%d)" % (src, dest, str(in_group), str(d_list), raw_diff, p_diff, r_diff))
+
+    t_list = d_list.copy()
+    gh = []
+    loop_count = len(t_list)
+    while (loop_count != 0):
+        t_src = src
+        h = [src]
+        t_src = src
+        t_dest = dest
+        print("start %d " % (t_src))
+        for s in t_list:
+            o_s = s
+            (raw_diff, p_diff, r_diff) = get_dist(t_src, t_dest, in_group)
+            if s > half_ring:	# reverse link
+                diff = r_diff
+                s = nnodes - s
+            else: diff = p_diff
+            print("inside for: s(%d), diff(%d), src(%d), dest(%d), in_group(%s), d_list = %s, raw_diff(%d), p_diff(%d), r_diff(%d)" % (s, diff, src, dest, str(in_group), str(d_list), raw_diff, p_diff, r_diff))
+            while diff >= s:
+                if (in_group):
+                    t_src = normalize_nodeid(t_src, o_s, True)
+                else:
+                    t_src = normalize_nodeid(t_src, o_s, False)
+                diff = diff - s
+                print("next %d, diff (%d)" % (t_src, diff))
+                h.append(t_src)
+        assert(t_src == dest)
+        loop_count = loop_count - 1
+        gh.append(h)
+        del t_list[0]
+        t_list.append(s)
+
+    # get the shortest one
+    min_len = 99999999
+    for i, l in enumerate(gh):
+        print("candidate %d: %s" % (i, str(l)))
+        if (len(l) < min_len):
+            min_len = len(l)
+            best_id = i
+    
+    print("best : %s" % str(gh[best_id]))
+    return gh[best_id]
+
+def get_droute(src, dest):
+
+    print("dist_l = %s" % str(dist_l)) 
+    print("dist_g = %s" % str(dist_g)) 
+    diff = normalized_total(dest - src)
+    t_id = src
+    if (Nodespergroup == 1): # single ring, only arg_topo[1] matters
+        h = get_route_ring(src, dest, dist_l, True)
+        return h
+    else:	# multiple level ring, assuming that each ring connects all components
+        src_g_id = int(src / Nodespergroup)
+        dest_g_id = int(dest / Nodespergroup)
+        src_offset = src % Nodespergroup	# outside ring-id
+        dest_offset = dest % Nodespergroup	# outside ring-id
+        diff_offset = dest_offset - src_offset	
+        if (same_group(src, dest)): # on the same group
+            h = get_route_ring(src, dest, dist_l, True)
+            print("h: same group: %d --> %d: %s" % (src, dest, str(h)))
+            return h
+        elif (same_ring(src, dest)): # check 2 different paths
+            src_t_id = normalize_nodeid(src, 1, True)
+            dest_t_id = normalize_nodeid(dest, 1, True)
+            other_offset = src_t_id % Nodespergroup
+            # single ring route
+            h1 = get_route_ring(src, dest, dist_g[src_offset], False)
+            # double ring route 
+            h2 = get_route_ring(src_t_id, dest_t_id, dist_g[other_offset], False)
+            h2.append(dest)
+            h2.insert(0, src)
+            if (len(h2) < len(h1)): return h2
+            return h1
+        else:
+            src_t_id = normalize_nodeid(src, diff_offset, True)
+            dest_t_id = normalize_nodeid(dest, - diff_offset, True)
+            print("src(%d), dest(%d), src_t_id(%d), dest_t_id(%d)" % (src, dest, src_t_id, dest_t_id))
+            assert(same_group(src, src_t_id))
+            assert(same_group(dest_t_id, dest))
+            assert(same_ring(src, dest_t_id))
+            assert(same_ring(src_t_id, dest))
+            # 1. route src --> src_t_id --> dest
+            h1 = get_route_ring(src_t_id, dest, dist_g[dest_offset], False)
+            if (src != src_t_id): h1.insert(0, src)
+            print("h1: %d --> %d: %s" % (src_t_id, dest, str(h1)))
+            # 2. route src --> dest_t_id --> dest
+            h2 = get_route_ring(src, dest_t_id, dist_g[src_offset], False)
+            if (dest != dest_t_id): h2.append(dest)
+            print("h2: %d --> %d: %s" % (src, dest_t_id, str(h2)))
+            if (len(h1) < len(h2)):
+                h = h1
+            else:
+                h = h2
+            print("return: %d --> %d: %s" % (src, dest, str(h)))
+            return h
+
 def get_route(src, dest, distance_l):
     if (src == dest): return []
     (src_nodeid, src_switchid) = get_rel_ids(src)
@@ -231,6 +389,75 @@ def get_switch_gid(i):
     if (Nswitches == 0): return i
     assert(i < Nswitches)
     return i + Nnodes
+
+
+def generate_dring(arg_topo):
+    global g_conn
+    global g_route
+    global dist_g
+    global dist_l
+
+    g_conn = []
+    g_route = []
+    dist_l = []
+    dist_g = []
+
+    print("arg_topo[1] = %s", str(arg_topo[1]))
+    print("arg_topo[2] = %s", str(arg_topo[2]))
+    # assume that all the nodes in a group is connected to inter-group ring
+    assert(len(arg_topo[1]) == Nodespergroup)	
+    assert(Ngroups * Nodespergroup == Nnodes)
+ 
+    # node_id numbering convention
+    # i-th node in the j-th group = j * Nodespergroup + i
+    # group internal connection
+    intra_group_conn = arg_topo[2]
+    for t in intra_group_conn:
+        if (t[0] < 0): t[0] = t[0] + Nodespergroup
+
+    # inter-group connection
+    inter_group_conn = arg_topo[1]
+    for g in inter_group_conn:	# for each group
+        for t in g:	# actual connection info
+            if (t[0] < 0): t[0] = t[0] + Ngroups
+
+    for l in inter_group_conn:
+        l.sort(key=lambda x: x[0], reverse=True) # sort according to the distance
+        dist_g.append([i[0] * Nodespergroup for i in l])
+
+    intra_group_conn.sort(key=lambda x: x[0], reverse=True) # sort according to the distance
+    dist_l = [i[0] for i in intra_group_conn]
+
+    # intra-group
+    for l in intra_group_conn:
+        for g in range(Ngroups):
+            for t in range(Nodespergroup):
+                srcid = g * Nodespergroup + l[0] + t
+                diff = l[0]
+                assert(l[0] > 0)
+                destid = normalize_nodeid(srcid, diff, True)
+                g_conn.append([srcid, destid, l[1]])
+
+    # inter-group
+    for out_ring_id, lg in enumerate(inter_group_conn): # for each outside ring
+        s_gid_start = out_ring_id
+        print("-- connection of ring %d --" % (out_ring_id))
+        for l in lg:	# for each connection within the ring
+            for j in range(Ngroups):
+                s_gid = s_gid_start + j * Nodespergroup
+                d_gid = normalized_total(s_gid + l[0]*Nodespergroup)
+                g_conn.append([s_gid, d_gid, l[1]])
+                print(g_conn[-1])
+
+    # route
+    for i in range(Nnodes):
+        for j in range(Nnodes):
+            if (i == j): continue
+            h = get_droute(i, j)
+            pv = [[h, 1.0]]   # single route is assumed for now
+            r = [i, j, pv] # from_node, to_node, path
+            g_route.append(r)
+    #pr2dlist("route matrix", g_route)
 
 # 8 switches, ring 1
 # 1 node/switch
@@ -591,7 +818,8 @@ def read_taskgraph(fname):
     return tg_l
 
 def usage():
-    print("Usage: python3 tgconverter.py <input flatbuffer task graph> <output flatbuffer task graph> <Number of nodes> <Number of swtiches> <Ring type {1, 2, 3}>")
+    print("Usage: python3 tgconverter.py <input flatbuffer task graph> <output flatbuffer task graph> <Number of nodes> <Number of swtiches> <Ring type {1, 2, 3, 11}>")
+    print("     : Ring type 1 -3 is for single ring, 11 or higher is for double ring")
     sys.exit()
 
 parser = argparse.ArgumentParser(description='Process some integers.')
@@ -605,6 +833,8 @@ parser.add_argument('-T',  '--Type', type=int, help='Ring type of the new taskgr
 # num_nodes, connection
 Ngpupernode = 2
 Nnodes = 16 
+Nodespergroup = 1
+Ngroups = 1
 Nswitches = 8
 Gpubw = 0.0
 Drambw = 0.0
@@ -630,7 +860,24 @@ ring_topo1 = [[1, 1], [2, 1], [3, 1], [4, 1], [5, 1], [6, 1], [7, 1]] # Ring 1
 ring_topo2 = [[1, 8]] # Ring 2
 ring_topo3 = [[1, 7], [2,1]] # Ring 3
 ring_topo = [ring_topo1, ring_topo2, ring_topo3]
-generate_ring(ring_topo[ring_type - 1])
+
+# double ring topology description
+# [number of nodes/group, [connection between the group from different nodes in the group]], [connection insdie of the group], 
+dring_topo1 = [1, [ring_topo1], []]
+dring_topo2 = [1, [ring_topo2], []]
+dring_topo3 = [1, [ring_topo3], []]
+dring_topo11 = [2, [[[1, 8]], [[-1, 8]]], [[1, 8]]]
+num_single_topologies = 3
+dring_topo = [dring_topo1, dring_topo2, dring_topo3, dring_topo11]
+dist_g = []
+dist_l = []
+if (ring_type > 10): # dring
+     topo = dring_topo[ring_type - 10 -1 + num_single_topologies]
+     Nodespergroup = topo[0]
+     Ngroups = int(Nnodes / Nodespergroup)
+     generate_dring(topo) 
+else:
+     generate_ring(ring_topo[ring_type - 1])
 conn_v = add_conns(builder, g_conn)
 route_v = add_routes(builder, g_route)
 #task_v = add_tasks(builder, g_task)

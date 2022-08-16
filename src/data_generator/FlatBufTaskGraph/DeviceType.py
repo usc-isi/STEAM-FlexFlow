@@ -18,4 +18,3 @@ class DeviceType(object):
     DEVICE_COMM_NVLINK_COMM = 12
     DEVICE_COMM_NW_COMM = 13
     DEVICE_COMM_NW_NOMINAL = 14
-

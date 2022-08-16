@@ -86,39 +86,30 @@ class Task(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
         return o == 0
 
-def Start(builder): builder.StartObject(6)
-def TaskStart(builder):
-    """This method is deprecated. Please switch to Start."""
-    return Start(builder)
-def AddType(builder, type): builder.PrependInt16Slot(0, type, 0)
-def TaskAddType(builder, type):
-    """This method is deprecated. Please switch to AddType."""
-    return AddType(builder, type)
-def AddTaskid(builder, taskid): builder.PrependUint64Slot(1, taskid, 0)
-def TaskAddTaskid(builder, taskid):
-    """This method is deprecated. Please switch to AddTaskid."""
-    return AddTaskid(builder, taskid)
-def AddDeviceid(builder, deviceid): builder.PrependUint64Slot(2, deviceid, 0)
-def TaskAddDeviceid(builder, deviceid):
-    """This method is deprecated. Please switch to AddDeviceid."""
-    return AddDeviceid(builder, deviceid)
-def AddRuntime(builder, runtime): builder.PrependFloat32Slot(3, runtime, 0.0)
-def TaskAddRuntime(builder, runtime):
-    """This method is deprecated. Please switch to AddRuntime."""
-    return AddRuntime(builder, runtime)
-def AddXfersize(builder, xfersize): builder.PrependUint64Slot(4, xfersize, 0)
-def TaskAddXfersize(builder, xfersize):
-    """This method is deprecated. Please switch to AddXfersize."""
-    return AddXfersize(builder, xfersize)
-def AddNexttasks(builder, nexttasks): builder.PrependUOffsetTRelativeSlot(5, flatbuffers.number_types.UOffsetTFlags.py_type(nexttasks), 0)
-def TaskAddNexttasks(builder, nexttasks):
-    """This method is deprecated. Please switch to AddNexttasks."""
-    return AddNexttasks(builder, nexttasks)
-def StartNexttasksVector(builder, numElems): return builder.StartVector(8, numElems, 8)
-def TaskStartNexttasksVector(builder, numElems):
-    """This method is deprecated. Please switch to Start."""
-    return StartNexttasksVector(builder, numElems)
-def End(builder): return builder.EndObject()
-def TaskEnd(builder):
-    """This method is deprecated. Please switch to End."""
-    return End(builder)
+def TaskStart(builder): builder.StartObject(6)
+def Start(builder):
+    return TaskStart(builder)
+def TaskAddType(builder, type): builder.PrependInt16Slot(0, type, 0)
+def AddType(builder, type):
+    return TaskAddType(builder, type)
+def TaskAddTaskid(builder, taskid): builder.PrependUint64Slot(1, taskid, 0)
+def AddTaskid(builder, taskid):
+    return TaskAddTaskid(builder, taskid)
+def TaskAddDeviceid(builder, deviceid): builder.PrependUint64Slot(2, deviceid, 0)
+def AddDeviceid(builder, deviceid):
+    return TaskAddDeviceid(builder, deviceid)
+def TaskAddRuntime(builder, runtime): builder.PrependFloat32Slot(3, runtime, 0.0)
+def AddRuntime(builder, runtime):
+    return TaskAddRuntime(builder, runtime)
+def TaskAddXfersize(builder, xfersize): builder.PrependUint64Slot(4, xfersize, 0)
+def AddXfersize(builder, xfersize):
+    return TaskAddXfersize(builder, xfersize)
+def TaskAddNexttasks(builder, nexttasks): builder.PrependUOffsetTRelativeSlot(5, flatbuffers.number_types.UOffsetTFlags.py_type(nexttasks), 0)
+def AddNexttasks(builder, nexttasks):
+    return TaskAddNexttasks(builder, nexttasks)
+def TaskStartNexttasksVector(builder, numElems): return builder.StartVector(8, numElems, 8)
+def StartNexttasksVector(builder, numElems):
+    return TaskStartNexttasksVector(builder, numElems)
+def TaskEnd(builder): return builder.EndObject()
+def End(builder):
+    return TaskEnd(builder)

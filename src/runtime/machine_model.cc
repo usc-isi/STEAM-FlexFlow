@@ -8,6 +8,9 @@
 #include <functional>
 #include <vector>
 
+#include "isi_parallel.h"
+#define COUNT_USAGE 
+
 /// @param[in] nb_elements : size of your for loop
 /// @param[in] functor(start, end) :
 /// your function processing a sub chunk of the for loop.
@@ -940,9 +943,34 @@ int NetworkedMachineModel::get_version() const
   return version;
 }
 
+#ifdef COUNT_USAGE
+int dk_g_route[1024*1024];
+int dk_g_route_src[1024];
+#endif
+
 void NetworkedMachineModel::update_route() {
   // nominal network links
   int total_devs = num_nodes + num_switches;
+#ifdef COUNT_USAGE
+  fprintf(stderr,"%d: %s: start, total_devs(%d)\n", omp_get_thread_num(), __func__, total_devs);
+  int count, acount, src_count;
+  count = acount  = 0;
+  src_count = 0;
+  for (int i = 0; i < 1024; i++) {
+      for (int j = 0; j < 1024; j++) {
+	  if (dk_g_route[i*1024 + j] != 0) {
+		  dk_g_route_src[i]++;
+		  count++;
+		  acount += dk_g_route[i*1024 + j];
+          }
+          dk_g_route[i * 1024 + j] = 0;	// DK debug
+      } 
+      if (dk_g_route_src[i] > 0) src_count++;
+      dk_g_route_src[i] = 0;
+  }
+  fprintf(stderr, "DK: used_routes = %d, used_count = %d, total_routes = %d, used percentage(%2.0f), src_use (%d)\n",
+		  count, acount, num_nodes * num_nodes, count*100 / (float)(num_nodes*num_nodes), src_count);
+#endif
   for (int i = 0; i < num_nodes; i++) {
     for (int j = 0; j < num_nodes; j++) {
       int device_id = i * total_devs + j;
@@ -958,16 +986,25 @@ void NetworkedMachineModel::update_route() {
   // std::vector<int> indicies(num_nodes);
   // std::iota(ivec.begin(), ivec.end(), 0);
 
+#ifdef _____ISI_PARALLEL
+  for (int i = 0; i < num_nodes; i++) {
+  fprintf(stderr,"%d: %s: originally par for, nodes(%d/%d)\n", omp_get_thread_num(), __func__, i, num_nodes);
+#else
   // for (int i = 0; i < num_nodes; i++) {
   parallel_for(num_nodes, [&](int start, int end){  
     for(int i = start; i < end; i++) {
+#endif
       // std::cerr << "node i " << i << std::endl;
       auto all_routes = routing_strategy->get_routes_from_src(i);
       for (int j = 0; j < num_nodes; j++) {
         ids_to_nw_nominal_device[i * total_devs + j]->set_physical_paths(all_routes[j]);
       }
+#ifdef _____ISI_PARALLEL
+    }
+#else
     }
   });
+#endif
 }
 
 CompDevice* NetworkedMachineModel::get_gpu(int device_id) const
@@ -1030,6 +1067,9 @@ NetworkedMachineModel::get_comm_path(MemDevice *src_mem, MemDevice *tar_mem) con
     }
     else {
       int device_id = src_mem->node_id * total_devs + tar_mem->node_id;
+#ifdef COUNT_USAGE
+      dk_g_route[src_mem->node_id * 1024 + tar_mem->node_id]++;	// DK debug
+#endif
       if (pipelined)
         ret.emplace_back(ids_to_nw_nominal_device.at(device_id));
       else {
@@ -1041,10 +1081,16 @@ NetworkedMachineModel::get_comm_path(MemDevice *src_mem, MemDevice *tar_mem) con
   else if (src_mem->mem_type == MemDevice::GPU_FB_MEM and tar_mem->mem_type == MemDevice::GPU_FB_MEM) {
     if (src_mem->node_id == tar_mem->node_id) {
       int device_id = src_mem->device_id * num_gpus + tar_mem->device_id;
+#ifdef COUNT_USAGE
+      dk_g_route[src_mem->device_id * 1024 + tar_mem->device_id]++;	// DK debug
+#endif
       ret.emplace_back(ids_to_inter_gpu_comm_device.at(device_id));
     }
     else {
       if (pcie_on) ret.emplace_back(id_to_gputodram_comm_device.at(src_mem->device_id));
+#ifdef COUNT_USAGE
+      dk_g_route[src_mem->node_id * 1024 + tar_mem->node_id]++;	// DK debug
+#endif
       int device_id = src_mem->node_id * total_devs + tar_mem->node_id;
       if (pipelined)
         ret.emplace_back(ids_to_nw_nominal_device.at(device_id));
@@ -1061,6 +1107,9 @@ NetworkedMachineModel::get_comm_path(MemDevice *src_mem, MemDevice *tar_mem) con
     }
     else {
       int device_id = src_mem->node_id * total_devs + tar_mem->node_id;
+#ifdef COUNT_USAGE
+      dk_g_route[src_mem->node_id * 1024 + tar_mem->node_id]++;	// DK debug
+#endif
       if (pipelined)
         ret.emplace_back(ids_to_nw_nominal_device.at(device_id));
       else {
@@ -1077,6 +1126,9 @@ NetworkedMachineModel::get_comm_path(MemDevice *src_mem, MemDevice *tar_mem) con
     else {
       if (pcie_on) ret.emplace_back(id_to_gputodram_comm_device.at(src_mem->device_id));
       int device_id = src_mem->node_id * total_devs + tar_mem->node_id;
+#ifdef COUNT_USAGE
+      dk_g_route[src_mem->node_id * 1024 + tar_mem->node_id]++;	// DK debug
+#endif
       if (pipelined)
         ret.emplace_back(ids_to_nw_nominal_device.at(device_id));
       else {
@@ -1105,6 +1157,9 @@ NetworkedMachineModel::get_nominal_path(MemDevice *src_mem, MemDevice *tar_mem) 
     return nullptr;
   }
   int device_id = src_mem->node_id * num_nodes + tar_mem->node_id;
+#ifdef COUNT_USAGE
+  dk_g_route[src_mem->node_id * 1024 + tar_mem->node_id]++;	// DK debug
+#endif
   return ids_to_nw_nominal_device.at(device_id);
 }
 
@@ -1128,6 +1183,7 @@ void NetworkedMachineModel::set_topology(const ConnectionMatrix &conn)
 {
   conn_matrix = conn;
   int total_devs = num_nodes + num_switches;
+  fprintf(stderr,"%d: %s: start, total_devs(%d)\n", omp_get_thread_num(), __func__, total_devs);
   for (int i = 0; i < total_devs; i++) {
     for (int j = 0; j < total_devs; j++) {
       // if (conn_matrix[i * total_devs + j] > 0) {
@@ -1136,7 +1192,9 @@ void NetworkedMachineModel::set_topology(const ConnectionMatrix &conn)
       }
     // }
   }
+#if 0  // DK believes it is called twice
   update_route();
+#endif
 }
 
 const ConnectionMatrix & NetworkedMachineModel::get_conn_matrix() 

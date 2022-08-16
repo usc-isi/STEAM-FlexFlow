@@ -310,6 +310,10 @@ class Embedding;
 
 class FFModel {
 public:
+#ifdef ORG
+#else
+  FFModel(FFModel * org);
+#endif
   FFModel(FFConfig &config, bool simonly = false);
 
   static constexpr float PROPAGATION_CHANCE = 0.25;
@@ -595,6 +599,7 @@ public:
   int metrics_input;
   Tensor label_tensor;
   //std::vector<Tensor> input_tensors;
+  unsigned int * random_seed;
 
   std::vector<Op*> layers;
   std::vector<Parameter> parameters;

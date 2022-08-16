@@ -45,23 +45,18 @@ class Connection(object):
             return self._tab.Get(flatbuffers.number_types.Uint32Flags, o + self._tab.Pos)
         return 0
 
-def Start(builder): builder.StartObject(3)
-def ConnectionStart(builder):
-    """This method is deprecated. Please switch to Start."""
-    return Start(builder)
-def AddFromnode(builder, fromnode): builder.PrependUint32Slot(0, fromnode, 0)
-def ConnectionAddFromnode(builder, fromnode):
-    """This method is deprecated. Please switch to AddFromnode."""
-    return AddFromnode(builder, fromnode)
-def AddTonode(builder, tonode): builder.PrependUint32Slot(1, tonode, 0)
-def ConnectionAddTonode(builder, tonode):
-    """This method is deprecated. Please switch to AddTonode."""
-    return AddTonode(builder, tonode)
-def AddNconn(builder, nconn): builder.PrependUint32Slot(2, nconn, 0)
-def ConnectionAddNconn(builder, nconn):
-    """This method is deprecated. Please switch to AddNconn."""
-    return AddNconn(builder, nconn)
-def End(builder): return builder.EndObject()
-def ConnectionEnd(builder):
-    """This method is deprecated. Please switch to End."""
-    return End(builder)
+def ConnectionStart(builder): builder.StartObject(3)
+def Start(builder):
+    return ConnectionStart(builder)
+def ConnectionAddFromnode(builder, fromnode): builder.PrependUint32Slot(0, fromnode, 0)
+def AddFromnode(builder, fromnode):
+    return ConnectionAddFromnode(builder, fromnode)
+def ConnectionAddTonode(builder, tonode): builder.PrependUint32Slot(1, tonode, 0)
+def AddTonode(builder, tonode):
+    return ConnectionAddTonode(builder, tonode)
+def ConnectionAddNconn(builder, nconn): builder.PrependUint32Slot(2, nconn, 0)
+def AddNconn(builder, nconn):
+    return ConnectionAddNconn(builder, nconn)
+def ConnectionEnd(builder): return builder.EndObject()
+def End(builder):
+    return ConnectionEnd(builder)

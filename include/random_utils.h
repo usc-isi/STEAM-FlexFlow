@@ -1,12 +1,20 @@
 #ifndef _RANDOM_UTILS_H
 #define _RANDOM_UTILS_H
 
-float randf();
+float randf(unsigned int * seed);
 
+#define ISI_PARALLEL
+#ifdef ISI_PARALLEL
+template <typename T>
+T select_random(std::vector<T> const &values, unsigned int *seed) {
+  return values[rand_r(seed) % values.size()];
+}
+#else
 template <typename T>
 T select_random(std::vector<T> const &values) {
   return values[rand() % values.size()];
 }
+#endif
 
 template <typename T>
 T select_random_determistic(std::vector<T> const &values, std::vector<float> const &weights, float value) {
@@ -33,8 +41,8 @@ T select_random_determistic(std::vector<T> const &values, std::vector<float> con
 }
 
 template <typename T>
-T select_random(std::vector<T> const &values, std::vector<float> const &weights) {
-  return select_random_determistic<T>(values, weights, randf());
+T select_random(std::vector<T> const &values, std::vector<float> const &weights, unsigned int * seed) {
+  return select_random_determistic<T>(values, weights, randf(seed));
 }
 
 #endif // _RANDOM_UTILS_H
