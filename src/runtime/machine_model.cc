@@ -986,7 +986,7 @@ void NetworkedMachineModel::update_route() {
   // std::vector<int> indicies(num_nodes);
   // std::iota(ivec.begin(), ivec.end(), 0);
 
-#ifdef _____ISI_PARALLEL
+#ifdef ISI_PARALLEL
   for (int i = 0; i < num_nodes; i++) {
   fprintf(stderr,"%d: %s: originally par for, nodes(%d/%d)\n", omp_get_thread_num(), __func__, i, num_nodes);
 #else
@@ -999,7 +999,7 @@ void NetworkedMachineModel::update_route() {
       for (int j = 0; j < num_nodes; j++) {
         ids_to_nw_nominal_device[i * total_devs + j]->set_physical_paths(all_routes[j]);
       }
-#ifdef _____ISI_PARALLEL
+#ifdef ISI_PARALLEL
     }
 #else
     }

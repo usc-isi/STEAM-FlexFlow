@@ -1,6 +1,11 @@
 
 scripts/
   directory having the scripts which generates profile data and parallelization for candle, dlrm in measures/ directory
+  candle-1024.sh and dlrm-1024.sh has scripts producing profile and parallelization.
+  The other scripts have only parallelization scripts.
+  omp.job is for USC-CARC only. 
+  It can be submitted using the following command:
+  $ sbatch omp.job
 
 gentaskgraph.py
   script used to generate commands to find optimal parallelization for each network architecture [fattree, ideal, topoopt].
@@ -13,8 +18,6 @@ generate_htsim_commands.py:
   scripts used to generate htsim simulator commands.
   generate_results.py is for dlrm[8, 16, 32], candle[8, 16, 32].
   generate_results_large.py is for dlrm[16,32]_large, candle16[16, 32]_large
-
-
 
 ANNUAL-REVIEW-2022-initial/
  contains the data presented initially internally with team members.
