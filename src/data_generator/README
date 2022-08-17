@@ -1,0 +1,25 @@
+
+scripts/
+  directory having the scripts which generates profile data and parallelization for candle, dlrm in measures/ directory
+
+gentaskgraph.py
+  script used to generate commands to find optimal parallelization for each network architecture [fattree, ideal, topoopt].
+  The script has two sets of arguments 
+     : one for initial data collection for dlrm[8, 16, 32], candle[8, 16, 32])
+     : the other for the data collection for dlrm[16,32]_large, candle16[16, 32]_large
+
+generate_htsim_commands_large.py
+generate_htsim_commands.py:
+  scripts used to generate htsim simulator commands.
+  generate_results.py is for dlrm[8, 16, 32], candle[8, 16, 32].
+  generate_results_large.py is for dlrm[16,32]_large, candle16[16, 32]_large
+
+
+
+ANNUAL-REVIEW-2022-initial/
+ contains the data presented initially internally with team members.
+ results for INTREPID are there.
+
+ANNUAL-REVIEW-2022-Final-LARGE/
+ contains the data presented during annual review in July, 2022.
+ results for PINE are there.
