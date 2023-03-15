@@ -67,7 +67,9 @@ list(APPEND CC_FLAGS
 
 list(APPEND NVCC_FLAGS
   -std=c++11)
-	
+
+find_package(OpenMP REQUIRED)
+
 add_compile_options(${CC_FLAGS})
 set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} ${NVCC_FLAGS})
 link_libraries(${LD_FLAGS})
@@ -164,6 +166,7 @@ else()
   cuda_add_library(flexflow STATIC ${FLEXFLOW_GPU_SRC} ${FLEXFLOW_SRC} OPTIONS ${CUDA_GENCODE})
 endif()
 
+target_link_libraries(flexflow PRIVATE OpenMP::OpenMP_CXX)
 target_include_directories(flexflow PUBLIC ${FLEXFLOW_INCLUDE_DIRS})
 
 if(FF_USE_NCCL)
