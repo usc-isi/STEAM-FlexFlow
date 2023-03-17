@@ -69,6 +69,10 @@ list(APPEND NVCC_FLAGS
   -std=c++11)
 
 find_package(OpenMP REQUIRED)
+# Linking with OpenMP::OpenMP_CXX compiles correctly and the apps run.
+# However, OpenMP doesn't actually seem to parallelize without this.
+# It doesn't make sense - something somewhere else is behaving badly.
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 
 add_compile_options(${CC_FLAGS})
 set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} ${NVCC_FLAGS})
