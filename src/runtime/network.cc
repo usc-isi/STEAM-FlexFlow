@@ -326,8 +326,11 @@ EcmpRoutes ShortestPathNetworkRoutingStrategy::get_routes(int src_node, int dst_
     if (min_node == dst_node)
       break;
 
-   // std::random_shuffle(rd_idx.begin(), rd_idx.end(), rand_x(*rd_idx.end()));
+#ifdef ISI_PARALLEL
     std::shuffle(rd_idx.begin(), rd_idx.end(), gen[omp_get_thread_num()]);
+#else
+    std::random_shuffle(rd_idx.begin(), rd_idx.end());
+#endif
     for (int i: rd_idx) {
       if (visited[i] || conn[min_node * total_devs + i] == 0) {
         continue;
