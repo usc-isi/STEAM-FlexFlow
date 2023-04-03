@@ -540,7 +540,8 @@ double Simulator::simulate_runtime(const FFModel* model,
   // Step 1: register forward and backward tasks
   for (size_t l = 0; l < model->layers.size(); l++) {
     Op* op = model->layers[l];
-    ParallelConfig config = global.find(op)->second;
+    assert(global.find(op) != global.end());
+    ParallelConfig config = global.at(op);
     CostMetrics cost_metrics = measure_operator_cost(op, config);
     double forward_time = cost_metrics.forward_time;
     double backward_time = cost_metrics.backward_time;
@@ -565,13 +566,15 @@ double Simulator::simulate_runtime(const FFModel* model,
   // Step 2: insert dependencies and comm. tasks before compute tasks
   for (size_t l = 0; l < model->layers.size(); l++) {
     Op* op = model->layers[l];
-    ParallelConfig config = global.find(op)->second;
+    assert(global.find(op) != global.end());
+    ParallelConfig config = global.at(op);
     for (int j = 0; j < op->numInputs; j++) {
       Tensor t = op->inputs[j];
       Op* pre_op = t.owner_op;
       if (pre_op == NULL)
         continue;
-      ParallelConfig pre_config = global.find(pre_op)->second;
+      assert(global.find(pre_op) != global.end());
+      ParallelConfig pre_config = global.at(pre_op);
       size_t element_size = data_type_size(t.data_type);
       for (int dstId = 0; dstId < config.num_parts(); dstId ++) {
         Domain dstR = op->get_input_tensor_shape(config, j, dstId);
@@ -615,7 +618,8 @@ double Simulator::simulate_runtime(const FFModel* model,
     for (int l = model->layers.size()-1; l >= 0; l--) {
       Op* op = model->layers[l];
       size_t element_size = data_type_size(DT_FLOAT); // assume all weights have double elements
-      ParallelConfig pc = global.find(op)->second;
+      assert(global.find(op) != global.end());
+      ParallelConfig pc = global.at(op);
       for (int j = 0; j < op->numWeights; j++) {
         std::set<int> synched;
         for (int firstId = 0; firstId < pc.num_parts(); firstId++)
@@ -660,7 +664,8 @@ double Simulator::simulate_runtime(const FFModel* model,
     }
     for (size_t l = 0; l < model->layers.size(); l++) {
       Op* op = model->layers[l];
-      ParallelConfig pc = global.find(op)->second;
+      assert(global.find(op) != global.end());
+      ParallelConfig pc = global.at(op);
       for (int j = 0; j < pc.num_parts(); j++) {
         SimTask* backT = task_manager->get_backward_task(op, j);
         backT->add_next_task(barriers[backT->device->device_id]);
@@ -668,7 +673,8 @@ double Simulator::simulate_runtime(const FFModel* model,
     }
     for (size_t l = 0; l < model->layers.size(); l++) {
       Op* op = model->layers[l];
-      ParallelConfig pc = global.find(op)->second;
+      assert(global.find(op) != global.end());
+      ParallelConfig pc = global.at(op);
       size_t element_size = data_type_size(DT_FLOAT); // assume all weights have double elements
       for (int j = 0; j < op->numWeights; j++) {
         std::set<int> synched;
@@ -776,7 +782,8 @@ double Simulator::simulate_runtime(const FFModel* model,
     for (size_t l = 0; l < model->layers.size(); l++) {
       Op* op = model->layers[l];
       size_t element_size = data_type_size(DT_FLOAT); // assume all weights have double elements
-      ParallelConfig pc = global.find(op)->second;
+      assert(global.find(op) != global.end());
+      ParallelConfig pc = global.at(op);
       // Since all NCCL calls are blocking, we can add the NCCL cost
       // sequentially 
       for (int j = 0; j < op->numWeights; j++) {
@@ -820,7 +827,8 @@ double Simulator::simulate_runtime(const FFModel* model,
   double memory_penalty = 0.0f;
   for (size_t l = 0; l < model->layers.size(); l++) {
     Op* op = model->layers[l];
-    ParallelConfig config = global.find(op)->second;
+    assert(global.find(op) != global.end());
+    ParallelConfig config = global.at(op);
     CostMetrics cost_metrics = measure_operator_cost(op, config);
     size_t memory_requirement = cost_metrics.memory_requirement;
     for (int j = 0; j < config.num_parts(); j++) {
@@ -864,7 +872,8 @@ double LogicalTaskgraphBasedSimulator::simulate_runtime(
   // Step 1: register forward and backward tasks
   for (size_t l = 0; l < model->layers.size(); l++) {
     Op* op = model->layers[l];
-    ParallelConfig config = global.find(op)->second;
+    assert(global.find(op) != global.end());
+    ParallelConfig config = global.at(op);
     CostMetrics cost_metrics = measure_operator_cost(op, config);
     double forward_time = cost_metrics.forward_time;
     double backward_time = cost_metrics.backward_time;
@@ -894,7 +903,8 @@ double LogicalTaskgraphBasedSimulator::simulate_runtime(
   std::set<SimTask*> ars;
   for (size_t l = 0; l < model->layers.size(); l++) {
     Op* op = model->layers[l];
-    ParallelConfig config = global.find(op)->second;
+    assert(global.find(op) != global.end());
+    ParallelConfig config = global.at(op);
     size_t element_size = data_type_size(DT_FLOAT);
     // NER step: add allreduce task after backward propogation
     for (int j = 0; j < op->numWeights; j++) {
@@ -949,13 +959,15 @@ double LogicalTaskgraphBasedSimulator::simulate_runtime(
   // Step 2: insert dependencies and comm. tasks before compute tasks
   for (size_t l = 0; l < model->layers.size(); l++) {
     Op* op = model->layers[l];
-    ParallelConfig config = global.find(op)->second;
+    assert(global.find(op) != global.end());
+    ParallelConfig config = global.at(op);
     for (int j = 0; j < op->numInputs; j++) {
       Tensor t = op->inputs[j];
       Op* pre_op = t.owner_op;
       if (pre_op == NULL)
         continue;
-      ParallelConfig pre_config = global.find(pre_op)->second;
+      assert(global.find(pre_op) != global.end());
+      ParallelConfig pre_config = global.at(pre_op);
       size_t element_size = data_type_size(t.data_type);
       for (int dstId = 0; dstId < config.num_parts(); dstId ++) {
         Domain dstR = op->get_input_tensor_shape(config, j, dstId);
@@ -1060,7 +1072,8 @@ double LogicalTaskgraphBasedSimulator::simulate_runtime(
   // double memory_penalty = 0.0f;
   // for (size_t l = 0; l < model->layers.size(); l++) {
   //   Op* op = model->layers[l];
-  //   ParallelConfig config = global.find(op)->second;
+  //   assert(global.find(op) != global.end());
+  //   ParallelConfig config = global.at(op);
   //   CostMetrics cost_metrics = measure_operator_cost(op, config);
   //   size_t memory_requirement = cost_metrics.memory_requirement;
   //   for (int j = 0; j < config.num_parts(); j++) {
@@ -1640,7 +1653,8 @@ double SpMulMatSimulator::simulate_runtime(
   // Step 1: register forward and backward tasks
   for (size_t l = 0; l < model->layers.size(); l++) {
     Op* op = model->layers[l];
-    ParallelConfig config = global.find(op)->second;
+    assert(global.find(op) != global.end());
+    ParallelConfig config = global.at(op);
     CostMetrics cost_metrics = measure_operator_cost(op, config);
     double forward_time = cost_metrics.forward_time;
     double backward_time = cost_metrics.backward_time;
@@ -1671,7 +1685,8 @@ double SpMulMatSimulator::simulate_runtime(
 
   for (size_t l = 0; l < model->layers.size(); l++) {
     Op* op = model->layers[l];
-    ParallelConfig config = global.find(op)->second;
+    assert(global.find(op) != global.end());
+    ParallelConfig config = global.at(op);
     size_t element_size = data_type_size(DT_FLOAT);
     // NER step: add allreduce task after backward propogation
     for (int j = 0; j < op->numWeights; j++) {
@@ -1711,7 +1726,8 @@ double SpMulMatSimulator::simulate_runtime(
   {
     for (size_t l = 0; l < model->layers.size(); l++) {
       Op* op0 = model->layers[l];
-      ParallelConfig config0 = global.find(op0)->second;
+      assert(global.find(op0) != global.end());
+      ParallelConfig config0 = global.at(op0);
       for (int dstId = 0; dstId < config0.num_parts(); dstId ++) {
         for (SimTask* t: ars) {
           task_manager->get_backward_task(op0, dstId)->add_next_task(t);
@@ -1724,13 +1740,15 @@ double SpMulMatSimulator::simulate_runtime(
   // Step 2: insert dependencies and comm. tasks before compute tasks
   for (size_t l = 0; l < model->layers.size(); l++) {
     Op* op = model->layers[l];
-    ParallelConfig config = global.find(op)->second;
+    assert(global.find(op) != global.end());
+    ParallelConfig config = global.at(op);
     for (int j = 0; j < op->numInputs; j++) {
       Tensor t = op->inputs[j];
       Op* pre_op = t.owner_op;
       if (pre_op == NULL)
         continue;
-      ParallelConfig pre_config = global.find(pre_op)->second;
+      assert(global.find(pre_op) != global.end());
+      ParallelConfig pre_config = global.at(pre_op);
       size_t element_size = data_type_size(t.data_type);
       for (int dstId = 0; dstId < config.num_parts(); dstId ++) {
         Domain dstR = op->get_input_tensor_shape(config, j, dstId);
@@ -1842,7 +1860,8 @@ double SpMulMatSimulator::simulate_runtime(
   // double memory_penalty = 0.0f;
   // for (size_t l = 0; l < model->layers.size(); l++) {
   //   Op* op = model->layers[l];
-  //   ParallelConfig config = global.find(op)->second;
+  //   assert(global.find(op) != global.end());
+  //   ParallelConfig config = global.at(op);
   //   CostMetrics cost_metrics = measure_operator_cost(op, config);
   //   size_t memory_requirement = cost_metrics.memory_requirement;
   //   for (int j = 0; j < config.num_parts(); j++) {
