@@ -87,13 +87,18 @@ struct ParallelConfig {
       result.push_back(cell);
     }
     ParallelConfig pc;
-    memset(&pc, 0, sizeof(pc));
+    // It's undefined to memset a std::string, so don't memset the whole struct
+    pc.device_type = ParallelConfig::GPU;
     pc.nDims = std::stoi(result[0]);
+    assert(pc.nDims >= 0);
+    assert(pc.nDims <= MAX_TENSOR_DIM);
     assert(result.size() == pc.nDims + 1);
+    memset(&pc.dim, 0, sizeof(pc.dim));
     for (int i = 1; i < result.size(); i++) {
       pc.dim[i-1] = std::stoi(result[i]);
     }
-    pc.device_type = ParallelConfig::GPU;
+    memset(&pc.device_ids, 0, sizeof(pc.device_ids));
+    pc.pserver = 0;
     return pc;
   }
   
