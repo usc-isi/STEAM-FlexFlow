@@ -2636,7 +2636,7 @@ void FFModel::optimize(Simulator* simulator,
   int best_id = 0;
   assert(gbest_runtime[best_id] > 0);
   if (omp_get_thread_num() == 0) {
-       for (int i; i < omp_get_num_threads(); i++)
+       for (int i = 0; i < omp_get_num_threads(); i++)
 	  fprintf(stderr, "thread %d: best-time = %f\n", i, gbest_runtime[i]);
       for (int i = 1; i < omp_get_num_threads(); i++) {
           assert(gbest_runtime[i] > 0);
