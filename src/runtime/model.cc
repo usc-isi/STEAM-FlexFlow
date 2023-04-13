@@ -2938,6 +2938,7 @@ FFConfig::FFConfig()
 {
   epochs = DefaultConfig::epochs;
   //iterations = DefaultConfig::iterations;
+  printFreq = 0;
   batchSize = DefaultConfig::batchSize;
   profiling = DefaultConfig::profiling;
   learningRate = DefaultConfig::learningRate;
@@ -2954,16 +2955,21 @@ FFConfig::FFConfig()
   enable_sample_parallel = DefaultConfig::enableSampleParallel;
   enable_parameter_parallel = DefaultConfig::enableParameterParallel;
   enable_attribute_parallel = DefaultConfig::enableAttributeParallel;
+  measurement_only = false;
   allow_tensor_op_math_conversion = DefaultConfig::allowTensorOpMathConversion;
   machine_model_version = DefaultConfig::machine_model_version;
   simulator_segment_size = DefaultConfig::simulator_segment_size;
   simulator_max_num_segments = DefaultConfig::simulator_max_num_segments;
+  enable_propagation = false;
   enable_control_replication = DefaultConfig::enable_control_replication;
+  nogpu = false;
+  big_gpu = 0;
   python_data_loader_type = DefaultConfig::python_data_loader_type;
   machine_model_file = "";
   import_strategy_file = "";
   export_strategy_file = "";
   export_strategy_task_graph_file = "";
+  topology = "";
   dataset_path = "";
   syntheticInput = false;
   perform_fusion = false;
