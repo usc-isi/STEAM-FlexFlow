@@ -53,12 +53,12 @@ Tensor interact_features(FFModel* model, const Tensor& x,
   // Currently only support cat
   // TODO: implement dot attention
   if (interaction == "cat") {
-    Tensor* inputs = (Tensor*) malloc(sizeof(Tensor) * (1 + ly.size()));
+    Tensor* inputs = new Tensor[1 + ly.size()];
     inputs[0] = x;
     for (size_t i = 0; i < ly.size(); i++)
       inputs[i+1] = ly[i];
     return model->concat(ly.size() + 1, inputs, 1/*axis*/);
-    free(inputs);
+    // delete[] inputs;
   } else {
     assert(false);
   }
