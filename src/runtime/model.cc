@@ -2523,6 +2523,24 @@ void Op::measure_all(Simulator * sim, FFModel& ff, std::vector<OpMeasurement>& o
   }
 }
 
+static bool save_taskgraph_props_to_file(const std::string& filename, double runtime) {
+  // This could be extended, e.g., to also capture memory or data exchange behaviors.
+  // If so, it would probably need to be called from simulate_runtime() methods, which likely requires an API change
+  // to pass in a properties export file name (in addition to the existing binary export file name).
+  std::ofstream ofs;
+  ofs.exceptions(std::ofstream::failbit | std::ofstream::badbit);
+  try {
+    ofs.open(filename, std::ofstream::out);
+    ofs << "simulated_runtime=" << runtime << std::endl;
+    ofs.close();
+  } catch (const std::ofstream::failure &e) {
+    std::cerr << "Error writing taskgraph properties file: " << filename << std::endl;
+    std::cerr << e.what() << std::endl;
+    return false;
+  }
+  return true;
+}
+
 static double gbest_runtime[1024];
 int gbest_id = 0;
 
@@ -2675,6 +2693,10 @@ void FFModel::optimize(Simulator* simulator,
   if (simulator->l1optimizer)
     simulator->l1optimizer->import_information(l1bestinfo);
   simulator->simulate_runtime(this, best, comp_mode, this->config.export_strategy_task_graph_file);
+  if (this->config.export_strategy_task_graph_properties_file.length() > 0) {
+    save_taskgraph_props_to_file(this->config.export_strategy_task_graph_properties_file,
+                                 gbest_runtime[gbest_id]);
+  }
   std::map<Op*, ParallelConfig>::const_iterator it;
   for (it = best.begin(); it != best.end(); it++) {
     printf("[%s] num_dims(%d) dims[", it->first->name, it->second.nDims);
@@ -2989,6 +3011,7 @@ FFConfig::FFConfig()
   import_strategy_file = "";
   export_strategy_file = "";
   export_strategy_task_graph_file = "";
+  export_strategy_task_graph_properties_file = "";
   topology = "";
   dataset_path = "";
   syntheticInput = false;
@@ -3122,6 +3145,10 @@ void FFConfig::parse_args(char **argv, int argc)
     }
     if (!strcmp(argv[i], "--taskgraph")) {
       export_strategy_task_graph_file = std::string(argv[++i]);
+      continue;
+    }
+    if (!strcmp(argv[i], "--taskgraph-properties")) {
+      export_strategy_task_graph_properties_file = std::string(argv[++i]);
       continue;
     }
     if (!strcmp(argv[i], "--machine-model-version")) {
