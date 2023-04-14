@@ -23,9 +23,6 @@
 #include <limits>
 
 #include "isi_parallel.h"
-#ifdef ISI_PARALLEL
-static unsigned seed[1024];
-#endif
 //#define DEBUG_PRINT
 using namespace std;
 using json = nlohmann::json;
@@ -609,7 +606,6 @@ ParallelConfig Op::get_random_parallel_config(const FFModel& ff) const
 ugly:
   ParallelConfig pc;
 #ifdef ISI_PARALLEL
-  //int idx = rand_r(&seed[omp_get_thread_num()]) % candidates.size();
   int idx = rand_r(ff.random_seed) % candidates.size();
 #else
   int idx = std::rand() % candidates.size();
@@ -621,9 +617,6 @@ ugly:
 
   if (num_parts <= ff.config.workersPerNode) {
 #ifdef ISI_PARALLEL
-    //int start_node = rand_r(&seed[omp_get_thread_num()]) % ff.config.numNodes;
-    //int start_idx = start_node * ff.config.workersPerNode + 
-    //                rand_r(&seed[omp_get_thread_num()]) % (ff.config.workersPerNode - num_parts + 1); 
     int start_node = rand_r(ff.random_seed) % ff.config.numNodes;
     int start_idx = start_node * ff.config.workersPerNode + 
                     rand_r(ff.random_seed) % (ff.config.workersPerNode - num_parts + 1); 
@@ -649,7 +642,6 @@ ugly:
     if (ff.config.net_opt) {
       node_dist = ff.config.numNodes / nnodes_to_use;
 #ifdef ISI_PARALLEL
-      //start_node = rand_r(&seed[omp_get_thread_num()]) % node_dist;
       start_node = rand_r(ff.random_seed) % node_dist;
 #else
       start_node = std::rand() % node_dist;
@@ -657,7 +649,6 @@ ugly:
     }
     else {
 #ifdef ISI_PARALLEL
-      //start_node = rand_r(&seed[omp_get_thread_num()]) % ff.config.numNodes;
       start_node = rand_r(ff.random_seed) % ff.config.numNodes;
 #else
       start_node = std::rand() % ff.config.numNodes;
@@ -686,7 +677,6 @@ ugly:
     std::sort(pc.device_ids, pc.device_ids + num_parts);
   }
 #ifdef ISI_PARALLEL
-  //pc.pserver = pc.device_ids[rand_r(&seed[omp_get_thread_num()]) % num_parts];
   pc.pserver = pc.device_ids[rand_r(ff.random_seed) % num_parts];
 #else
   pc.pserver = pc.device_ids[std::rand() % num_parts];
@@ -966,7 +956,6 @@ OpMeta::OpMeta(FFHandler _handle)
 FFModel::FFModel(FFModel * org): config(org->config)
 {
 #ifdef ISI_PARALLEL
-  seed[omp_get_thread_num()] = std::rand();
   this->random_seed = (unsigned int*) malloc(64);
   this->random_seed[0] = std::rand();
   fprintf(stderr, "NEW: %d: seed = %d, addr = %p\n", omp_get_thread_num(), this->random_seed[0], this->random_seed);
@@ -1000,7 +989,6 @@ FFModel::FFModel(FFConfig& _config , bool simonly)
   metrics_input = -1;
 
 #ifdef ISI_PARALLEL
-  seed[omp_get_thread_num()] = std::rand();
   this->random_seed = (unsigned int*) malloc(64);
   this->random_seed[0] = std::rand();
   fprintf(stderr, "ORG: %d: seed = %d, addr = %p\n", omp_get_thread_num(), this->random_seed[0], this->random_seed);
@@ -2195,7 +2183,6 @@ struct PropagationEdgeInfo {
 
 float randf(unsigned int * seed) {
 #ifdef ISI_PARALLEL
-  //return static_cast<float>(rand_r(&seed[omp_get_thread_num()])) / static_cast<float>(RAND_MAX);
   return static_cast<float>(rand_r(seed)) / static_cast<float>(RAND_MAX);
 #else
   return static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX);
@@ -2215,7 +2202,6 @@ void FFModel::propagate(std::map<Op*, ParallelConfig> const &current,
                         std::map<Op*, ParallelConfig> &next) const {
   next = current;
 #ifdef ISI_PARALLEL
-//  size_t opId = rand_r(&seed[omp_get_thread_num()]) % (layers.size() - 1);
   size_t opId = rand_r(this->random_seed) % (layers.size() - 1);
 #else
   size_t opId = std::rand() % (layers.size() - 1);
@@ -2312,7 +2298,6 @@ void FFModel::rewrite(const std::map<Op*, ParallelConfig>& current,
   } else {
 #ifdef ISI_PARALLEL
     size_t opId = rand_r(this->random_seed) % layers.size();
-    // size_t opId = rand_r(&seed[omp_get_thread_num()]) % layers.size();
 #else
     size_t opId = std::rand() % layers.size();
 #endif
@@ -2585,7 +2570,6 @@ void FFModel::optimize(Simulator* simulator,
              current_runtime, next_runtime, best_runtime);
     }
 #ifdef ISI_PARALLEL
-    //double rn = static_cast<double>(rand_r(&seed[omp_get_thread_num()])) / static_cast<double>(RAND_MAX);
     double rn = static_cast<double>(rand_r(this->random_seed)) / static_cast<double>(RAND_MAX);
 #else
     double rn = static_cast<double>(std::rand()) / static_cast<double>(RAND_MAX);
