@@ -315,6 +315,7 @@ public:
   FFModel(FFModel * org);
 #endif
   FFModel(FFConfig &config, bool simonly = false);
+  ~FFModel();
 
   static constexpr float PROPAGATION_CHANCE = 0.25;
   static constexpr float CONTINUE_PROPAGATION_CHANCE = 0.75;

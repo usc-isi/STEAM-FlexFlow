@@ -956,9 +956,8 @@ OpMeta::OpMeta(FFHandler _handle)
 FFModel::FFModel(FFModel * org): config(org->config)
 {
 #ifdef ISI_PARALLEL
-  this->random_seed = (unsigned int*) malloc(64);
-  this->random_seed[0] = std::rand();
-  fprintf(stderr, "NEW: %d: seed = %d, addr = %p\n", omp_get_thread_num(), this->random_seed[0], this->random_seed);
+  this->random_seed = new unsigned int((unsigned int) std::rand());
+  fprintf(stderr, "NEW: %d: seed = %u, addr = %p\n", omp_get_thread_num(), *this->random_seed, this->random_seed);
 #endif
 	op_global_guid = org->op_global_guid;
 //	config = org->config;
@@ -989,9 +988,8 @@ FFModel::FFModel(FFConfig& _config , bool simonly)
   metrics_input = -1;
 
 #ifdef ISI_PARALLEL
-  this->random_seed = (unsigned int*) malloc(64);
-  this->random_seed[0] = std::rand();
-  fprintf(stderr, "ORG: %d: seed = %d, addr = %p\n", omp_get_thread_num(), this->random_seed[0], this->random_seed);
+  this->random_seed = new unsigned int((unsigned int) std::rand());
+  fprintf(stderr, "ORG: %d: seed = %u, addr = %p\n", omp_get_thread_num(), *this->random_seed, this->random_seed);
 #endif
   // Load strategy file
   int start_dim = 1, end_dim = 4;
@@ -1062,6 +1060,13 @@ FFModel::FFModel(FFConfig& _config , bool simonly)
   for (PointInRectIterator<2> it(task_rect); it(); it++) {
     handlers[idx++] = fm.get_result<FFHandler>(*it);
   }
+}
+
+FFModel::~FFModel()
+{
+#ifdef ISI_PARALLEL
+  delete random_seed;
+#endif
 }
 
 /*
