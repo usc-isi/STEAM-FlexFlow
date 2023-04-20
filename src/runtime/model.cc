@@ -957,11 +957,17 @@ FFModel::FFModel(FFModel * org): config(org->config)
 {
 #ifdef ISI_PARALLEL
   this->random_seed = new unsigned int;
-  // This constructor is expected to be called from a parallel region with a shared "org" pointer.
-  // Calling rand_r with a shared seed pointer still requires synchronization, hence the critical region.
+  try {
+    // Note: if --rand-seed was specified, thread 0 uses the same seed as org.
+    *this->random_seed = config.rand_seeds.at(omp_get_thread_num());
+  } catch (const std::out_of_range& e) {
+    fprintf(stderr, "NEW: %d: no --rand-seed argument for thread, generating from org's seed\n", omp_get_thread_num());
+    // This constructor is expected to be called from a parallel region with a shared "org" pointer.
+    // Calling rand_r with a shared seed pointer still requires synchronization, hence the critical region.
 #pragma omp critical
-  {
-    *this->random_seed = static_cast<unsigned int>(rand_r(org->random_seed));
+    {
+      *this->random_seed = static_cast<unsigned int>(rand_r(org->random_seed));
+    }
   }
   fprintf(stderr, "NEW: %d: seed = %u, addr = %p\n", omp_get_thread_num(), *this->random_seed, this->random_seed);
 #endif
@@ -994,12 +1000,17 @@ FFModel::FFModel(FFConfig& _config , bool simonly)
   metrics_input = -1;
 
 #ifdef ISI_PARALLEL
-  // Determinism may be lost if this constructor is called from a parallel region.
   if (omp_in_parallel()) {
     fprintf(stderr, "ORG: WARNING: FFModel constructor called from parallel region\n");
     assert(0);
   }
-  this->random_seed = new unsigned int(static_cast<unsigned int>(std::rand()));
+  this->random_seed = new unsigned int;
+  if (config.rand_seeds.empty()) {
+    fprintf(stderr, "ORG: no --rand-seed argument, using non-deterministic std::random_device\n");
+    *this->random_seed = std::random_device()();
+  } else {
+    *this->random_seed = config.rand_seeds[0];
+  }
   fprintf(stderr, "ORG: %d: seed = %u, addr = %p\n", omp_get_thread_num(), *this->random_seed, this->random_seed);
 #endif
   // Load strategy file
@@ -3189,6 +3200,17 @@ void FFConfig::parse_args(char **argv, int argc)
       topology = std::string(argv[++i]);
       continue;
     }
+#ifdef ISI_PARALLEL
+    if (!strcmp(argv[i], "--rand-seed")) {
+      std::stringstream ss(std::string(argv[++i]));
+      std::string word;
+      rand_seeds.clear();
+      while (std::getline(ss, word, '-')) {
+        rand_seeds.push_back(static_cast<unsigned int>(std::stoi(word)));
+      }
+      continue;
+    }
+#endif
     else {
       printf("Unknown option %s\n", argv[i]);
     }

@@ -204,6 +204,7 @@ public:
   bool nogpu = false;
   int big_gpu = 0;
   int python_data_loader_type;
+  std::vector<unsigned int> rand_seeds;
 };
 
 class FFIterationConfig {
