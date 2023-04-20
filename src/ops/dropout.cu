@@ -15,6 +15,7 @@
 
 #include "model.h"
 #include "cuda_helper.h"
+#include "isi_parallel.h"
 
 Tensor FFModel::dropout(const Tensor& input,
                         float rate,
@@ -23,7 +24,11 @@ Tensor FFModel::dropout(const Tensor& input,
 {
   // see = 0 is preserved as None, so we use a random seed
   if (seed == 0) {
+#ifdef ISI_PARALLEL
+    seed = rand_r(this->random_seed);
+#else
     seed = std::rand();
+#endif
   }
   Dropout *dropout = new Dropout(*this, input, rate, seed, name);
   layers.push_back(dropout);
