@@ -956,7 +956,13 @@ OpMeta::OpMeta(FFHandler _handle)
 FFModel::FFModel(FFModel * org): config(org->config)
 {
 #ifdef ISI_PARALLEL
-  this->random_seed = new unsigned int((unsigned int) std::rand());
+  this->random_seed = new unsigned int;
+  // This constructor is expected to be called from a parallel region with a shared "org" pointer.
+  // Calling rand_r with a shared seed pointer still requires synchronization, hence the critical region.
+#pragma omp critical
+  {
+    *this->random_seed = static_cast<unsigned int>(rand_r(org->random_seed));
+  }
   fprintf(stderr, "NEW: %d: seed = %u, addr = %p\n", omp_get_thread_num(), *this->random_seed, this->random_seed);
 #endif
 	op_global_guid = org->op_global_guid;
@@ -988,7 +994,12 @@ FFModel::FFModel(FFConfig& _config , bool simonly)
   metrics_input = -1;
 
 #ifdef ISI_PARALLEL
-  this->random_seed = new unsigned int((unsigned int) std::rand());
+  // Determinism may be lost if this constructor is called from a parallel region.
+  if (omp_in_parallel()) {
+    fprintf(stderr, "ORG: WARNING: FFModel constructor called from parallel region\n");
+    assert(0);
+  }
+  this->random_seed = new unsigned int(static_cast<unsigned int>(std::rand()));
   fprintf(stderr, "ORG: %d: seed = %u, addr = %p\n", omp_get_thread_num(), *this->random_seed, this->random_seed);
 #endif
   // Load strategy file
