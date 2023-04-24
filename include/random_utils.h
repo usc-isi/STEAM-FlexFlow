@@ -1,7 +1,12 @@
 #ifndef _RANDOM_UTILS_H
 #define _RANDOM_UTILS_H
 
+#include <random>
+#include <vector>
+
 float randf(unsigned int * seed);
+
+std::vector<std::mt19937> mt19937_vec_factory(size_t count);
 
 #define ISI_PARALLEL
 #ifdef ISI_PARALLEL

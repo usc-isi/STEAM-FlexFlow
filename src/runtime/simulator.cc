@@ -19,6 +19,7 @@
 #include "queue"
 
 #include "isi_parallel.h"
+#include "random_utils.h"
 
 // #include "flatbuffers/util.h"
 #include "taskgraph_generated.h"
@@ -66,15 +67,12 @@ CommDevice::CommDevice(std::string const &name, CommDevType comm_type, int node_
 
 /* I hate this but this makes sense here... */
 #ifdef ISI_PARALLEL
-//static std::random_device rd; 
-static int initialized = 0;
-static std::mt19937 gen[1024];
-static std::uniform_real_distribution<> std_uniform = std::uniform_real_distribution<>(0.0, 1.0); 
+static std::vector<std::mt19937> gen = mt19937_vec_factory(1024);
 #else
 static std::random_device rd; 
 static std::mt19937 gen = std::mt19937(rd()); 
-static std::uniform_real_distribution<> std_uniform = std::uniform_real_distribution<>(0.0, 1.0); 
 #endif
+static std::uniform_real_distribution<> std_uniform = std::uniform_real_distribution<>(0.0, 1.0);
 
 // NominalCommDevice::NominalCommDevice(std::string const &name, int device_id, const EcmpRoutes& routes) 
 // : CommDevice(name, CommDevice::NW_NOMINAL, -1, -1, device_id, 0, 0), routes(routes)
@@ -82,18 +80,8 @@ static std::uniform_real_distribution<> std_uniform = std::uniform_real_distribu
 
 NominalCommDevice::NominalCommDevice(std::string const &name, int device_id, int nnodes, NetworkRoutingStrategy * routing) 
 : CommDevice(name, CommDevice::NW_NOMINAL, -1, -1, device_id, 0, 0), routing_strategy(routing), dirty(true), nnode(nnodes)
-#ifdef ISI_PARALLEL
-{
-	std::random_device rd; 
-	int i;
-	if (initialized == 0) { initialized = 1;
-	for (i = 0; i < omp_get_num_threads(); i++)
-		gen[i] = std::mt19937(rd());
-	}
-}
-#else
 {}
-#endif
+
 void NominalCommDevice::reset() 
 {
   dirty = true;

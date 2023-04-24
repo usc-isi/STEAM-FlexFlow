@@ -2202,6 +2202,15 @@ float randf(unsigned int * seed) {
 #endif
 }
 
+std::vector<std::mt19937> mt19937_vec_factory(size_t count) {
+  std::random_device rd;
+  std::vector<std::mt19937> v;
+  for (size_t i = 0; i < count; i++) {
+    v.push_back(std::mt19937(rd()));
+  }
+  return v;
+}
+
 void FFModel::propagate(std::map<Op*, ParallelConfig> const &current,
                         std::map<Op*, ParallelConfig> &next) const {
   next = current;
