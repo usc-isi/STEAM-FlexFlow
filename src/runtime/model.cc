@@ -2564,7 +2564,6 @@ void FFModel::optimize(Simulator* simulator,
   }
 #ifdef ISI_PARALLEL
   gbest_runtime[omp_get_thread_num()] = 0;
-  budget = budget / omp_get_num_threads();
 #endif
   size_t reset_span = budget / 100, last_reset_iter = 0;
   if (reset_span == 0)
