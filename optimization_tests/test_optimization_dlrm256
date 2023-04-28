@@ -1,0 +1,12 @@
+#!/bin/bash
+#SBATCH --partition=gpu
+#SBATCH --gres=gpu:a100:1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=64
+#SBATCH --mem=128GB
+#SBATCH --time=24:00:00
+export OMP_NUM_THREADS=64
+SECONDS=0
+../build/examples/cpp/DLRMsim/dlrmsim -ll:gpu 1 -ll:cpu 1 -ll:zsize 20000 -ll:fsize 39000 -ll:util 4  -dm:memoize --embedding-bag-size 100 --arch-sparse-feature-size 128 --arch-embedding-size 10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000-10000000 --arch-mlp-bot 2048-2048-2048-2048-2048-2048-2048-2048 --arch-mlp-top 4096-4096-4096-4096-4096-4096-4096-4096-4096-4096-4096-4096-4096-4096-4096-4096-1  --inter-gpu-bandwidth 200 --gpu-dram-bandwidth 256 --network-latency 1 --net-opt 1 --search-budget 5000 --enable-propagation --simulator-workspace-size 65536  --big-gpu 4 --mfile dlrm_measures/measure_131072_256.json --taskgraph tg.topoopt.100G.dlrm256.nd4_optimized_64_5000 --batch-size 131072 --node-degree 4 --interface-bandwidth 100 --nsimnode 256 --topology topoopt --no-gpu
+duration=$SECONDS
+echo "$(($duration / 60)) minutes and $(($duration % 60)) seconds elapsed for optimized  dlrm256 with 64 threads and 5000 search budget."

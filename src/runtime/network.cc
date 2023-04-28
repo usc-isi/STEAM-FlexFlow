@@ -12,6 +12,8 @@
 #ifdef ISI_PARALLEL
 #endif
 
+#define ISI_OPTIMIZED //added by Peng Xie for optimization
+
 //#define DEBUG_PRINT
 #include "simulator.h"
 // #define EDGE(a, b, n) ((a) > (b) ? ((a) * (n) + (b)) : ((b) * (n) + (a)))
@@ -359,6 +361,87 @@ EcmpRoutes ShortestPathNetworkRoutingStrategy::get_routes(int src_node, int dst_
   return std::make_pair(std::vector<double>{1}, std::vector<Route>{result});
 }
 
+#ifdef ISI_OPTIMIZED
+// added by Peng Xie to re-write BFS algorithm
+std::vector<EcmpRoutes>  ShortestPathNetworkRoutingStrategy::get_routes_from_src(int src_node)
+{
+ 
+
+     //std::cerr << "Peng Xie:total device: " << total_devs << std::endl;//Peng Xie  
+     std::vector<EcmpRoutes> final_result;
+      
+     // one-shortest path routing
+     std::vector<uint64_t> dist(total_devs, std::numeric_limits<uint64_t>::max());
+     std::vector<int> prev(total_devs, -1);
+     std::vector<bool> visited(total_devs, false);
+
+
+     std::queue<uint64_t> q;
+     q.push(src_node);
+      // no benefit to use priority queue here 
+     //typedef std::pair<double, int> Pair;
+     // std::priority_queue<Pair, std::vector<Pair>, std::greater<Pair> > q; 
+     // q.push({0, src_node});
+     dist[src_node] = 0;
+
+     std::vector<int> rd_idx(total_devs);
+     std::iota(std::begin(rd_idx), std::end(rd_idx), 0);
+  
+     // BFS
+     while (!q.empty()) {
+     //Pair top_node = q.top();
+     //int min_node=top_node.second;
+     int min_node=q.front();
+      double dist1=dist[min_node];
+      //std::cerr << "Peng Xie:min_node is: " << min_node << " dist is :"<<dist1<<std::endl;
+      q.pop();
+          
+     if (visited[min_node]) continue;
+     visited[min_node] = true;
+     std::shuffle(rd_idx.begin(), rd_idx.end(), gen[omp_get_thread_num()]);
+     for (int i: rd_idx) {
+             if (visited[i] || conn[min_node * total_devs + i] == 0) {
+             continue;
+                                                                     }
+     double new_dist = dist[min_node] + 1; 
+#ifdef ISI_PARALLEL
+     if (new_dist < dist[i] || (new_dist == dist[i] && unif(gen[omp_get_thread_num()]) < 0.5)) {
+#else
+     if (new_dist < dist[i] || (new_dist == dist[i] && unif(gen) < 0.5)) {
+#endif
+        //  std::cerr << "Peng Xie:next node in queue  is: " << i << " dist is :"<<new_dist<<std::endl;
+              dist[i] = new_dist;
+              prev[i] = min_node;
+              //Pair node_pair;
+              //node_pair.first=new_dist;
+              //node_pair.second=i;
+              q.push(i);
+                                }
+                         }
+    }//end of the queue
+
+    for (int i = 0; i < total_devs; i++) {
+    int dst_node=i;
+    int key = src_node * total_devs + dst_node; 
+    if (conn[key] > 0) {
+          EcmpRoutes r1 = std::make_pair(std::vector<double>({1}), std::vector<Route>({Route({devmap.at(key)})}));
+          final_result.emplace_back(r1);      
+                       }
+    else {
+          Route result = Route();
+          int curr = dst_node;
+          while (prev[curr] != -1) {
+            result.insert(result.begin(), devmap.at(prev[curr] * total_devs + curr));
+            curr = prev[curr];
+                                   }
+         EcmpRoutes r1=std::make_pair(std::vector<double>{1}, std::vector<Route>{result});
+         final_result.emplace_back(r1);
+       }         
+   }
+   return final_result;  
+}
+
+#else
 std::vector<EcmpRoutes> ShortestPathNetworkRoutingStrategy::get_routes_from_src(int src_node) 
 {
   
@@ -415,6 +498,8 @@ std::vector<EcmpRoutes> ShortestPathNetworkRoutingStrategy::get_routes_from_src(
   */
   return final_result; 
 }
+
+#endif
 
 void ShortestPathNetworkRoutingStrategy::hop_count(int src_node, int dst_node, int & hop, int & narrowest)
 {
