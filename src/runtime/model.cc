@@ -23,9 +23,6 @@
 #include <limits>
 
 #include "isi_parallel.h"
-#ifdef ISI_PARALLEL
-static unsigned seed[1024];
-#endif
 //#define DEBUG_PRINT
 using namespace std;
 using json = nlohmann::json;
@@ -609,7 +606,6 @@ ParallelConfig Op::get_random_parallel_config(const FFModel& ff) const
 ugly:
   ParallelConfig pc;
 #ifdef ISI_PARALLEL
-  //int idx = rand_r(&seed[omp_get_thread_num()]) % candidates.size();
   int idx = rand_r(ff.random_seed) % candidates.size();
 #else
   int idx = std::rand() % candidates.size();
@@ -621,9 +617,6 @@ ugly:
 
   if (num_parts <= ff.config.workersPerNode) {
 #ifdef ISI_PARALLEL
-    //int start_node = rand_r(&seed[omp_get_thread_num()]) % ff.config.numNodes;
-    //int start_idx = start_node * ff.config.workersPerNode + 
-    //                rand_r(&seed[omp_get_thread_num()]) % (ff.config.workersPerNode - num_parts + 1); 
     int start_node = rand_r(ff.random_seed) % ff.config.numNodes;
     int start_idx = start_node * ff.config.workersPerNode + 
                     rand_r(ff.random_seed) % (ff.config.workersPerNode - num_parts + 1); 
@@ -649,7 +642,6 @@ ugly:
     if (ff.config.net_opt) {
       node_dist = ff.config.numNodes / nnodes_to_use;
 #ifdef ISI_PARALLEL
-      //start_node = rand_r(&seed[omp_get_thread_num()]) % node_dist;
       start_node = rand_r(ff.random_seed) % node_dist;
 #else
       start_node = std::rand() % node_dist;
@@ -657,7 +649,6 @@ ugly:
     }
     else {
 #ifdef ISI_PARALLEL
-      //start_node = rand_r(&seed[omp_get_thread_num()]) % ff.config.numNodes;
       start_node = rand_r(ff.random_seed) % ff.config.numNodes;
 #else
       start_node = std::rand() % ff.config.numNodes;
@@ -686,7 +677,6 @@ ugly:
     std::sort(pc.device_ids, pc.device_ids + num_parts);
   }
 #ifdef ISI_PARALLEL
-  //pc.pserver = pc.device_ids[rand_r(&seed[omp_get_thread_num()]) % num_parts];
   pc.pserver = pc.device_ids[rand_r(ff.random_seed) % num_parts];
 #else
   pc.pserver = pc.device_ids[std::rand() % num_parts];
@@ -966,10 +956,20 @@ OpMeta::OpMeta(FFHandler _handle)
 FFModel::FFModel(FFModel * org): config(org->config)
 {
 #ifdef ISI_PARALLEL
-  seed[omp_get_thread_num()] = std::rand();
-  this->random_seed = (unsigned int*) malloc(64);
-  this->random_seed[0] = std::rand();
-  fprintf(stderr, "NEW: %d: seed = %d, addr = %p\n", omp_get_thread_num(), this->random_seed[0], this->random_seed);
+  this->random_seed = new unsigned int;
+  try {
+    // Note: if --rand-seed was specified, thread 0 uses the same seed as org.
+    *this->random_seed = config.rand_seeds.at(omp_get_thread_num());
+  } catch (const std::out_of_range& e) {
+    fprintf(stderr, "NEW: %d: no --rand-seed argument for thread, generating from org's seed\n", omp_get_thread_num());
+    // This constructor is expected to be called from a parallel region with a shared "org" pointer.
+    // Calling rand_r with a shared seed pointer still requires synchronization, hence the critical region.
+#pragma omp critical
+    {
+      *this->random_seed = static_cast<unsigned int>(rand_r(org->random_seed));
+    }
+  }
+  fprintf(stderr, "NEW: %d: seed = %u, addr = %p\n", omp_get_thread_num(), *this->random_seed, this->random_seed);
 #endif
 	op_global_guid = org->op_global_guid;
 //	config = org->config;
@@ -1000,10 +1000,18 @@ FFModel::FFModel(FFConfig& _config , bool simonly)
   metrics_input = -1;
 
 #ifdef ISI_PARALLEL
-  seed[omp_get_thread_num()] = std::rand();
-  this->random_seed = (unsigned int*) malloc(64);
-  this->random_seed[0] = std::rand();
-  fprintf(stderr, "ORG: %d: seed = %d, addr = %p\n", omp_get_thread_num(), this->random_seed[0], this->random_seed);
+  if (omp_in_parallel()) {
+    fprintf(stderr, "ORG: WARNING: FFModel constructor called from parallel region\n");
+    assert(0);
+  }
+  this->random_seed = new unsigned int;
+  if (config.rand_seeds.empty()) {
+    fprintf(stderr, "ORG: no --rand-seed argument, using non-deterministic std::random_device\n");
+    *this->random_seed = std::random_device()();
+  } else {
+    *this->random_seed = config.rand_seeds[0];
+  }
+  fprintf(stderr, "ORG: %d: seed = %u, addr = %p\n", omp_get_thread_num(), *this->random_seed, this->random_seed);
 #endif
   // Load strategy file
   int start_dim = 1, end_dim = 4;
@@ -1074,6 +1082,13 @@ FFModel::FFModel(FFConfig& _config , bool simonly)
   for (PointInRectIterator<2> it(task_rect); it(); it++) {
     handlers[idx++] = fm.get_result<FFHandler>(*it);
   }
+}
+
+FFModel::~FFModel()
+{
+#ifdef ISI_PARALLEL
+  delete random_seed;
+#endif
 }
 
 /*
@@ -2195,18 +2210,25 @@ struct PropagationEdgeInfo {
 
 float randf(unsigned int * seed) {
 #ifdef ISI_PARALLEL
-  //return static_cast<float>(rand_r(&seed[omp_get_thread_num()])) / static_cast<float>(RAND_MAX);
   return static_cast<float>(rand_r(seed)) / static_cast<float>(RAND_MAX);
 #else
   return static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX);
 #endif
 }
 
+std::vector<std::mt19937> mt19937_vec_factory(size_t count) {
+  std::random_device rd;
+  std::vector<std::mt19937> v;
+  for (size_t i = 0; i < count; i++) {
+    v.push_back(std::mt19937(rd()));
+  }
+  return v;
+}
+
 void FFModel::propagate(std::map<Op*, ParallelConfig> const &current,
                         std::map<Op*, ParallelConfig> &next) const {
   next = current;
 #ifdef ISI_PARALLEL
-//  size_t opId = rand_r(&seed[omp_get_thread_num()]) % (layers.size() - 1);
   size_t opId = rand_r(this->random_seed) % (layers.size() - 1);
 #else
   size_t opId = std::rand() % (layers.size() - 1);
@@ -2303,7 +2325,6 @@ void FFModel::rewrite(const std::map<Op*, ParallelConfig>& current,
   } else {
 #ifdef ISI_PARALLEL
     size_t opId = rand_r(this->random_seed) % layers.size();
-    // size_t opId = rand_r(&seed[omp_get_thread_num()]) % layers.size();
 #else
     size_t opId = std::rand() % layers.size();
 #endif
@@ -2502,6 +2523,24 @@ void Op::measure_all(Simulator * sim, FFModel& ff, std::vector<OpMeasurement>& o
   }
 }
 
+static bool save_taskgraph_props_to_file(const std::string& filename, double runtime) {
+  // This could be extended, e.g., to also capture memory or data exchange behaviors.
+  // If so, it would probably need to be called from simulate_runtime() methods, which likely requires an API change
+  // to pass in a properties export file name (in addition to the existing binary export file name).
+  std::ofstream ofs;
+  ofs.exceptions(std::ofstream::failbit | std::ofstream::badbit);
+  try {
+    ofs.open(filename, std::ofstream::out);
+    ofs << "simulated_runtime=" << runtime << std::endl;
+    ofs.close();
+  } catch (const std::ofstream::failure &e) {
+    std::cerr << "Error writing taskgraph properties file: " << filename << std::endl;
+    std::cerr << e.what() << std::endl;
+    return false;
+  }
+  return true;
+}
+
 static double gbest_runtime[1024];
 int gbest_id = 0;
 
@@ -2525,7 +2564,6 @@ void FFModel::optimize(Simulator* simulator,
   }
 #ifdef ISI_PARALLEL
   gbest_runtime[omp_get_thread_num()] = 0;
-  budget = budget / omp_get_num_threads();
 #endif
   size_t reset_span = budget / 100, last_reset_iter = 0;
   if (reset_span == 0)
@@ -2576,7 +2614,6 @@ void FFModel::optimize(Simulator* simulator,
              current_runtime, next_runtime, best_runtime);
     }
 #ifdef ISI_PARALLEL
-    //double rn = static_cast<double>(rand_r(&seed[omp_get_thread_num()])) / static_cast<double>(RAND_MAX);
     double rn = static_cast<double>(rand_r(this->random_seed)) / static_cast<double>(RAND_MAX);
 #else
     double rn = static_cast<double>(std::rand()) / static_cast<double>(RAND_MAX);
@@ -2655,6 +2692,10 @@ void FFModel::optimize(Simulator* simulator,
   if (simulator->l1optimizer)
     simulator->l1optimizer->import_information(l1bestinfo);
   simulator->simulate_runtime(this, best, comp_mode, this->config.export_strategy_task_graph_file);
+  if (this->config.export_strategy_task_graph_properties_file.length() > 0) {
+    save_taskgraph_props_to_file(this->config.export_strategy_task_graph_properties_file,
+                                 gbest_runtime[gbest_id]);
+  }
   std::map<Op*, ParallelConfig>::const_iterator it;
   for (it = best.begin(); it != best.end(); it++) {
     printf("[%s] num_dims(%d) dims[", it->first->name, it->second.nDims);
@@ -2969,6 +3010,7 @@ FFConfig::FFConfig()
   import_strategy_file = "";
   export_strategy_file = "";
   export_strategy_task_graph_file = "";
+  export_strategy_task_graph_properties_file = "";
   topology = "";
   dataset_path = "";
   syntheticInput = false;
@@ -3104,6 +3146,10 @@ void FFConfig::parse_args(char **argv, int argc)
       export_strategy_task_graph_file = std::string(argv[++i]);
       continue;
     }
+    if (!strcmp(argv[i], "--taskgraph-properties")) {
+      export_strategy_task_graph_properties_file = std::string(argv[++i]);
+      continue;
+    }
     if (!strcmp(argv[i], "--machine-model-version")) {
       machine_model_version = atoi(argv[++i]);
       continue;
@@ -3180,6 +3226,17 @@ void FFConfig::parse_args(char **argv, int argc)
       topology = std::string(argv[++i]);
       continue;
     }
+#ifdef ISI_PARALLEL
+    if (!strcmp(argv[i], "--rand-seed")) {
+      std::stringstream ss(std::string(argv[++i]));
+      std::string word;
+      rand_seeds.clear();
+      while (std::getline(ss, word, '-')) {
+        rand_seeds.push_back(static_cast<unsigned int>(std::stoi(word)));
+      }
+      continue;
+    }
+#endif
     else {
       printf("Unknown option %s\n", argv[i]);
     }

@@ -15,6 +15,7 @@
 
 #include "model.h"
 #include "cuda_helper.h"
+#include "isi_parallel.h"
 
 Tensor FFModel::conv2d(const Tensor& input,
                        int outChannels,
@@ -30,7 +31,11 @@ Tensor FFModel::conv2d(const Tensor& input,
                        char const *name)
 {
   if (kernel_initializer == NULL) {
+#ifdef ISI_PARALLEL
+    int seed = rand_r(this->random_seed);
+#else
     int seed = std::rand();
+#endif
     kernel_initializer = new GlorotUniform(seed);
   }
   if (bias_initializer == NULL && use_bias) {

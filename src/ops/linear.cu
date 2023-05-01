@@ -15,6 +15,7 @@
 
 #include "model.h"
 #include "cuda_helper.h"
+#include "isi_parallel.h"
 
 Tensor FFModel::dense(const Tensor& input,
                       int outDim,
@@ -26,7 +27,11 @@ Tensor FFModel::dense(const Tensor& input,
                       const char *name)
 {
   if (kernel_initializer == NULL) {
+#ifdef ISI_PARALLEL
+    int seed = rand_r(this->random_seed);
+#else
     int seed = std::rand();
+#endif
     kernel_initializer = new GlorotUniform(seed);
   }
   if (bias_initializer == NULL) {
@@ -1241,11 +1246,19 @@ ParallelConfig Linear::get_random_parallel_config(const FFModel& ff) const
   // }
   // assert(batch_candidates.size() > 0);
   int total_devices = ff.config.workersPerNode * ff.config.numNodes;
+#ifdef ISI_PARALLEL
+  int idx = rand_r(ff.random_seed) % candidates.size();
+#else
   int idx = std::rand() % candidates.size();
+#endif
   ParallelConfig pc = candidates[idx];
   int num_par_c = pc.dim[0];
   int num_par_b = pc.dim[pc.nDims-1];
+#ifdef ISI_PARALLEL
+  int start_idx = rand_r(ff.random_seed) % (total_devices - num_par_c * num_par_b + 1);
+#else
   int start_idx = std::rand() % (total_devices - num_par_c * num_par_b + 1);
+#endif
   start_idx = start_idx - start_idx % num_par_c;
   for (int i = 0; i < num_par_c * num_par_b; i++)
     pc.device_ids[i] = start_idx + i;

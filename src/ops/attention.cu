@@ -15,6 +15,7 @@
 
 #include "model.h"
 #include "cuda_helper.h"
+#include "isi_parallel.h"
 
 Tensor FFModel::multihead_attention(const Tensor& query,
                                     const Tensor& key,
@@ -31,7 +32,11 @@ Tensor FFModel::multihead_attention(const Tensor& query,
                                     const char* name)
 {
   if (kernel_initializer == NULL) {
+#ifdef ISI_PARALLEL
+    int seed = rand_r(this->random_seed);
+#else
     int seed = std::rand();
+#endif
     kernel_initializer = new GlorotUniform(seed);
   }
   //if (bias_initializer == NULL) {

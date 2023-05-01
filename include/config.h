@@ -172,6 +172,7 @@ public:
   bool search_overlap_backward_update;
   CompMode computationMode;
   std::string export_strategy_task_graph_file;
+  std::string export_strategy_task_graph_properties_file;
   std::string topology;
   //Control parallelizable dimensions
   bool enable_sample_parallel;
@@ -204,6 +205,7 @@ public:
   bool nogpu = false;
   int big_gpu = 0;
   int python_data_loader_type;
+  std::vector<unsigned int> rand_seeds;
 };
 
 class FFIterationConfig {
