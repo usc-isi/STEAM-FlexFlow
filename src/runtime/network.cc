@@ -385,7 +385,11 @@ std::vector<EcmpRoutes>  ShortestPathNetworkRoutingStrategy::get_routes_from_src
           
      if (visited[min_node]) continue;
      visited[min_node] = true;
+#ifdef ISI_PARALLEL
      std::shuffle(rd_idx.begin(), rd_idx.end(), gen[omp_get_thread_num()]);
+#else
+     std::random_shuffle(rd_idx.begin(), rd_idx.end());
+#endif
      for (int i: rd_idx) {
              if (visited[i] || conn[min_node * total_devs + i] == 0) {
              continue;
