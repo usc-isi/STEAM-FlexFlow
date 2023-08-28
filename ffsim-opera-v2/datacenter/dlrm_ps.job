@@ -1,0 +1,18 @@
+#!/bin/bash
+#SBATCH --account=jpwalter_148
+
+#SBATCH --partition=main 
+
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=50GB
+#SBATCH --time=8:00:00
+module purge
+#module restore htsim
+module load gcc/11.2
+
+#cd /home1/rittenba/steam/sim_opera_STEAM_v0.1/datacenter/H=648_N=108_k=12_1path
+cd /home1/rittenba/steam/leed/opera/datacenter/
+
+./run_dlrm_ps.sh
