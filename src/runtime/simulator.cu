@@ -60,7 +60,7 @@ extern int gbest_id;
    }
  
 #ifdef ISI_PARALLEL
-   size_t max_num_tasks = 1024 * 1024;	// DK: the original size works for 64GB memory
+   size_t max_num_tasks = 256 * 1024 * 1024;
    if (!model->config.nogpu) {
        cudaEventCreate(&start_event);
        cudaEventCreate(&end_event);
