@@ -1,0 +1,17 @@
+#!/bin/bash
+#SBATCH --partition=largemem
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=512GB
+#SBATCH --time=18:00:00
+#SBATCH --account=jpwalter_148
+
+module purge
+module load gcc/11.3
+
+FF_HOME=/project/jpwalter_148/imes/STEAM-FlexFlow
+
+START=$(date +%s)
+${FF_HOME}/ffsim-opera/src/clos/datacenter/htsim_tcp_flat -simtime 7200.1 -ssthresh 10000 -rtt 1000 -q 10000  -flowfile model_a_topoopt_1024.tg -ofile ./model_a_topoopt_1024_htsim_output -speed 100000 -nodes 1024
+END=$(date +%s)
+echo "Htsim time (s): $((END - START))"

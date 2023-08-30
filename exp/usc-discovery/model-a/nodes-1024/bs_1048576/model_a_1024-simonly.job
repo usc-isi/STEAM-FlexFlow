@@ -1,0 +1,13 @@
+#!/bin/bash
+#SBATCH --partition=largemem
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=512GB
+#SBATCH --time=24:00:00
+#SBATCH --account=jpwalter_148
+
+FF_HOME=/project/jpwalter_148/imes/STEAM-FlexFlow
+
+module purge
+module load gcc/11.3
+${FF_HOME}/ffsim-opera/src/clos/datacenter/htsim_tcp_fattree -simtime 7200.1 -ssthresh 10000 -rttnet 1000 -rttrack 1000 -q 10000  -flowfile model_a_1024.tg -ofile ./model_a_1024_htsim_output -speed 100000 -nodes 1024

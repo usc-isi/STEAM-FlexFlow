@@ -1,0 +1,20 @@
+#!/bin/bash
+#SBATCH --account=jpwalter_148
+#SBATCH --partition=largemem
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=512GB
+#SBATCH --time=6:00:00
+
+module purge
+module load gcc/11.3
+
+OPERA_HOME=/project/jpwalter_148/imes/model_a/opera_code/opera-w-ffapp
+TOPO_DIR=/project/jpwalter_148/imes/model_a/opera_topologies
+TG_DIR=/project/jpwalter_148/imes/model_a/scripts/model-i/nodes-1024/bs_2097152
+
+START=$(date +%s)
+${OPERA_HOME}/datacenter/htsim_ndp_dynexpTopology -cutoff 0 -rlbflow 0 -cwnd 30 -q 8 -simtime 7200.1 -pullrate 1 -topfile ${TOPO_DIR}/dynexp_1path_N=128_k=16_G=1.txt -flowfile ${TG_DIR}/model_i_1024.tg -ar dps
+END=$(date +%s)
+echo "Htsim time (s): $((END - START))"

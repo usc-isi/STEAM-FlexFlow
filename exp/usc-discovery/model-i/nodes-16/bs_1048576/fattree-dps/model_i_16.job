@@ -1,0 +1,18 @@
+#!/bin/bash
+#SBATCH --partition=largemem
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=128GB
+#SBATCH --time=0:05:00
+#SBATCH --account=jpwalter_148
+
+module purge
+module load gcc/11.3
+
+FF_HOME=/project/jpwalter_148/imes/STEAM-FlexFlow
+TG_DIR=/project/jpwalter_148/imes/model_a/scripts/model-i/nodes-16/bs_1048576
+
+START=$(date +%s)
+${FF_HOME}/ffsim-opera/src/clos/datacenter/htsim_tcp_fattree -simtime 7200.1 -ssthresh 10000 -rttnet 1000 -rttrack 1000 -q 10000  -flowfile ${TG_DIR}/model_i_16.tg -ofile ./model_i_16_htsim_output -speed 100000 -nodes 16 -ar dps
+END=$(date +%s)
+echo "Htsim time (s): $((END - START))"
