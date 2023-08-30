@@ -1,0 +1,69 @@
+diff --git a/src/clos/datacenter/main_tcp_fattree.cpp b/src/clos/datacenter/main_tcp_fattree.cpp
+index f20dddc..c65c255 100644
+--- a/src/clos/datacenter/main_tcp_fattree.cpp
++++ b/src/clos/datacenter/main_tcp_fattree.cpp
+@@ -86,6 +86,7 @@ int main(int argc, char **argv)
+     int algo = UNCOUPLED;
+     double epsilon = 1;
+     int ssthresh = 15;
++    string allreduce_strategy;
+ 
+     int no_of_nodes = DEFAULT_NODES;
+     SPEED = DEFAULT_SPEED;
+@@ -148,6 +149,12 @@ int main(int argc, char **argv)
+             cout << "queuesize " << queuesize << endl;
+             i++;
+         }
++        else if (!strcmp(argv[i], "-ar"))
++        {
++            allreduce_strategy = string(argv[i + 1]);
++            cout << "allreduce_strategy " << allreduce_strategy << endl;
++            i++;
++        }
+         else if (!strcmp(argv[i], "UNCOUPLED"))
+             algo = UNCOUPLED;
+         else if (!strcmp(argv[i], "COUPLED_INC"))
+@@ -192,6 +199,21 @@ int main(int argc, char **argv)
+     eventlist.setEndtime(timeFromSec(simtime));
+     Clock c(timeFromSec(5 / 100.), eventlist);
+ 
++    FFApplication::FFAllReduceStrategy ar_strategy = FFApplication::FF_DEFAULT_AR;
++    if (allreduce_strategy == "ring") {
++        ar_strategy = FFApplication::FF_RING_AR;
++    }
++    else if (allreduce_strategy == "ps") {
++        ar_strategy = FFApplication::FF_PS_AR;
++    }
++    else if (allreduce_strategy == "dps") {
++        ar_strategy = FFApplication::FF_DPS_AR;
++    }
++    else if (allreduce_strategy != "") {
++        cerr << "Unrecogonized ar strategy " << allreduce_strategy << std::endl;
++        assert(false);
++    }
++
+     //cout <<  "Using algo="<<algo<< " epsilon=" << epsilon << endl;
+ 
+     //Logfile logfile(filename.str(), eventlist);
+@@ -224,7 +246,7 @@ int main(int argc, char **argv)
+     // note that 'queuesize' does not pass throuf_nodesgh currently for RANDOM...
+ 
+     // FFApplication app = FFApplication(top, ssthresh, sinkLogger, traffic_logger, tcpRtxScanner, eventlist);
+-    FFApplication app = FFApplication(top, ssthresh, &fct_util_out, tcpRtxScanner, eventlist);
++    FFApplication app = FFApplication(top, ssthresh, &fct_util_out, tcpRtxScanner, eventlist, ar_strategy);
+     app.load_taskgraph_flatbuf(flowfile);
+     app.start_init_tasks();
+ 
+diff --git a/src/opera/Makefile b/src/opera/Makefile
+index 2d100a7..818f3fa 100755
+--- a/src/opera/Makefile
++++ b/src/opera/Makefile
+@@ -6,7 +6,7 @@ HDRS=network.h rlb.h ndp.h compositequeue.h cpqueue.h queue.h loggers.h loggerty
+ CRT=`pwd`
+ INC= -I/$(CRT)/datacenter -I$(CRT) 
+ 
+-CC=g++-10
++CC=g++
+ CFLAGS= -Wall -g $(INC) 
+ 
+ all:	lib parse_output
